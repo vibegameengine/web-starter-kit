@@ -1,0 +1,84 @@
+import react, { reactCompilerPreset } from '@vitejs/plugin-react'
+import babel from '@rolldown/plugin-babel'
+import fs from 'node:fs'
+import { imagetools } from 'vite-imagetools'
+import { ViteImageOptimizer } from 'vite-plugin-image-optimizer'
+import { defineConfig } from 'vitest/config'
+import {
+  audioAssetOptimizerPlugin,
+  bootstrapAssetRegistryPlugin,
+  imagetoolsDevCachePlugin,
+} from './vite'
+
+const packageJson = JSON.parse(fs.readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as {
+  version: string
+}
+
+// https://vite.dev/config/
+export default defineConfig({
+  // Relative base keeps the built bundle portable across static hosts
+  // (itch.io, Yandex Games S3, GitHub Pages sub-paths, plain file servers).
+  base: './',
+  define: {
+    __APP_VERSION__: JSON.stringify(packageJson.version),
+  },
+  plugins: [
+    // Walks the static import graph from the entry and exposes every reachable
+    // asset through `virtual:bootstrap-assets` so the preloader needs no manifest.
+    bootstrapAssetRegistryPlugin({
+      entry: '/src/main.tsx',
+    }),
+    // Re-encodes `src/**/assets/audio/*.mp3` at build time (mono/stereo + bitrate
+    // by duration) with clip-safe normalization. Opt out per import via
+    // `?audio-optimize=off`.
+    audioAssetOptimizerPlugin(),
+    react(),
+    babel({ presets: [reactCompilerPreset()] }),
+    // Serves imagetools output from disk cache in dev so repeated transforms are cheap.
+    imagetoolsDevCachePlugin(),
+    imagetools(),
+    ViteImageOptimizer({
+      includePublic: false,
+      logStats: true,
+      png: { quality: 82 },
+      jpeg: { quality: 82 },
+      jpg: { quality: 82 },
+      webp: { quality: 82 },
+      avif: { quality: 60 },
+    }),
+  ],
+  test: {
+    coverage: {
+      excludeAfterRemap: true,
+      provider: 'v8',
+      reporter: ['text', 'html'],
+      thresholds: {
+        lines: 80,
+        functions: 80,
+        branches: 80,
+        statements: 80,
+      },
+      // The coverage bar is held on pure, framework-free logic. UI, the entry,
+      // demo, type-only modules and the browser/virtual-module bridges are
+      // exercised by the build and Playwright instead of unit coverage.
+      // (scripts/bump-version.ts still has its own passing unit test; it is just
+      // not part of the measured aggregate because of its untested CLI entry.)
+      include: [
+        'src/bootstrap/systems/**/*.ts',
+      ],
+      exclude: [
+        'src/**/*.test.ts',
+        'src/**/*.test.tsx',
+        'src/bootstrap/systems/bootstrapSteps.ts',
+        'src/bootstrap/systems/bootstrapAssetRegistry.ts',
+        'src/bootstrap/systems/preloadBootstrapAssets.ts',
+      ],
+    },
+    environment: 'jsdom',
+    exclude: [
+      'e2e/**',
+      'node_modules/**',
+    ],
+    globals: true,
+  },
+})

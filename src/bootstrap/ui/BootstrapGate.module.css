@@ -1,0 +1,42 @@
+.shell {
+  position: fixed;
+  inset: 0;
+}
+
+.appLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: 0;
+  transform: scale(1.008);
+  filter: saturate(0.9) blur(2px);
+  transition:
+    opacity 420ms ease,
+    transform 560ms ease,
+    filter 560ms ease;
+}
+
+.appReady {
+  opacity: 1;
+  transform: scale(1);
+  filter: saturate(1) blur(0);
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  opacity: 1;
+  transition:
+    opacity 420ms ease,
+    visibility 420ms ease;
+}
+
+.overlayClosing {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.overlayClosed {
+  pointer-events: none;
+}

@@ -1,0 +1,14 @@
+{
+  "$schema": "./node_modules/knip/schema.json",
+  "entry": [
+    "src/bootstrap/index.ts!",
+    "scripts/*.ts",
+    "e2e/**/*.spec.ts",
+    "**/*.test.ts"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "vite/**/*.ts",
+    "scripts/**/*.ts"
+  ]
+}

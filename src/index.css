@@ -1,0 +1,58 @@
+:root {
+  --font-family-ui:
+    'Segoe UI',
+    ui-sans-serif,
+    system-ui,
+    sans-serif;
+  color: #f5ead0;
+  background: #07120e;
+  font-family: var(--font-family-ui);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+*::selection {
+  background: transparent;
+  color: inherit;
+}
+
+html,
+body,
+#root {
+  min-height: 100svh;
+  margin: 0;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+button,
+input,
+textarea,
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  outline: none;
+}
+
+/* Native focus rings are suppressed to keep app-like UI clean; restore per
+   component if you need visible keyboard focus. */
+#root :is(a, button, input, textarea, select, [role='button'], [tabindex]):focus,
+#root :is(a, button, input, textarea, select, [role='button'], [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+#root :is(input, textarea, [contenteditable='true']) {
+  -webkit-user-select: text;
+  user-select: text;
+}

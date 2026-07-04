@@ -1,0 +1,142 @@
+.screen {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: 32px 20px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(214, 244, 189, 0.1), transparent 40%),
+    linear-gradient(180deg, #0a1611, #060d0a);
+}
+
+.card {
+  width: min(560px, 100%);
+  display: grid;
+  gap: 20px;
+  padding: 28px;
+  border-radius: 20px;
+  background: rgba(18, 30, 24, 0.72);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 246, 222, 0.06);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.logo {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  object-fit: cover;
+}
+
+.title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: #f7ecd2;
+}
+
+.version {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: #9db79b;
+}
+
+.lede {
+  margin: 0;
+  line-height: 1.5;
+  color: #cfe0cb;
+}
+
+.features {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.feature {
+  position: relative;
+  padding-left: 20px;
+  line-height: 1.45;
+  color: #e6f0e1;
+}
+
+.feature::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #f1d897, #c6e7b6);
+}
+
+.soundButton {
+  justify-self: start;
+  padding: 9px 16px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #f0d39a 0%, #bf8c47 100%);
+  color: #1f170f;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.18);
+}
+
+.soundButton:active {
+  transform: translateY(1px);
+}
+
+.subhead {
+  margin: 0 0 10px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #9db79b;
+}
+
+.assets {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+
+.asset {
+  display: grid;
+  grid-template-columns: 64px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(9, 16, 13, 0.6);
+  font-size: 13px;
+}
+
+.assetKind {
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: #f1d897;
+}
+
+.assetSource {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #d6e3d1;
+}
+
+.assetSize {
+  color: #9db79b;
+  font-variant-numeric: tabular-nums;
+}
