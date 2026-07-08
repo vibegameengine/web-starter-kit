@@ -1,0 +1,23 @@
+[
+  { "query": "Set up a hero camera at 85mm with f/2.8 shallow DoF", "should_trigger": true },
+  { "query": "Add a wide-angle 24mm camera for an establishing shot", "should_trigger": true },
+  { "query": "Position the camera 3 meters from the subject", "should_trigger": true },
+  { "query": "Frame the chair from a 3/4 angle", "should_trigger": true },
+  { "query": "Add depth of field with focus on the bottle", "should_trigger": true },
+  { "query": "Create an orbit camera that turntables 360 over 240 frames", "should_trigger": true },
+  { "query": "Use the rule of thirds for composition", "should_trigger": true },
+  { "query": "Track the camera to point at the subject automatically", "should_trigger": true },
+  { "query": "Set up a 100mm product camera", "should_trigger": true },
+  { "query": "Bbox-aware camera that fits the whole subject in frame", "should_trigger": true },
+
+  { "query": "Add a cube with bevel + subsurf", "should_trigger": false, "rationale": "modeling" },
+  { "query": "Apply gold material to the active mesh", "should_trigger": false, "rationale": "materials" },
+  { "query": "Render at 1920x1080 with Cycles", "should_trigger": false, "rationale": "rendering settings (resolution is a render output detail)" },
+  { "query": "Set up three-point lighting", "should_trigger": false, "rationale": "lighting" },
+  { "query": "Animate the cube floating up and down", "should_trigger": false, "rationale": "animation" },
+  { "query": "Export this scene as FBX", "should_trigger": false, "rationale": "export" },
+  { "query": "Explain field of view vs focal length", "should_trigger": false, "rationale": "knowledge question" },
+  { "query": "What's the crop factor of an APS-C sensor?", "should_trigger": false, "rationale": "photography knowledge" },
+  { "query": "Convert this camera angle to Unity's coordinate system", "should_trigger": false, "rationale": "math/coordinate conversion" },
+  { "query": "Recommend a good photography composition book", "should_trigger": false, "rationale": "recommendation" }
+]

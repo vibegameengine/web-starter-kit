@@ -1,0 +1,23 @@
+[
+  { "query": "Convert this wireframe drawing to a 3D glTF", "should_trigger": true },
+  { "query": "Build glasses from this front-view technical drawing", "should_trigger": true },
+  { "query": "Turn these orthographic views into a 3D model", "should_trigger": true },
+  { "query": "Make a 3D mesh from this PNG line drawing", "should_trigger": true },
+  { "query": "Convert the side+front wireframes into a Blender curve", "should_trigger": true },
+  { "query": "I have aviator wireframes — make the model in Blender", "should_trigger": true },
+  { "query": "Trace this CAD line art and export as GLB", "should_trigger": true },
+  { "query": "Build a 3D outline from this technical drawing", "should_trigger": true },
+  { "query": "Process this wireframe PNG into an extruded curve", "should_trigger": true },
+  { "query": "From this orthographic line drawing produce a 3D file", "should_trigger": true },
+
+  { "query": "Make a 3D model of a teapot", "should_trigger": false, "rationale": "no input wireframe — orchestrator routes to modeling" },
+  { "query": "Apply gold material to this", "should_trigger": false, "rationale": "materials" },
+  { "query": "Render this scene", "should_trigger": false, "rationale": "rendering" },
+  { "query": "Set up lighting for the bottle", "should_trigger": false, "rationale": "lighting" },
+  { "query": "Animate the cube rotating", "should_trigger": false, "rationale": "animation" },
+  { "query": "Export current scene as glTF", "should_trigger": false, "rationale": "export of existing scene, not wireframe conversion" },
+  { "query": "Convert this PDF to a Word document", "should_trigger": false, "rationale": "different conversion type" },
+  { "query": "Vectorize this raster image to SVG", "should_trigger": false, "rationale": "SVG conversion is 2D — but this is borderline; if Claude routes this to wireframe-to-3d it should clarify they want 2D output" },
+  { "query": "Sketch a diagram in 2D from this description", "should_trigger": false, "rationale": "drawing task, not 3D" },
+  { "query": "What edge detection algorithms does the analyzer use?", "should_trigger": false, "rationale": "knowledge question about the tool" }
+]

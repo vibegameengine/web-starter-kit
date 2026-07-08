@@ -1,0 +1,23 @@
+[
+  { "query": "Make a 3D model of a teapot and render it", "should_trigger": true, "rationale": "any 3D creation task; orchestrator routes to modeling+rendering" },
+  { "query": "Build a sword and put it in a scene with three-point lighting", "should_trigger": true, "rationale": "multi-skill chain — modeling + lighting" },
+  { "query": "Render the current Blender scene as a PNG", "should_trigger": true, "rationale": "Blender render request" },
+  { "query": "Convert this wireframe drawing to a 3D glTF", "should_trigger": true, "rationale": "wireframe→3D, primary use case" },
+  { "query": "Apply brushed steel material to the active object", "should_trigger": true, "rationale": "Blender material work" },
+  { "query": "Set up cinematic lighting on the cube", "should_trigger": true, "rationale": "lighting setup, routes through orchestrator" },
+  { "query": "Animate the cube rotating 360 degrees over 4 seconds", "should_trigger": true, "rationale": "animation in Blender" },
+  { "query": "Export this scene as glTF for the web", "should_trigger": true, "rationale": "Blender export workflow" },
+  { "query": "Make a hero shot of a wine bottle with proper glass material", "should_trigger": true, "rationale": "scene-build with glass class — full pipeline" },
+  { "query": "Create a chair from oak wood and render it from a 3/4 angle", "should_trigger": true, "rationale": "multi-part assembly + materials + camera + render" },
+
+  { "query": "Write a Python function that computes Fibonacci numbers", "should_trigger": false, "rationale": "code task, no 3D" },
+  { "query": "Explain how Blender's subdivision surface modifier works in theory", "should_trigger": false, "rationale": "explanatory request, no actual Blender action" },
+  { "query": "What's the difference between Cycles and EEVEE?", "should_trigger": false, "rationale": "knowledge question, doesn't require driving Blender" },
+  { "query": "Help me set up a database connection in PostgreSQL", "should_trigger": false, "rationale": "completely unrelated domain" },
+  { "query": "Open the file at /tmp/notes.md and summarize it", "should_trigger": false, "rationale": "file read task" },
+  { "query": "Refactor this Python class to use composition", "should_trigger": false, "rationale": "code refactor" },
+  { "query": "Show me how to use git rebase interactively", "should_trigger": false, "rationale": "git task" },
+  { "query": "What are good Blender tutorials for beginners?", "should_trigger": false, "rationale": "recommendation request, no scene work" },
+  { "query": "Translate this French paragraph into English", "should_trigger": false, "rationale": "translation task" },
+  { "query": "Run the test suite and tell me which tests fail", "should_trigger": false, "rationale": "test execution task" }
+]

@@ -1,0 +1,23 @@
+[
+  { "query": "Add a beveled cube to the scene", "should_trigger": true },
+  { "query": "Apply a Subdivision Surface modifier to the active mesh", "should_trigger": true },
+  { "query": "Boolean-cut a cylinder hole through this box", "should_trigger": true },
+  { "query": "Build a sword with blade, guard, grip, and pommel", "should_trigger": true },
+  { "query": "Use Mirror modifier to make the half-mesh symmetric", "should_trigger": true },
+  { "query": "Extrude this face 1 meter upward", "should_trigger": true },
+  { "query": "Apply Array modifier along a curve to make a fence", "should_trigger": true },
+  { "query": "Add a UV sphere and shade-smooth it", "should_trigger": true },
+  { "query": "Convert this Bezier curve to a mesh", "should_trigger": true },
+  { "query": "Make a chair from primitives — seat, legs, back, stretchers", "should_trigger": true },
+
+  { "query": "Apply a wood material to the cube", "should_trigger": false, "rationale": "material task — should route to blender-materials" },
+  { "query": "Light the scene with three-point lighting", "should_trigger": false, "rationale": "lighting — blender-lighting" },
+  { "query": "Render the current scene to a PNG", "should_trigger": false, "rationale": "render — blender-rendering" },
+  { "query": "Animate the cube rotating", "should_trigger": false, "rationale": "animation — blender-animation" },
+  { "query": "Export the scene as FBX for Unity", "should_trigger": false, "rationale": "export — blender-export" },
+  { "query": "Set up a hero camera at 85mm with shallow DoF", "should_trigger": false, "rationale": "camera — blender-cameras" },
+  { "query": "Convert this wireframe drawing to 3D", "should_trigger": false, "rationale": "wireframe-to-3d specialty" },
+  { "query": "Explain bmesh API in detail", "should_trigger": false, "rationale": "explanatory, not action" },
+  { "query": "Write a script to count vertices in all meshes", "should_trigger": false, "rationale": "scripting / scene introspection (orchestrator-level)" },
+  { "query": "What's the maximum vertex count for mobile?", "should_trigger": false, "rationale": "knowledge question" }
+]

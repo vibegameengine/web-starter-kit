@@ -1,0 +1,47 @@
+[
+  {
+    "query": "Model this mascot so it matches the front, side, and back templates exactly",
+    "should_trigger": true
+  },
+  {
+    "query": "The Blender model still does not look like the provided branding reference",
+    "should_trigger": true
+  },
+  {
+    "query": "Fit the mesh to this texture atlas 1:1 and validate the overlay",
+    "should_trigger": true
+  },
+  {
+    "query": "Create a GLB from this character sheet with front and side views",
+    "should_trigger": true
+  },
+  {
+    "query": "Compare the rendered front silhouette against the template before export",
+    "should_trigger": true
+  },
+  {
+    "query": "Make a cube and render it",
+    "should_trigger": false,
+    "rationale": "general text-to-blender/modeling"
+  },
+  {
+    "query": "Apply brushed metal material",
+    "should_trigger": false,
+    "rationale": "materials only"
+  },
+  {
+    "query": "Explain what UVs are",
+    "should_trigger": false,
+    "rationale": "knowledge question"
+  },
+  {
+    "query": "Export the current scene as GLB",
+    "should_trigger": false,
+    "rationale": "export only"
+  },
+  {
+    "query": "Animate the camera orbit",
+    "should_trigger": false,
+    "rationale": "animation/camera"
+  }
+]

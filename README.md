@@ -62,6 +62,9 @@ hard-won reasons behind the defaults, and [docs/architecture.md](docs/architectu
 for the source-layout conventions. [FEATURES.md](FEATURES.md) tracks exactly
 which pieces of the original game pipeline were carried over.
 
+For agent collaboration rules, see [AGENTS.md](AGENTS.md) and
+[agents/WORKFLOW.md](agents/WORKFLOW.md).
+
 ## The readiness gate in 30 seconds
 
 ```tsx

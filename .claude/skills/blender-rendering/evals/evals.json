@@ -1,0 +1,23 @@
+[
+  { "query": "Render the current scene to PNG", "should_trigger": true },
+  { "query": "Render with Cycles 256 samples and OIDN denoise", "should_trigger": true },
+  { "query": "Use EEVEE for fast preview", "should_trigger": true },
+  { "query": "Output at 1920x1080 as PNG", "should_trigger": true },
+  { "query": "Render an animation as PNG sequence", "should_trigger": true },
+  { "query": "Configure GPU rendering with OptiX", "should_trigger": true },
+  { "query": "Apply AgX view transform for proper highlights", "should_trigger": true },
+  { "query": "Render a single frame at 4K", "should_trigger": true },
+  { "query": "Bump transmission_bounces to 24 for the glass scene", "should_trigger": true },
+  { "query": "Save the render to /tmp/output.png", "should_trigger": true },
+
+  { "query": "Add a beveled cube", "should_trigger": false, "rationale": "modeling" },
+  { "query": "Apply procedural wood material", "should_trigger": false, "rationale": "materials" },
+  { "query": "Set up three-point lighting", "should_trigger": false, "rationale": "lighting" },
+  { "query": "Move the camera back 1 meter", "should_trigger": false, "rationale": "camera" },
+  { "query": "Animate the cube spinning", "should_trigger": false, "rationale": "animation" },
+  { "query": "Export as FBX", "should_trigger": false, "rationale": "export — different from render" },
+  { "query": "Explain path tracing vs rasterization", "should_trigger": false, "rationale": "knowledge" },
+  { "query": "How long does a typical render take?", "should_trigger": false, "rationale": "estimation question" },
+  { "query": "Compare Blender to V-Ray for archviz", "should_trigger": false, "rationale": "comparison/recommendation" },
+  { "query": "Convert this PNG to JPEG", "should_trigger": false, "rationale": "image processing — not Blender render" }
+]

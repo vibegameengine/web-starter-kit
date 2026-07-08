@@ -1,0 +1,23 @@
+[
+  { "query": "Apply brushed steel material to the active object", "should_trigger": true },
+  { "query": "Make this cube look like polished gold", "should_trigger": true },
+  { "query": "Give the lens a dark blue mirror finish", "should_trigger": true },
+  { "query": "Create a frosted glass material for the bottle", "should_trigger": true },
+  { "query": "Set up a wine-bottle glass with volume absorption", "should_trigger": true },
+  { "query": "Apply skin material with subsurface scattering to the head", "should_trigger": true },
+  { "query": "Make this look like brushed copper", "should_trigger": true },
+  { "query": "Set up a velvet material with sheen for the cushion", "should_trigger": true },
+  { "query": "Create procedural oak wood material with visible grain", "should_trigger": true },
+  { "query": "Lacquered red plastic with a clear coat", "should_trigger": true },
+
+  { "query": "Add a cube to the scene", "should_trigger": false, "rationale": "modeling, not materials" },
+  { "query": "Render the scene with Cycles", "should_trigger": false, "rationale": "rendering" },
+  { "query": "Set up three-point lighting", "should_trigger": false, "rationale": "lighting" },
+  { "query": "Animate the material's color over time", "should_trigger": false, "rationale": "animation drives material props but the request is animation-first" },
+  { "query": "Export the model as glTF", "should_trigger": false, "rationale": "export" },
+  { "query": "Move the camera closer to the subject", "should_trigger": false, "rationale": "cameras" },
+  { "query": "What's the IOR of crown glass?", "should_trigger": false, "rationale": "knowledge question" },
+  { "query": "Explain physically-based rendering principles", "should_trigger": false, "rationale": "explanatory" },
+  { "query": "Bake the procedural material to a texture map", "should_trigger": false, "rationale": "baking is a UV/texture op — blender-uv-texturing if it existed; for now treat as orchestrator-level" },
+  { "query": "Create a normal map from the high-poly sculpt", "should_trigger": false, "rationale": "baking workflow" }
+]

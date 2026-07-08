@@ -1,0 +1,23 @@
+[
+  { "query": "Animate the cube rotating 360 degrees over 4 seconds", "should_trigger": true },
+  { "query": "Set keyframes for the camera location at frames 1 and 60", "should_trigger": true },
+  { "query": "Create a turntable animation 96 frames long", "should_trigger": true },
+  { "query": "Add a shape key called Smile and animate it 0 to 1", "should_trigger": true },
+  { "query": "Set linear interpolation on all keyframes", "should_trigger": true },
+  { "query": "Make the object bounce with elastic easing", "should_trigger": true },
+  { "query": "Add a driver so this property follows another", "should_trigger": true },
+  { "query": "Push current animation to NLA strip for reuse", "should_trigger": true },
+  { "query": "Loop the animation 4 times using Cycles modifier", "should_trigger": true },
+  { "query": "Subtle idle motion — small Y rotation oscillation", "should_trigger": true },
+
+  { "query": "Add a subdivision surface modifier", "should_trigger": false, "rationale": "modeling" },
+  { "query": "Apply a steel material", "should_trigger": false, "rationale": "materials" },
+  { "query": "Set up three-point lighting", "should_trigger": false, "rationale": "lighting" },
+  { "query": "Render the scene", "should_trigger": false, "rationale": "rendering — even if scene is animated, the render request is render-class" },
+  { "query": "Frame the subject at 85mm with DoF", "should_trigger": false, "rationale": "camera" },
+  { "query": "Export the animated rig as glTF", "should_trigger": false, "rationale": "export — orchestrator chains animation+export" },
+  { "query": "Explain F-curve interpolation modes", "should_trigger": false, "rationale": "explanatory" },
+  { "query": "What's the difference between keyframes and drivers?", "should_trigger": false, "rationale": "knowledge" },
+  { "query": "Convert FBX animation to USD format", "should_trigger": false, "rationale": "format conversion / export" },
+  { "query": "Recommend free mocap libraries", "should_trigger": false, "rationale": "resource recommendation" }
+]

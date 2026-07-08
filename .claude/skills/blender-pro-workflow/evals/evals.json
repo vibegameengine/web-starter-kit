@@ -1,0 +1,23 @@
+[
+  { "query": "What's the right order to build a hero scene from scratch?", "should_trigger": true },
+  { "query": "I'm new to 3D — where should I start?", "should_trigger": true },
+  { "query": "Make a complete production-quality render of a sword", "should_trigger": true },
+  { "query": "Set up a full pipeline: model + materials + lighting + render", "should_trigger": true },
+  { "query": "How do I structure a Blender project for a hero shot?", "should_trigger": true },
+  { "query": "What's the canonical scene-assembly order pros use?", "should_trigger": true },
+  { "query": "Build everything for a polished render of a chair", "should_trigger": true },
+  { "query": "Walk me through making a hero shot end to end", "should_trigger": true },
+  { "query": "Block-out → camera → light → forms → materials → detail → render — is this right?", "should_trigger": true },
+  { "query": "Help me plan a multi-step Blender project", "should_trigger": true },
+
+  { "query": "Add a cube and bevel it", "should_trigger": false, "rationale": "specific modeling action — direct to blender-modeling" },
+  { "query": "Apply chrome material", "should_trigger": false, "rationale": "specific material — blender-materials" },
+  { "query": "Render this", "should_trigger": false, "rationale": "single specific action — blender-rendering" },
+  { "query": "Light the scene with three-point", "should_trigger": false, "rationale": "specific lighting action" },
+  { "query": "Frame at 85mm", "should_trigger": false, "rationale": "specific camera action" },
+  { "query": "Animate the cube spinning", "should_trigger": false, "rationale": "specific animation action" },
+  { "query": "Export as FBX", "should_trigger": false, "rationale": "specific export action" },
+  { "query": "What polycount is safe for mobile?", "should_trigger": false, "rationale": "knowledge question" },
+  { "query": "Recommend a beginner Blender course", "should_trigger": false, "rationale": "external recommendation" },
+  { "query": "Should I use Cycles or EEVEE?", "should_trigger": false, "rationale": "comparison; route to blender-rendering for the decision tree" }
+]

@@ -1,0 +1,47 @@
+[
+  {
+    "query": "The texture atlas is stretched and does not line up with the mesh",
+    "should_trigger": true
+  },
+  {
+    "query": "Project this front texture onto the model 1:1",
+    "should_trigger": true
+  },
+  {
+    "query": "Use this roughness, bump, emissive, and lightmap texture pack in Blender",
+    "should_trigger": true
+  },
+  {
+    "query": "Bake the procedural material to image textures for GLB",
+    "should_trigger": true
+  },
+  {
+    "query": "Create alpha decals for the mascot face without black planes",
+    "should_trigger": true
+  },
+  {
+    "query": "Make a chair model",
+    "should_trigger": false,
+    "rationale": "modeling"
+  },
+  {
+    "query": "Set up three point lighting",
+    "should_trigger": false,
+    "rationale": "lighting"
+  },
+  {
+    "query": "Export current scene as FBX",
+    "should_trigger": false,
+    "rationale": "export"
+  },
+  {
+    "query": "Animate a camera",
+    "should_trigger": false,
+    "rationale": "animation"
+  },
+  {
+    "query": "Explain metallic roughness in PBR",
+    "should_trigger": false,
+    "rationale": "knowledge/materials"
+  }
+]

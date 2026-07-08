@@ -1,0 +1,23 @@
+[
+  { "query": "Set up three-point lighting on the scene", "should_trigger": true },
+  { "query": "Add a key light, fill, and rim", "should_trigger": true },
+  { "query": "Configure HDRI environment lighting", "should_trigger": true },
+  { "query": "Make the scene look cinematic", "should_trigger": true },
+  { "query": "Use studio lighting for this product", "should_trigger": true },
+  { "query": "Add a sun light for outdoor sunlight", "should_trigger": true },
+  { "query": "Set up dramatic film-noir lighting", "should_trigger": true },
+  { "query": "Light the chair with warm wood-class lighting", "should_trigger": true },
+  { "query": "Use soft glass-class lighting that doesn't wash out the green tint", "should_trigger": true },
+  { "query": "Add a rim light behind the subject for separation", "should_trigger": true },
+
+  { "query": "Add a cube and bevel its edges", "should_trigger": false, "rationale": "modeling" },
+  { "query": "Apply mirror lens material", "should_trigger": false, "rationale": "materials" },
+  { "query": "Render at 4K with 1024 samples", "should_trigger": false, "rationale": "rendering settings" },
+  { "query": "Frame the subject at 85mm with shallow DoF", "should_trigger": false, "rationale": "camera" },
+  { "query": "Animate the key light dimming over time", "should_trigger": false, "rationale": "animation primary intent" },
+  { "query": "Explain inverse-square law for lights", "should_trigger": false, "rationale": "explanatory" },
+  { "query": "What's the difference between Area and Point lights?", "should_trigger": false, "rationale": "knowledge question" },
+  { "query": "Export the lit scene as glTF", "should_trigger": false, "rationale": "export" },
+  { "query": "Where can I download free HDRIs?", "should_trigger": false, "rationale": "resource recommendation" },
+  { "query": "Compute the lumens for a 500W key light at 2 meters", "should_trigger": false, "rationale": "math/computation" }
+]

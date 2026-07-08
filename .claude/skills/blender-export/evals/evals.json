@@ -1,0 +1,23 @@
+[
+  { "query": "Export the scene as glTF for the web", "should_trigger": true },
+  { "query": "Save this as FBX for Unity", "should_trigger": true },
+  { "query": "Output an OBJ with materials", "should_trigger": true },
+  { "query": "Export to USDZ for Apple AR", "should_trigger": true },
+  { "query": "Save as STL for 3D printing", "should_trigger": true },
+  { "query": "Export as GLB with embedded textures", "should_trigger": true },
+  { "query": "Apply Decimate modifier before exporting glTF", "should_trigger": true },
+  { "query": "Make the model under 10 MB GLB", "should_trigger": true },
+  { "query": "Export with Y-up axis orientation for Unreal", "should_trigger": true },
+  { "query": "Export the animated rig as FBX with bake_anim", "should_trigger": true },
+
+  { "query": "Add a beveled cube", "should_trigger": false, "rationale": "modeling" },
+  { "query": "Apply gold material", "should_trigger": false, "rationale": "materials" },
+  { "query": "Light the scene", "should_trigger": false, "rationale": "lighting" },
+  { "query": "Render to PNG", "should_trigger": false, "rationale": "rendering" },
+  { "query": "Animate the object", "should_trigger": false, "rationale": "animation" },
+  { "query": "Move the camera", "should_trigger": false, "rationale": "cameras" },
+  { "query": "What's the max polycount for mobile?", "should_trigger": false, "rationale": "knowledge" },
+  { "query": "Compare glTF vs FBX advantages", "should_trigger": false, "rationale": "knowledge/comparison" },
+  { "query": "How do I write a custom exporter addon?", "should_trigger": false, "rationale": "addon development" },
+  { "query": "Convert FBX to glTF without using Blender", "should_trigger": false, "rationale": "external pipeline" }
+]
