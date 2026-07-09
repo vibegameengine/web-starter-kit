@@ -55,34 +55,33 @@ export function StarterScene() {
       <GradientSky />
       <fog attach="fog" args={[FOG_COLOR, 26, 72]} />
 
-      {/* Warm key sun — the single strong directional, casting the long shadows.
-          Warm light + cool fill is what gives grey clay its sense of form.
-          Soft edges come from PCFSoft + shadow-radius (stable on three 0.185;
-          drei <SoftShadows>/PCSS breaks its shader there). */}
+      {/* Warm KEY light — casts the real, even soft shadows (PCFSoft + radius).
+          One cheap shadow pass, unlike the AccumulativeShadows accumulation. */}
       <directionalLight
         position={SUN}
-        intensity={3.1}
+        intensity={2.8}
         color="#ffe7c2"
         castShadow
-        shadow-radius={5}
+        shadow-radius={6}
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
-        shadow-bias={-0.0004}
-        shadow-normalBias={0.02}
+        shadow-bias={-0.0003}
+        shadow-normalBias={0.03}
         shadow-camera-near={1}
         shadow-camera-far={140}
-        shadow-camera-left={-36}
-        shadow-camera-right={36}
-        shadow-camera-top={36}
-        shadow-camera-bottom={-36}
+        shadow-camera-left={-26}
+        shadow-camera-right={26}
+        shadow-camera-top={26}
+        shadow-camera-bottom={-26}
       />
 
-      {/* Cool sky fill: blue from above, warm bounce from the ground. Low
-          intensity so the key stays dominant and shadows stay deep. */}
+      {/* RIM/back light — separates the forms from the background (premium). */}
+      <directionalLight position={[10, 8, -18]} intensity={0.8} color="#cfe0ff" />
+
+      {/* Cool sky fill: blue from above, warm bounce from the ground. */}
       <hemisphereLight args={['#8bb4ef', '#b8a99a', 0.55]} />
 
-      {/* Extra cool bounce from the shadow side to keep hue contrast alive
-          without flattening the values. */}
+      {/* Extra cool bounce from the shadow side to keep hue contrast alive. */}
       <directionalLight position={[16, 8, 18]} intensity={0.35} color="#bcd2ec" />
 
       {/* Low-intensity procedural IBL for gentle specular/ambient on the clay. */}

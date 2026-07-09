@@ -94,7 +94,9 @@ export const geometries = {
 } as const
 
 const lit = (color: string): THREE.MeshStandardMaterial =>
-  new THREE.MeshStandardMaterial({ color, roughness: 0.45, metalness: 0 })
+  // Glossier than the matte clay — material contrast (matte vs glossy) is what
+  // reads as "premium" rather than a flat grey tech demo.
+  new THREE.MeshStandardMaterial({ color, roughness: 0.28, metalness: 0.15 })
 
 // Saturated reference props — bright enough that the sky ambient, AO and
 // contact shadows around them read clearly against the grey grid floor.

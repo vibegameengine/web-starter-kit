@@ -1,5 +1,6 @@
 import { ScalableContainer } from '@vibegameengine/ui-scaler'
 
+import { useReportInitialRenderReady } from '../bootstrap'
 import { GameCanvas } from './GameCanvas'
 import styles from './GameScreen.module.css'
 
@@ -10,6 +11,9 @@ import styles from './GameScreen.module.css'
  * post-processing pipeline and UI scaling come for free.
  */
 export function GameScreen() {
+  // Dismiss the bootstrap overlay once this screen has painted its first frame.
+  useReportInitialRenderReady()
+
   return (
     <div className={styles.root}>
       <GameCanvas />
