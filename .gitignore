@@ -11,6 +11,8 @@ dist-ssr
 *.local
 coverage
 output/
+.claude/skills
+.codex/skills
 
 # Playwright
 /test-results/

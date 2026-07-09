@@ -1,5 +1,5 @@
-import { DemoScreen } from './demo/DemoScreen'
+import { GameScreen } from './three/GameScreen'
 
 export function App() {
-  return <DemoScreen />
+  return <GameScreen />
 }

@@ -1,7 +1,7 @@
-// @ts-expect-error vite-imagetools query import resolves at build time.
-import logoUrl from './assets/logo.png?w=192&format=webp'
 // Re-encoded by audioAssetOptimizerPlugin at build time (128 kbps -> mono 64 kbps).
 import chimeUrl from './assets/audio/chime.mp3'
+// @ts-expect-error vite-imagetools query import resolves at build time.
+import mascotUrl from './assets/mascot.png?w=192&format=webp'
 import styles from './DemoScreen.module.css'
 
 import { APP_VERSION } from '../config/appVersion'
@@ -35,7 +35,7 @@ export function DemoScreen() {
             className={styles.logo}
             decoding="async"
             draggable="false"
-            src={logoUrl}
+            src={mascotUrl}
           />
           <div>
             <h1 className={styles.title}>Web Starter Kit</h1>

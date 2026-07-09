@@ -26,6 +26,7 @@
     "@vibegameengine/shader-warmup": "^1.0.3",
     "@vibegameengine/ui-scaler": "^1.0.2",
     "photon-realtime": "^4.4.0",
+    "r3f-perf": "^7.2.3",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "three": "^0.185.1"
