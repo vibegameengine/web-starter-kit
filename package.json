@@ -6,6 +6,7 @@
   "description": "Opinionated Vite + React + TypeScript starter kit distilled from a production browser game: custom build-time optimizers, an auto-collected asset preloader, and a two-stage readiness gate.",
   "scripts": {
     "dev": "vite",
+    "postinstall": "node scripts/link-agent-skills.ts",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
@@ -20,8 +21,14 @@
     "version:patch": "node scripts/bump-version.ts patch"
   },
   "dependencies": {
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.6.1",
+    "@vibegameengine/shader-warmup": "^1.0.3",
+    "@vibegameengine/ui-scaler": "^1.0.2",
+    "photon-realtime": "^4.4.0",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "react-dom": "^19.2.4",
+    "three": "^0.185.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
@@ -31,6 +38,7 @@
     "@types/node": "^24.12.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@types/three": "^0.185.1",
     "@vitejs/plugin-react": "^6.0.1",
     "@vitest/coverage-v8": "^4.1.0",
     "babel-plugin-react-compiler": "^1.0.0",
