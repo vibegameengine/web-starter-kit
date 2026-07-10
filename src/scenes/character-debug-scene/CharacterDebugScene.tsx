@@ -1,15 +1,23 @@
 import { Grid, OrbitControls } from '@react-three/drei'
 import { Canvas } from '@react-three/fiber'
+import { Suspense } from 'react'
 
-import { PlaceholderCharacter } from '../../features/character/entities/PlaceholderCharacter'
+import { TanyRig } from '../../features/character/entities/TanyRig'
+
+interface CharacterDebugSceneProps {
+  /** Clip to play; `null` → default bind pose. */
+  activeClip?: string | null
+  /** Reports the rig's available clip names to the screen UI. */
+  onClips?: (names: string[]) => void
+}
 
 /**
- * Character debug scene — a minimal, self-lit turntable for inspecting a single
- * character entity in isolation (the ECS analogue of a Unity prefab preview).
- * No external HDRI so it works offline; DEV-only, mounted by CharacterDebugScreen
- * behind the /character-debug route.
+ * Character debug scene — a minimal, self-lit turntable for inspecting the Tany
+ * rig in isolation (the ECS analogue of a Unity prefab preview). No external
+ * HDRI so it works offline; DEV-only, mounted by CharacterDebugScreen behind the
+ * /character-debug route.
  */
-export function CharacterDebugScene() {
+export function CharacterDebugScene({ activeClip = null, onClips }: CharacterDebugSceneProps) {
   return (
     <Canvas
       shadows
@@ -31,7 +39,9 @@ export function CharacterDebugScene() {
       />
       <directionalLight position={[-6, 5, -4]} intensity={0.5} color="#bcd2ec" />
 
-      <PlaceholderCharacter position={[0, 0, 0]} />
+      <Suspense fallback={null}>
+        <TanyRig position={[0, 0, 0]} activeClip={activeClip} onClips={onClips} />
+      </Suspense>
 
       {/* Ground catcher for the shadow. */}
       <mesh rotation-x={-Math.PI / 2} receiveShadow>

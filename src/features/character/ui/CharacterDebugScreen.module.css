@@ -22,3 +22,51 @@
   color: rgba(210, 220, 236, 0.5);
   pointer-events: none;
 }
+
+.panel {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  min-width: 160px;
+  border: 1px solid rgba(120, 150, 200, 0.22);
+  border-radius: 8px;
+  background: rgba(16, 20, 30, 0.72);
+  backdrop-filter: blur(6px);
+  font-family: 'Trebuchet MS', system-ui, sans-serif;
+}
+
+.panelTitle {
+  margin-bottom: 2px;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(180, 196, 224, 0.6);
+}
+
+.item,
+.itemActive {
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(226, 234, 248, 0.9);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+  line-height: 1;
+}
+
+.item:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.itemActive {
+  border-color: rgba(120, 170, 255, 0.8);
+  background: rgba(74, 120, 210, 0.35);
+  color: #eaf2ff;
+}

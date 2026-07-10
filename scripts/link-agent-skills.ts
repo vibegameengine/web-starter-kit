@@ -2,78 +2,63 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 
+// Single source of truth for skills. Each tool root is symlinked to this WHOLE
+// directory — not per-skill — so anything added under agents/skills is instantly
+// visible everywhere, and there is no way to leave an untracked orphan behind.
 const SKILLS_SOURCE_DIR = path.resolve('agents/skills')
 const LINK_ROOTS = ['.claude/skills', '.codex/skills'] as const
 
 export async function main(): Promise<void> {
-  const skillNames = await readSkillNames()
-
   for (const linkRoot of LINK_ROOTS) {
-    await syncLinkRoot(path.resolve(linkRoot), skillNames)
+    await linkSkillsDir(path.resolve(linkRoot))
   }
 
-  console.log(`Linked ${skillNames.length} agent skills.`)
+  console.log(`Linked agents/skills into ${LINK_ROOTS.length} tool roots.`)
 }
 
-async function readSkillNames(): Promise<string[]> {
-  const entries = await fs.readdir(SKILLS_SOURCE_DIR, { withFileTypes: true })
-  return entries
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name)
-    .sort((left, right) => left.localeCompare(right))
-}
+async function linkSkillsDir(linkPath: string): Promise<void> {
+  await fs.mkdir(path.dirname(linkPath), { recursive: true })
 
-async function syncLinkRoot(linkRoot: string, skillNames: readonly string[]): Promise<void> {
-  await fs.mkdir(linkRoot, { recursive: true })
-  await removeStaleSkillLinks(linkRoot, new Set(skillNames))
-
-  for (const skillName of skillNames) {
-    await ensureSkillLink(linkRoot, skillName)
-  }
-}
-
-async function removeStaleSkillLinks(
-  linkRoot: string,
-  validSkillNames: ReadonlySet<string>,
-): Promise<void> {
-  const entries = await fs.readdir(linkRoot, { withFileTypes: true })
-
-  for (const entry of entries) {
-    if (validSkillNames.has(entry.name)) {
-      continue
-    }
-
-    const entryPath = path.join(linkRoot, entry.name)
-    const stats = await fs.lstat(entryPath)
-
+  const stats = await tryLstat(linkPath)
+  if (stats) {
     if (stats.isSymbolicLink()) {
-      await fs.rm(entryPath)
+      const currentTarget = path.resolve(path.dirname(linkPath), await fs.readlink(linkPath))
+      if (currentTarget === SKILLS_SOURCE_DIR) {
+        return
+      }
+      await fs.rm(linkPath)
+    } else if (stats.isDirectory()) {
+      await removeRegenerableLinkFarm(linkPath)
+    } else {
+      await fs.rm(linkPath)
     }
   }
+
+  const target =
+    process.platform === 'win32'
+      ? SKILLS_SOURCE_DIR
+      : path.relative(path.dirname(linkPath), SKILLS_SOURCE_DIR)
+  const linkType = process.platform === 'win32' ? 'junction' : 'dir'
+  await fs.symlink(target, linkPath, linkType)
 }
 
-async function ensureSkillLink(linkRoot: string, skillName: string): Promise<void> {
-  const sourcePath = path.join(SKILLS_SOURCE_DIR, skillName)
-  const linkPath = path.join(linkRoot, skillName)
-  const existingStats = await tryLstat(linkPath)
-
-  if (existingStats) {
-    if (!existingStats.isSymbolicLink()) {
-      console.warn(`Skipped ${path.relative(process.cwd(), linkPath)}: not a symlink.`)
-      return
+/**
+ * Replaces a legacy real directory (the old per-skill link farm) with the
+ * whole-folder symlink — but only if every entry is itself a symlink, i.e. it
+ * holds no real content. If a real file/dir is found, refuse: a human must move
+ * it into agents/skills first, so no authored skill is ever destroyed.
+ */
+async function removeRegenerableLinkFarm(dirPath: string): Promise<void> {
+  const entries = await fs.readdir(dirPath, { withFileTypes: true })
+  for (const entry of entries) {
+    if (!entry.isSymbolicLink()) {
+      throw new Error(
+        `${path.relative(process.cwd(), path.join(dirPath, entry.name))} is a real file/dir, ` +
+          `not a symlink — move it into agents/skills, then re-run.`,
+      )
     }
-
-    const existingTarget = await fs.readlink(linkPath)
-    if (path.resolve(linkRoot, existingTarget) === sourcePath) {
-      return
-    }
-
-    await fs.rm(linkPath)
   }
-
-  const linkTarget = process.platform === 'win32' ? sourcePath : path.relative(linkRoot, sourcePath)
-  const linkType = process.platform === 'win32' ? 'junction' : 'dir'
-  await fs.symlink(linkTarget, linkPath, linkType)
+  await fs.rm(dirPath, { recursive: true, force: true })
 }
 
 async function tryLstat(filePath: string): Promise<Awaited<ReturnType<typeof fs.lstat>> | null> {
