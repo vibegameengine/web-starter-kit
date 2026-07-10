@@ -8,6 +8,13 @@ preloader, and a two-stage readiness gate — as a clean, reusable foundation.
 > Provenance: extracted from the `cozy-solitaire` game pipeline. The game code
 > itself is not included; only the reusable build/tooling/bootstrap experience.
 
+## Preview
+
+![Three.js greybox blockout scene — clay buildings, a ruined colonnade and colored props under soft directional light](docs/screenshot.png)
+
+Live Three.js / react-three-fiber scene: instanced clay blockout, throttled
+static shadows, N8AO, bloom and ACES tone mapping.
+
 ## Why this exists
 
 Most "React + Vite" templates stop at HMR and ESLint. Shipping a real browser
