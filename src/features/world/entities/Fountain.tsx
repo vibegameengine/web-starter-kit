@@ -67,7 +67,7 @@ function makeTileTexture(): THREE.CanvasTexture {
   return tex
 }
 
-export function Fountain({ center = [0, 0, 8], radius = 2.2, particles = 500 }: FountainProps) {
+export function Fountain({ center = [0, 8], radius = 2.2, particles = 500 }: FountainProps) {
   // --- Merged stone geometry (one draw call) --------------------------------
   const stoneGeo = useMemo(() => {
     const parts: THREE.BufferGeometry[] = []
@@ -201,7 +201,7 @@ export function Fountain({ center = [0, 0, 8], radius = 2.2, particles = 500 }: 
         <points ref={pointsRef} geometry={jet.geo} material={pointsMat} position-y={0} />
       </group>
 
-      <Water level={WATER_LEVEL} radius={radius - 0.06} position={center} />
+      <Water level={WATER_LEVEL} size={[(radius - 0.06) * 2, (radius - 0.06) * 2]} position={center} />
     </group>
   )
 }

@@ -1,6 +1,6 @@
 import { useAnimations, useGLTF } from '@react-three/drei'
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
-import type { Group, Mesh, SkinnedMesh } from 'three'
+import type { Group, Mesh, Object3D, Quaternion, Vector3 } from 'three'
 
 import tanyUrl from '../assets/models/tany-3.glb'
 
@@ -17,11 +17,18 @@ interface TanyRigProps {
   onClips?: (names: string[]) => void
 }
 
+interface BindTransform {
+  node: Object3D
+  position: Vector3
+  quaternion: Quaternion
+  scale: Vector3
+}
+
 /**
  * ECS entity: the real Tany rig (tany-3.glb) for the character debug screen.
  * Loads the skinned GLB, reports its animation clips, and either plays the
- * selected clip or holds the default bind pose. Behaviour (which clip) is driven
- * from the debug screen — the entity just owns the rig + mixer.
+ * selected clip or restores the model's imported default pose. Behaviour (which
+ * clip) is driven from the debug screen — the entity just owns the rig + mixer.
  */
 export function TanyRig({
   position = [0, 0, 0],
@@ -31,6 +38,7 @@ export function TanyRig({
   onClips,
 }: TanyRigProps) {
   const group = useRef<Group>(null)
+  const bindPose = useRef<BindTransform[]>([])
   const { scene, animations } = useGLTF(tanyUrl)
 
   // Mixamo clips carry hip (root) translation that drifts the character across
@@ -59,17 +67,25 @@ export function TanyRig({
   const { actions } = useAnimations(clips, group)
 
   useLayoutEffect(() => {
+    // Snapshot the imported (bind) local transform of every node up front — this
+    // is the true "default pose". `skeleton.pose()` collapses this retargeted
+    // rig, so we restore from this snapshot instead.
+    const snapshot: BindTransform[] = []
     scene.traverse((object) => {
       const mesh = object as Mesh
       if (mesh.isMesh) {
         mesh.castShadow = true
         mesh.receiveShadow = true
-        // Skinned meshes cull against their BIND-pose bounding sphere; once we
-        // reset to the bind pose with the mixer idle they can wrongly cull to
-        // nothing (the "default pose is empty" bug). Never cull the rig.
-        mesh.frustumCulled = false
+        mesh.frustumCulled = false // skinned meshes cull against the bind bbox
       }
+      snapshot.push({
+        node: object,
+        position: object.position.clone(),
+        quaternion: object.quaternion.clone(),
+        scale: object.scale.clone(),
+      })
     })
+    bindPose.current = snapshot
   }, [scene])
 
   useEffect(() => {
@@ -88,12 +104,13 @@ export function TanyRig({
       return
     }
 
-    // Default pose: stop everything and reset the skeleton to its bind pose.
+    // Default pose: stop the mixer and restore the imported bind transforms.
     for (const name of Object.keys(actions)) actions[name]?.stop()
-    group.current?.traverse((object) => {
-      const skinned = object as SkinnedMesh
-      if (skinned.isSkinnedMesh) skinned.skeleton.pose()
-    })
+    for (const entry of bindPose.current) {
+      entry.node.position.copy(entry.position)
+      entry.node.quaternion.copy(entry.quaternion)
+      entry.node.scale.copy(entry.scale)
+    }
   }, [activeClip, actions])
 
   return (

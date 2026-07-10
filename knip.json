@@ -10,5 +10,14 @@
     "src/**/*.{ts,tsx}",
     "vite/**/*.ts",
     "scripts/**/*.ts"
+  ],
+  "ignore": [
+    "src/features/character/entities/PlaceholderCharacter.tsx",
+    "src/features/world/entities/Fountain.tsx",
+    "src/scenes/demo-scene/effects/Ssgi.tsx",
+    "src/scenes/demo-scene/effects/ssgiShader.ts",
+    "src/scenes/demo-scene/effects/Traa.tsx",
+    "src/scenes/demo-scene/webgpu/ReadyGate.tsx",
+    "src/scenes/demo-scene/webgpu/SSGIPipeline.tsx"
   ]
 }

@@ -20,16 +20,11 @@ import { ShadowThrottle } from '../../shared/lib/ShadowThrottle'
 import { registerWarmupResources } from '../../features/world/materials/materials'
 import { Debug } from './Debug'
 import { MotionBlur } from './effects/MotionBlur'
-import { Traa } from './effects/Traa'
 import { StarterScene } from './StarterScene'
 
 // Register the scene's geometry/material pairs before the Canvas mounts so
 // ShaderWarmup can pre-compile their GPU programs on the first pass.
 registerWarmupResources()
-
-interface GameCanvasProps {
-  traaEnabled?: boolean
-}
 
 /**
  * WebGL render layer. Lean, atmospheric post: cheap halfRes N8AO, soft Bloom,
@@ -37,7 +32,7 @@ interface GameCanvasProps {
  * key. ShaderWarmup pre-compiles the shaders and only then dismisses the
  * bootstrap overlay — so the first visible frame has no compile stutter.
  */
-export function GameCanvas({ traaEnabled = false }: GameCanvasProps) {
+export function GameCanvas() {
   const requestId = useBootstrapRenderRequestId()
   const [warmed, setWarmed] = useState(false)
 
@@ -92,12 +87,6 @@ export function GameCanvas({ traaEnabled = false }: GameCanvasProps) {
         <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
         <BrightnessContrast brightness={0} contrast={0.14} />
         <Vignette offset={0.25} darkness={0.4} eskil={false} />
-        {/* WebGL temporal AA (realism-effects TRAA). */}
-        {traaEnabled ? <Traa /> : null}
-        {/* Velocity-based motion blur — final pass, blurs along per-pixel motion.
-            jitter=0: the blue-noise jitter shimmers a grainy halo along moving
-            silhouettes; drop it. Lower intensity = shorter gather = less edge
-            bleed across the character's silhouette. More samples keep it smooth. */}
         <MotionBlur intensity={0.4} jitter={0} samples={12} />
       </EffectComposer>
 

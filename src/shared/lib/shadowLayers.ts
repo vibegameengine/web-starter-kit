@@ -20,7 +20,7 @@ import type { Object3D } from 'three'
  *
  * Until that exists the tags are inert.
  */
-export const SHADOW_LAYER = {
+const SHADOW_LAYER = {
   static: 1,
   dynamic: 2,
 } as const

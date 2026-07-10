@@ -1,5 +1,5 @@
 import { EffectComposerContext } from '@react-three/postprocessing'
-import { EffectPass } from 'postprocessing'
+import { EffectPass, type Pass } from 'postprocessing'
 import { useContext, useEffect } from 'react'
 
 // Vendored, three-0.185-ported realism-effects TRAA (temporal reprojection
@@ -57,14 +57,15 @@ export function Traa() {
   return null
 }
 
-function findFirstScreenSpaceColorPassIndex(passes: { effects?: { name?: string }[] }[]): number | undefined {
-  const index = passes.findIndex((pass) =>
-    pass.effects?.some((effect) =>
+function findFirstScreenSpaceColorPassIndex(passes: readonly Pass[]): number | undefined {
+  const index = passes.findIndex((pass) => {
+    const effects = (pass as { effects?: { name?: string }[] }).effects
+    return effects?.some((effect) =>
       ['BloomEffect', 'SMAAEffect', 'ToneMappingEffect', 'BrightnessContrastEffect', 'VignetteEffect'].includes(
         effect.name ?? '',
       ),
-    ),
-  )
+    )
+  })
 
   return index === -1 ? undefined : index
 }
