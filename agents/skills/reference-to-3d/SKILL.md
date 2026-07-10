@@ -9,6 +9,68 @@ allowed-tools: Read Bash Glob Grep mcp__blender__execute_blender_code mcp__blend
 
 This skill is for **source-locked modeling**: the reference asset is the contract. Do not generate a plausible object from memory and then decorate it. Extract measurements, part counts, silhouettes, and UV regions from the supplied files first, then build the Blender model to satisfy those measurements.
 
+## Per-entity folder, naming & history (MANDATORY, project convention)
+
+**One folder per entity, under `concepts/`.** The user drops a bare reference image loose in `concepts/` (e.g. `concepts/tany.png`). Do NOT leave it there and do NOT scatter its outputs elsewhere (no separate `assets/models/…`). Instead, **create `concepts/<entity>/` and gather EVERYTHING for that entity inside it** — the source concept, the shipped asset, derived inputs, and all run history. Goal: never clutter the shared `concepts/` root with loose files, and keep every file for one entity in one place.
+
+First thing when starting an entity: move the loose `concepts/<entity>.png` into `concepts/<entity>/`. Then, whenever a generated asset is downloaded (Tripo, Blender export, image-gen), rename and file it in that same folder **immediately, before wiring it into code or moving on**:
+
+- Name everything by **role**, human-readable. **Never** keep the generator's hash / UUID / task-id in the filename, and no `.glb.glb` double extensions.
+- **Headline files at the top** of `concepts/<entity>/`: the source concept (`<entity>-concept.png`) and the shipped asset (`<entity>.glb`; variants get a suffix: `<entity>-lowpoly.glb`, `<entity>-highpoly.glb`).
+- Derived inputs (cropped front/side/back views fed to image-to-3D) go in a `views/` subfolder.
+- **Every superseded run and raw provider byproduct** — task JSON, rendered/preview images, the high-poly source, older/alternate exports — goes in a `history/` subfolder. Nothing is deleted (respect the project's never-delete rule); provenance is kept, the top level stays clean.
+
+Example (character "tany"):
+
+```
+concepts/tany/
+  tany-concept.png                # the original reference the user dropped in concepts/
+  tany.glb                        # the one shipped/imported asset
+  views/
+    tany-front.png                # derived crop fed to image-to-3D
+    tany-side.png
+    tany-back.png
+  history/
+    tany.preview.webp             # provider render of the shipped model
+    tany.task.json                # provider task metadata
+    tany-highpoly.glb             # pre-remesh source
+    tany-highpoly.preview.webp
+    tany-highpoly.task.json
+```
+
+Rationale: everything for one entity lives together; the shared `concepts/` root stays clean (only per-entity folders, no loose files); you never diff UUIDs to find the current file; regeneration drops a new clean name and pushes the old run to `history/`.
+
+### Normalize the origin to the FEET (mandatory for characters)
+
+Tripo/image-to-3D exports pivot at the bounding-box **center**. Game characters need the origin at the **feet** (bottom-centre) so `scene.position.y = 0` puts them on the ground. Tripo's API has no toggle for this, so run the project script on the shipped GLB right after filing it:
+
+```
+node scripts/glb-origin-to-feet.mjs concepts/<entity>/<entity>.glb
+```
+
+It centres X/Z on the footprint and drops min-Y to 0 (baked into the scene's root-node translations), then prints before/after `getBounds`. Verify `after min Y ≈ 0.000`. (Orientation is separate — Tripo meshes also face +X, not +Z; rotate −90° about Y at import or fix it in a similar bake step if needed.)
+
+### Make the Mixamo FBX right after low-poly (standard step)
+
+As soon as the shipped low-poly GLB exists and its origin is at the feet, immediately produce a Mixamo-ready FBX beside it — don't wait until rigging:
+
+```
+/Applications/Blender.app/Contents/MacOS/Blender --background \
+  --python scripts/glb-to-fbx-rig.py -- concepts/<entity>/<entity>.glb concepts/<entity>/<entity>.fbx
+```
+
+This bakes human scale (~1.7 m → 170 FBX units), feet at origin, and embedded textures. Clean up the stray `textures/` folder Blender's unpack drops in the repo root afterward (`rm -rf textures`).
+
+### Rigging: Mixamo round-trip (verified, the simple path)
+
+Auto-rigging a biped is far simpler than it looks — do NOT hand-roll a Blender skeleton or fight FBX normals:
+
+1. Upload `<entity>.fbx` to **Mixamo** (mixamo.com → Upload Character). Mixamo ignores textures/normals and rigs the geometry; auto-places markers.
+2. Pick animations (idle/walk/run/…) and **download as FBX**.
+3. **Re-export FBX → GLB through Blender** (import the rigged FBX, export glTF/GLB). This is the key step: Blender's re-export rebuilds normals/materials cleanly, so the FBX-only dark-shoulder shading artifact disappears and you get a clean rigged **GLB** ready for three.js (`useGLTF` + `AnimationMixer`).
+
+Do NOT judge the model by the intermediate FBX preview — FBX is only a transport format to Mixamo; the round-trip back to GLB is what matters. Optional: transfer the rig's skin weights onto a different (e.g. higher-detail) GLB via Blender's Data Transfer modifier when the meshes share the same pose.
+
 ## 1:1 reconstruction upgrade
 
 When the user requires true 1:1 matching, chain these skills instead of attempting another plausible modeling pass:

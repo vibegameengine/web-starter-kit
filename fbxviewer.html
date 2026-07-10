@@ -1,0 +1,29 @@
+<!doctype html><html><head><meta charset="utf-8"/><title>fbx check</title>
+<style>html,body{margin:0;height:100%;background:#2b2b30;overflow:hidden}canvas{display:block}
+#l{position:absolute;top:8px;left:10px;color:#fff;font:13px system-ui;background:rgba(0,0,0,.5);padding:2px 8px;border-radius:4px}</style></head>
+<body><div id="l">FBX</div>
+<script type="module">
+import * as THREE from 'three'
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
+const url=new URLSearchParams(location.search).get('model')
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0x2b2b30)
+const rend=new THREE.WebGLRenderer({antialias:true}); rend.setSize(innerWidth,innerHeight); document.body.appendChild(rend.domElement)
+scene.environment=new THREE.PMREMGenerator(rend).fromScene(new RoomEnvironment(),0.04).texture
+scene.add(new THREE.DirectionalLight(0xffffff,2).translateY(5))
+scene.add(new THREE.AmbientLight(0xffffff,.5))
+const cam=new THREE.PerspectiveCamera(35,innerWidth/innerHeight,0.01,100000)
+// world origin markers — do NOT recenter, show where the model actually sits
+new FBXLoader().load(url,(obj)=>{
+  scene.add(obj)
+  const box=new THREE.Box3().setFromObject(obj), s=box.getSize(new THREE.Vector3())
+  const H=Math.max(s.x,s.y,s.z)
+  scene.add(new THREE.GridHelper(H*1.4, 14, 0x66ccff, 0x445566))          // grid on y=0 plane
+  const ax=new THREE.AxesHelper(H*0.35); scene.add(ax)                     // origin axes
+  // camera frames origin + model from front-ish
+  cam.position.set(H*0.9, H*0.6, H*1.7); cam.lookAt(0, s.y*0.45, 0)
+  document.getElementById('l').textContent=`box ${s.x.toFixed(1)}x${s.y.toFixed(1)}x${s.z.toFixed(1)} | feet minY=${box.min.y.toFixed(2)} | grid=origin`
+  window.__ready=true
+},undefined,(e)=>{document.getElementById('l').textContent='FBX ERROR: '+e; document.title='ERR'})
+function loop(){requestAnimationFrame(loop); rend.render(scene,cam)} loop()
+</script></body></html>

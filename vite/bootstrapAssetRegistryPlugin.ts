@@ -29,9 +29,11 @@ const ASSET_EXTENSIONS = new Set([
   '.woff2',
   '.ttf',
   '.otf',
+  '.glb',
+  '.gltf',
 ])
 
-type BootstrapAssetKind = 'audio' | 'font' | 'image' | 'other'
+type BootstrapAssetKind = 'audio' | 'font' | 'image' | 'model' | 'other'
 
 type CollectedAsset = {
   deferred: boolean
@@ -257,6 +259,10 @@ function getAssetKind(extension: string): BootstrapAssetKind {
 
   if (extension === '.mp3' || extension === '.wav' || extension === '.ogg') {
     return 'audio'
+  }
+
+  if (extension === '.glb' || extension === '.gltf') {
+    return 'model'
   }
 
   if (

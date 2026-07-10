@@ -1,7 +1,7 @@
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import { App } from './App'
-import { BootstrapGate } from './bootstrap'
+import { BootstrapGate } from './features/bootstrap'
 
 // Suppress native browser gestures that fight app/game UI (right-click menu,
 // text selection drag, native image drag). Optional — remove if your app wants

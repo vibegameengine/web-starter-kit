@@ -4,7 +4,7 @@ declare module 'virtual:bootstrap-assets' {
   export type BootstrapAssetEntry = {
     deferred: boolean
     id: string
-    kind: 'audio' | 'font' | 'image' | 'other'
+    kind: 'audio' | 'font' | 'image' | 'model' | 'other'
     size: number
     source: string
     url: string
@@ -18,7 +18,41 @@ declare module '*.mp3?audio-optimize=off' {
   export default url
 }
 
+// `.glb` / `.gltf` imports resolve to the optimized asset URL (built by
+// `glbAssetOptimizerPlugin`). Per-import option forms (`?texture=…`,
+// `?texture-format=…`, `?glb-optimize=off`, …) are declared explicitly as they
+// are used, matching how audio opt-out is declared above.
+declare module '*.glb' {
+  const url: string
+  export default url
+}
+
+declare module '*.gltf' {
+  const url: string
+  export default url
+}
+
 declare module '*.glb?url' {
+  const url: string
+  export default url
+}
+
+declare module '*.glb?glb-optimize=off' {
+  const url: string
+  export default url
+}
+
+declare module '*.glb?texture=1024' {
+  const url: string
+  export default url
+}
+
+declare module '*.glb?texture=1024&albedo' {
+  const url: string
+  export default url
+}
+
+declare module '*.glb?texture=1024&albedo&meshopt' {
   const url: string
   export default url
 }

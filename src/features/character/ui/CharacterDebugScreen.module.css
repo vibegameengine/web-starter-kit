@@ -1,0 +1,24 @@
+.root {
+  position: fixed;
+  inset: 0;
+  background: #1c2230;
+  overflow: hidden;
+}
+
+.root canvas {
+  display: block;
+  touch-action: none;
+}
+
+.badge {
+  position: absolute;
+  bottom: 18px;
+  left: 22px;
+  margin: 0;
+  font-family: 'Trebuchet MS', system-ui, sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(210, 220, 236, 0.5);
+  pointer-events: none;
+}

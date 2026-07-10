@@ -1,5 +1,5 @@
-import { GameScreen } from './three/GameScreen'
+import { AppRouter } from './app/router/AppRouter'
 
 export function App() {
-  return <GameScreen />
+  return <AppRouter />
 }

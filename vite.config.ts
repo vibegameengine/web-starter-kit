@@ -7,12 +7,32 @@ import { defineConfig } from 'vitest/config'
 import {
   audioAssetOptimizerPlugin,
   bootstrapAssetRegistryPlugin,
+  glbAssetOptimizerPlugin,
   imagetoolsDevCachePlugin,
 } from './vite'
 
 const packageJson = JSON.parse(fs.readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as {
   version: string
 }
+
+// Load GLSL shader files as default-exported strings — the vendored realism-
+// effects TRAA in src/shared/vendor/realism-effects imports .glsl/.frag/.vert this way.
+// Strips a leading BOM (some vendored shaders carry one, which breaks GLSL).
+const shaderRawLoader = () => ({
+  name: 'shader-raw-loader',
+  enforce: 'pre' as const,
+  load(id: string) {
+    const file = id.split('?')[0]
+    if (!/\.(glsl|frag|vert|vs|fs)$/.test(file)) {
+      return null
+    }
+    let source = fs.readFileSync(file, 'utf8')
+    if (source.charCodeAt(0) === 0xfeff) {
+      source = source.slice(1)
+    }
+    return `export default ${JSON.stringify(source)}`
+  },
+})
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -23,6 +43,7 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(packageJson.version),
   },
   plugins: [
+    shaderRawLoader(),
     // Walks the static import graph from the entry and exposes every reachable
     // asset through `virtual:bootstrap-assets` so the preloader needs no manifest.
     bootstrapAssetRegistryPlugin({
@@ -32,6 +53,11 @@ export default defineConfig({
     // by duration) with clip-safe normalization. Opt out per import via
     // `?audio-optimize=off`.
     audioAssetOptimizerPlugin(),
+    // Repacks `src/**/*.glb|.gltf` at build time: cleans the document and shrinks
+    // embedded textures (resize to 2048 + WebP). Tune per import via
+    // `?texture=1024` / `?texture-format=keep` / `?texture-quality=90`, or bypass
+    // with `?glb-optimize=off`.
+    glbAssetOptimizerPlugin(),
     react(),
     babel({ presets: [reactCompilerPreset()] }),
     // Serves imagetools output from disk cache in dev so repeated transforms are cheap.
@@ -64,14 +90,15 @@ export default defineConfig({
       // (scripts/bump-version.ts still has its own passing unit test; it is just
       // not part of the measured aggregate because of its untested CLI entry.)
       include: [
-        'src/bootstrap/systems/**/*.ts',
+        'src/features/bootstrap/systems/**/*.ts',
+        'src/shared/lib/motion.ts',
       ],
       exclude: [
         'src/**/*.test.ts',
         'src/**/*.test.tsx',
-        'src/bootstrap/systems/bootstrapSteps.ts',
-        'src/bootstrap/systems/bootstrapAssetRegistry.ts',
-        'src/bootstrap/systems/preloadBootstrapAssets.ts',
+        'src/features/bootstrap/systems/bootstrapSteps.ts',
+        'src/features/bootstrap/systems/bootstrapAssetRegistry.ts',
+        'src/features/bootstrap/systems/preloadBootstrapAssets.ts',
       ],
     },
     environment: 'jsdom',

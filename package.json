@@ -30,10 +30,14 @@
     "r3f-perf": "^7.2.3",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-router-dom": "^7.18.1",
     "three": "^0.185.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@gltf-transform/core": "^4.4.1",
+    "@gltf-transform/extensions": "^4.4.1",
+    "@gltf-transform/functions": "^4.4.1",
     "@playwright/test": "^1.60.0",
     "@rolldown/plugin-babel": "^0.2.2",
     "@testing-library/react": "^16.3.2",
@@ -51,6 +55,7 @@
     "jsdom": "^29.0.1",
     "knip": "^6.1.1",
     "lamejs": "^1.2.1",
+    "meshoptimizer": "^1.2.0",
     "mpg123-decoder": "^1.0.3",
     "playwright": "^1.58.2",
     "sharp": "^0.34.5",

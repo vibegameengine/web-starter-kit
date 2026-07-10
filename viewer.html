@@ -1,0 +1,97 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Tany model viewer</title>
+  <style>
+    html,body{margin:0;height:100%;background:#2b2b30;overflow:hidden;font-family:system-ui}
+    #wrap{display:flex;height:100vh;width:100vw}
+    .view{position:relative;flex:1;border-right:1px solid #000}
+    .label{position:absolute;top:8px;left:10px;color:#fff;font-size:14px;
+      background:rgba(0,0,0,.45);padding:2px 8px;border-radius:4px;z-index:2}
+    canvas{display:block}
+  </style>
+</head>
+<body>
+  <div id="wrap">
+    <div class="view" id="v-front"><div class="label">FRONT</div></div>
+    <div class="view" id="v-side"><div class="label">SIDE (left)</div></div>
+    <div class="view" id="v-top"><div class="label">TOP</div></div>
+  </div>
+  <script type="module">
+    import * as THREE from 'three'
+    import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+    import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
+
+    const params = new URLSearchParams(location.search)
+    const modelUrl = params.get('model')
+
+    const scene = new THREE.Scene()
+    scene.background = new THREE.Color(0x2b2b30)
+
+    // neutral studio lighting so materials read on all sides
+    const renderer0 = new THREE.WebGLRenderer({ antialias: true })
+    const env = new THREE.PMREMGenerator(renderer0).fromScene(new RoomEnvironment(), 0.04)
+    scene.environment = env.texture
+    const key = new THREE.DirectionalLight(0xffffff, 2.0); key.position.set(3, 5, 4); scene.add(key)
+    const fill = new THREE.DirectionalLight(0xffffff, 1.0); fill.position.set(-4, 2, -3); scene.add(fill)
+    scene.add(new THREE.AmbientLight(0xffffff, 0.4))
+
+    const DOUBLE = params.get('double') === '1'
+    const loader = new GLTFLoader()
+    loader.load(modelUrl, (gltf) => {
+      const model = gltf.scene
+      if (DOUBLE) model.traverse((o) => { if (o.isMesh) { const m = o.material; (Array.isArray(m)?m:[m]).forEach(mm=>mm && (mm.side = THREE.DoubleSide)) } })
+      // center on origin, sit on ground
+      const box = new THREE.Box3().setFromObject(model)
+      const size = box.getSize(new THREE.Vector3())
+      const center = box.getCenter(new THREE.Vector3())
+      model.position.sub(center)
+      scene.add(model)
+      window.__bbox = { size: size.toArray(), center: center.toArray() }
+
+      const R = Math.max(size.x, size.y, size.z)
+      setupViews(size, R)
+      window.__ready = true
+    }, undefined, (e) => { document.title = 'ERROR: ' + e; console.error(e) })
+
+    const views = []
+    function makeView(elId, dir, up) {
+      const el = document.getElementById(elId)
+      const renderer = new THREE.WebGLRenderer({ antialias: true })
+      renderer.outputColorSpace = THREE.SRGBColorSpace
+      renderer.setPixelRatio(1)
+      el.appendChild(renderer.domElement)
+      const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 1000)
+      views.push({ el, renderer, cam, dir, up })
+      return { el, renderer, cam, dir, up }
+    }
+    makeView('v-front', new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 1, 0))
+    makeView('v-side',  new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, 1, 0))
+    makeView('v-top',   new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, -1))
+
+    function setupViews(size, R) {
+      for (const v of views) {
+        const w = v.el.clientWidth, h = v.el.clientHeight
+        v.renderer.setSize(w, h)
+        const half = R * 0.62
+        const aspect = w / h
+        v.cam.left = -half * aspect; v.cam.right = half * aspect
+        v.cam.top = half; v.cam.bottom = -half
+        v.cam.near = 0.01; v.cam.far = R * 10
+        v.cam.updateProjectionMatrix()
+        v.cam.position.copy(v.dir.clone().multiplyScalar(R * 3))
+        v.cam.up.copy(v.up)
+        v.cam.lookAt(0, 0, 0)
+      }
+    }
+
+    function animate() {
+      requestAnimationFrame(animate)
+      for (const v of views) v.renderer.render(scene, v.cam)
+    }
+    animate()
+    addEventListener('resize', () => { if (window.__ready) setupViews(null, Math.max(...window.__bbox.size)) })
+  </script>
+</body>
+</html>
