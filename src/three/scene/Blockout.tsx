@@ -55,7 +55,7 @@ function buildGroups(): Groups {
     const baseX = side * range(9, 11)
     for (let i = 0; i < 7; i += 1) {
       const x = baseX + side * range(-2.5, 2.5)
-      const z = range(-9, 1)
+      const z = range(-12, -2)
       const h = range(2.5, 8)
       building(x, z, range(2, 4), range(2, 4), h, rng() > 0.5 ? shades.mid : shades.dark)
       if (rng() > 0.55) {
@@ -82,13 +82,19 @@ function buildGroups(): Groups {
   box([3.6, colH + 0.2, colZ], [4.6, 0.7, 1.5], shades.light, [0, 0, -0.24]) // fallen beam
 
   // --- Cone "forest" scattered across the mid ground ---
+  // All five rng() draws happen every iteration (h, x, z, sx, sz) so the layout
+  // stays stable; we just skip the central cones (|x| < 3) so they don't block
+  // the colonnade — the ones off to the sides stay.
   for (let i = 0; i < 10; i += 1) {
     const h = range(1.6, 4)
-    g.cone.push({
-      pos: [range(-7, 7), h / 2, range(-4, 3)],
-      scale: [range(0.9, 1.6), h, range(0.9, 1.6)],
-      color: shades.light,
-    })
+    const x = range(-7, 7)
+    const z = range(-4, 3)
+    const sx = range(0.9, 1.6)
+    const sz = range(0.9, 1.6)
+    if (Math.abs(x) < 3) {
+      continue
+    }
+    g.cone.push({ pos: [x, h / 2, z], scale: [sx, h, sz], color: shades.light })
   }
 
   // --- Foreground ground slabs (thin flat pads) ---

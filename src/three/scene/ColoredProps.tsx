@@ -20,11 +20,9 @@ type Prop = {
 }
 
 const PROPS: Prop[] = [
-  { geo: 'sphere', mat: colored.red, pos: [-4.5, 1.2, 3.5], scale: [1.2, 1.2, 1.2] },
-  { geo: 'box', mat: colored.blue, pos: [-0.5, 1.1, 4.6], scale: [2.2, 2.2, 2.2] },
-  { geo: 'cone', mat: colored.green, pos: [3.6, 1.4, 3.4], scale: [1.5, 2.8, 1.5] },
-  { geo: 'torus', mat: colored.yellow, pos: [1.6, 0.9, 2.4], scale: [1.3, 1.3, 1.3], rot: [Math.PI / 2, 0, 0] },
-  { geo: 'sphere', mat: colored.violet, pos: [5.4, 0.85, 1.4], scale: [0.85, 0.85, 0.85] },
+  { geo: 'box', mat: colored.red, pos: [-6.5, 0.9, -1.5], scale: [1.8, 1.8, 1.8], rot: [0, 0.5, 0] },
+  { geo: 'box', mat: colored.green, pos: [4.5, 1.0, -2], scale: [2.0, 2.0, 2.0], rot: [0, -0.4, 0] },
+  { geo: 'box', mat: colored.violet, pos: [6.5, 0.65, -3.5], scale: [1.3, 1.3, 1.3], rot: [0, 0.3, 0] },
 ]
 
 export function ColoredProps() {

@@ -3,20 +3,20 @@ import { useThree } from '@react-three/fiber'
 import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 
+import { ShadowGroup } from '../ShadowGroup'
 import { Blockout } from './Blockout'
 import { ColoredProps } from './ColoredProps'
 import { geometries, materials } from './materials'
 
 // One shared sun direction drives the key light and the shadows.
-const SUN: [number, number, number] = [-40, 52, -34]
+// Rotated 180° horizontally (same elevation, opposite side).
+const SUN: [number, number, number] = [40, 52, 34]
 
 // Aerial-perspective haze tinted to the sky's horizon blue so distance reads.
 const FOG_COLOR = '#cfe0f4'
 
 /**
- * Clean blue gradient sky painted onto scene.background (opaque, so the
- * post-processing composer keeps it — and it reads unambiguously blue from any
- * camera angle, unlike a physical horizon that washes to white under ACES).
+ * Blue gradient sky painted onto scene.background.
  */
 function GradientSky() {
   const scene = useThree((state) => state.scene)
@@ -53,26 +53,25 @@ export function StarterScene() {
   return (
     <>
       <GradientSky />
-      <fog attach="fog" args={[FOG_COLOR, 26, 72]} />
+      <fog attach="fog" args={[FOG_COLOR, 34, 94]} />
 
-      {/* Warm KEY light — casts the real, even soft shadows (PCFSoft + radius).
-          One cheap shadow pass, unlike the AccumulativeShadows accumulation. */}
+      {/* Warm KEY light — clean soft shadows without overblown PCF radius. */}
       <directionalLight
         position={SUN}
         intensity={2.8}
         color="#ffe7c2"
         castShadow
-        shadow-radius={6}
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
+        shadow-radius={3.25}
+        shadow-mapSize-width={4096}
+        shadow-mapSize-height={4096}
         shadow-bias={-0.0003}
-        shadow-normalBias={0.03}
+        shadow-normalBias={0.02}
         shadow-camera-near={1}
         shadow-camera-far={140}
-        shadow-camera-left={-26}
-        shadow-camera-right={26}
-        shadow-camera-top={26}
-        shadow-camera-bottom={-26}
+        shadow-camera-left={-20}
+        shadow-camera-right={20}
+        shadow-camera-top={20}
+        shadow-camera-bottom={-20}
       />
 
       {/* RIM/back light — separates the forms from the background (premium). */}
@@ -98,16 +97,21 @@ export function StarterScene() {
         <Lightformer form="rect" intensity={0.3} position={[12, 5, 6]} scale={[10, 10, 1]} color="#f0e6d6" />
       </Environment>
 
-      {/* Ground */}
-      <mesh
-        geometry={geometries.ground}
-        material={materials.ground}
-        rotation-x={-Math.PI / 2}
-        receiveShadow
-      />
+      {/* The whole world is static right now — tag it so the future shadow (and
+          GI) split can bake it once. Dynamic units will get their own
+          <ShadowGroup kind="dynamic"> when they're added. */}
+      <ShadowGroup kind="static">
+        {/* Ground */}
+        <mesh
+          geometry={geometries.ground}
+          material={materials.ground}
+          rotation-x={-Math.PI / 2}
+          receiveShadow
+        />
 
-      <Blockout />
-      <ColoredProps />
+        <Blockout />
+        <ColoredProps />
+      </ShadowGroup>
 
       <OrbitControls
         target={[0, 2.4, -1]}
@@ -116,8 +120,6 @@ export function StarterScene() {
         minDistance={7}
         maxDistance={44}
         maxPolarAngle={Math.PI / 2 - 0.04}
-        autoRotate
-        autoRotateSpeed={0.25}
       />
     </>
   )
