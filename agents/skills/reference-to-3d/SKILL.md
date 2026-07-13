@@ -20,22 +20,22 @@ First thing when starting an entity: move the loose `concepts/<entity>.png` into
 - Derived inputs (cropped front/side/back views fed to image-to-3D) go in a `views/` subfolder.
 - **Every superseded run and raw provider byproduct** — task JSON, rendered/preview images, the high-poly source, older/alternate exports — goes in a `history/` subfolder. Nothing is deleted (respect the project's never-delete rule); provenance is kept, the top level stays clean.
 
-Example (character "tany"):
+Example:
 
 ```
-concepts/tany/
-  tany-concept.png                # the original reference the user dropped in concepts/
-  tany.glb                        # the one shipped/imported asset
+concepts/<entity>/
+  <entity>-concept.png            # the original reference the user dropped in concepts/
+  <entity>.glb                    # the one shipped/imported asset
   views/
-    tany-front.png                # derived crop fed to image-to-3D
-    tany-side.png
-    tany-back.png
+    <entity>-front.png            # derived crop fed to image-to-3D
+    <entity>-side.png
+    <entity>-back.png
   history/
-    tany.preview.webp             # provider render of the shipped model
-    tany.task.json                # provider task metadata
-    tany-highpoly.glb             # pre-remesh source
-    tany-highpoly.preview.webp
-    tany-highpoly.task.json
+    <entity>.preview.webp         # provider render of the shipped model
+    <entity>.task.json            # provider task metadata
+    <entity>-highpoly.glb         # pre-remesh source
+    <entity>-highpoly.preview.webp
+    <entity>-highpoly.task.json
 ```
 
 Rationale: everything for one entity lives together; the shared `concepts/` root stays clean (only per-entity folders, no loose files); you never diff UUIDs to find the current file; regeneration drops a new clean name and pushes the old run to `history/`.

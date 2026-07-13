@@ -7,6 +7,7 @@ import { Tany, type TanyAnimation } from '../../features/character/entities/Tany
 interface CharacterDebugSceneProps {
   /** Production Tany animation to inspect. */
   animation?: TanyAnimation
+  onGreetingFinished?: () => void
 }
 
 /**
@@ -15,7 +16,7 @@ interface CharacterDebugSceneProps {
  * HDRI so it works offline; DEV-only, mounted by CharacterDebugScreen behind the
  * /character-debug route.
  */
-export function CharacterDebugScene({ animation = 'bind' }: CharacterDebugSceneProps) {
+export function CharacterDebugScene({ animation = 'bind', onGreetingFinished }: CharacterDebugSceneProps) {
   return (
     <Canvas
       shadows
@@ -38,7 +39,7 @@ export function CharacterDebugScene({ animation = 'bind' }: CharacterDebugSceneP
       <directionalLight position={[-6, 5, -4]} intensity={0.5} color="#bcd2ec" />
 
       <Suspense fallback={null}>
-        <Tany animation={animation} position={[0, 0, 0]} />
+        <Tany animation={animation} onGreetingFinished={onGreetingFinished} position={[0, 0, 0]} />
       </Suspense>
 
       {/* Ground catcher for the shadow. */}

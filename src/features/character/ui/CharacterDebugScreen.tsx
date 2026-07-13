@@ -7,7 +7,7 @@ import styles from './CharacterDebugScreen.module.css'
 
 /**
  * DEV-only screen (route: /character-debug) hosting the same production Tany
- * entity as the game scene. The controls select its bind, idle and Mixamo dance
+ * entity as the game scene. The controls select its bind, idle and Mixamo action
  * states without introducing a second character implementation.
  */
 export function CharacterDebugScreen() {
@@ -17,7 +17,7 @@ export function CharacterDebugScreen() {
 
   return (
     <div className={styles.root}>
-      <CharacterDebugScene animation={animation} />
+      <CharacterDebugScene animation={animation} onGreetingFinished={() => setAnimation('idle')} />
 
       <div className={styles.panel}>
         <span className={styles.panelTitle}>Pose / Animation</span>
@@ -31,6 +31,7 @@ export function CharacterDebugScreen() {
         {[
           ['idle', 'Idle'],
           ['dance', 'Macarena'],
+          ['greeting', 'Greeting'],
         ].map(([mode, label]) => (
           <button
             key={mode}

@@ -11,6 +11,7 @@ import {
 import { ReadySignal, ShaderWarmup } from '@vibegameengine/shader-warmup'
 import { ToneMappingMode } from 'postprocessing'
 import { useEffect, useState } from 'react'
+import type { TanyAnimation } from '../../features/character/entities/Tany/Tany'
 
 import {
   reportInitialRenderReady,
@@ -34,7 +35,21 @@ registerWarmupResources()
  * key. ShaderWarmup pre-compiles the shaders and only then dismisses the
  * bootstrap overlay — so the first visible frame has no compile stutter.
  */
-export function GameCanvas({ isDancing = false }: { readonly isDancing?: boolean }) {
+type GameCanvasProps = {
+  readonly isDancing?: boolean
+  readonly onGreeting?: () => void
+  readonly onGreetingFinished?: () => void
+  readonly onGreetingVoiceFinished?: () => void
+  readonly tanyAnimation?: TanyAnimation
+}
+
+export function GameCanvas({
+  isDancing = false,
+  onGreeting,
+  onGreetingFinished,
+  onGreetingVoiceFinished,
+  tanyAnimation,
+}: GameCanvasProps) {
   const requestId = useBootstrapRenderRequestId()
   const [warmed, setWarmed] = useState(false)
 
@@ -63,7 +78,13 @@ export function GameCanvas({ isDancing = false }: { readonly isDancing?: boolean
           but halves the shadow pass cost. */}
       <ShadowThrottle every={2} />
 
-      <StarterScene isDancing={isDancing} />
+      <StarterScene
+        isDancing={isDancing}
+        onGreeting={onGreeting}
+        onGreetingFinished={onGreetingFinished}
+        onGreetingVoiceFinished={onGreetingVoiceFinished}
+        tanyAnimation={tanyAnimation}
+      />
 
       <DepthAwareVfxPortal>
         <DanceFireworks active={isDancing} />

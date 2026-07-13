@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { GameCanvas } from '../../../scenes/demo-scene/GameCanvas'
 import { getChannelGain, warmSoundMixer } from '../../../shared/lib/audio/soundMixer'
 import { DemoSceneHud, type DemoSceneHudLabels, type DemoSceneHudSourceLink } from '../../ui-kit'
+import type { TanyAnimation } from '../../character/entities/Tany/Tany'
 import danceMusicUrl from './GameScreen/assets/audio/city-loop.mp3'
 
 const DEMO_SCENE_HUD_LABELS: DemoSceneHudLabels = {
@@ -23,9 +24,15 @@ const DEMO_SCENE_SOURCE_LINK: DemoSceneHudSourceLink = {
 /** Main 3D surface and its scaled game UI. */
 export function GameScreen() {
   const [isDancing, setIsDancing] = useState(false)
+  const [isGreetingRequested, setIsGreetingRequested] = useState(false)
+  const [greetingAnimationFinished, setGreetingAnimationFinished] = useState(false)
+  const [greetingVoiceFinished, setGreetingVoiceFinished] = useState(false)
   const danceMusic = useMemo(() => new Howl({ loop: true, src: [danceMusicUrl], volume: 0 }), [])
+  const isGreetingPlaying = isGreetingRequested && !(greetingAnimationFinished && greetingVoiceFinished)
+  const tanyAnimation: TanyAnimation = isGreetingPlaying ? 'greeting' : isDancing ? 'dance' : 'idle'
 
   const toggleDance = () => {
+    if (isGreetingPlaying) return
     const next = !isDancing
     setIsDancing(next)
     if (next) {
@@ -35,6 +42,15 @@ export function GameScreen() {
     } else {
       danceMusic.stop()
     }
+  }
+
+  const playGreeting = () => {
+    if (isGreetingPlaying) return
+    setIsDancing(false)
+    danceMusic.stop()
+    setGreetingAnimationFinished(false)
+    setGreetingVoiceFinished(false)
+    setIsGreetingRequested(true)
   }
 
   useEffect(() => {
@@ -50,7 +66,13 @@ export function GameScreen() {
       onDanceToggle={toggleDance}
       sourceLink={DEMO_SCENE_SOURCE_LINK}
     >
-      <GameCanvas isDancing={isDancing} />
+      <GameCanvas
+        isDancing={isDancing}
+        onGreeting={playGreeting}
+        onGreetingFinished={() => setGreetingAnimationFinished(true)}
+        onGreetingVoiceFinished={() => setGreetingVoiceFinished(true)}
+        tanyAnimation={tanyAnimation}
+      />
     </DemoSceneHud>
   )
 }

@@ -1,16 +1,19 @@
 import { useAnimations, useGLTF } from '@react-three/drei'
+import { useFrame } from '@react-three/fiber'
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import type { RefObject } from 'react'
-import { Mesh, MeshBasicMaterial, MeshStandardMaterial } from 'three'
-import type { Group, Object3D, Quaternion, Vector3 } from 'three'
+import { LoopOnce, LoopRepeat, Mesh, MeshBasicMaterial, MeshStandardMaterial } from 'three'
+import type { AnimationClip, Group, Object3D, Quaternion, Vector3 } from 'three'
 
 import danceUrl from './assets/animations/macarena-dance.fbx'
+import greetingUrl from './assets/animations/Standing Greeting.fbx'
 import tanyUrl from './assets/models/tany-idle-mixamo-rigged.glb?texture=1024&albedo&meshopt'
 
 useGLTF.preload(tanyUrl)
 useGLTF.preload(danceUrl)
+useGLTF.preload(greetingUrl)
 
-export type TanyAnimation = 'bind' | 'idle' | 'dance'
+export type TanyAnimation = 'bind' | 'idle' | 'dance' | 'greeting'
 
 interface BindTransform {
   node: Object3D
@@ -21,17 +24,42 @@ interface BindTransform {
 
 /**
  * Runtime rig for the single Tany entity. It loads the production model and
- * untouched Mixamo action, applies the painted runtime material, and switches
- * between bind, idle and dance without retargeting animation tracks.
+ * untouched Mixamo actions, applies the painted runtime material, and switches
+ * between bind, idle and actions without retargeting animation tracks.
  */
-export function useTanyRig(group: RefObject<Group | null>, activeAnimation: TanyAnimation) {
+export function useTanyRig(
+  group: RefObject<Group | null>,
+  activeAnimation: TanyAnimation,
+  onGreetingFinished?: () => void,
+) {
   const bindPose = useRef<BindTransform[]>([])
+  const greetingCompleted = useRef(false)
+  const greetingFinishedRef = useRef(onGreetingFinished)
   const { scene, animations } = useGLTF(tanyUrl)
   const { animations: danceAnimations } = useGLTF(danceUrl)
-  const { actions: idleActions, names: idleNames } = useAnimations(animations, group)
-  const { actions: danceActions, names: danceNames } = useAnimations(danceAnimations, group)
+  const { animations: greetingAnimations } = useGLTF(greetingUrl)
+  // One mixer owns every clip for this one skeleton. Separate mixers overwrite
+  // each other's output and can leave the character in the bind pose.
+  // Cloning changes only the in-memory clip label; imported FBX tracks stay exact.
+  const clips = useMemo(() => {
+    const namedClip = (clip: AnimationClip | undefined, name: TanyAnimation): AnimationClip | null => {
+      if (!clip) return null
+      const runtimeClip = clip.clone()
+      runtimeClip.name = name
+      return runtimeClip
+    }
 
-  const allActions = useMemo(() => [...Object.values(idleActions), ...Object.values(danceActions)], [danceActions, idleActions])
+    return [
+      namedClip(animations[0], 'idle'),
+      namedClip(danceAnimations.find((clip) => clip.name === 'macarena') ?? danceAnimations[0], 'dance'),
+      namedClip(greetingAnimations[0], 'greeting'),
+    ].filter((clip): clip is AnimationClip => clip !== null)
+  }, [animations, danceAnimations, greetingAnimations])
+  const { actions } = useAnimations(clips, group)
+
+  useEffect(() => {
+    greetingFinishedRef.current = onGreetingFinished
+  }, [onGreetingFinished])
 
   useLayoutEffect(() => {
     const snapshot: BindTransform[] = []
@@ -66,8 +94,10 @@ export function useTanyRig(group: RefObject<Group | null>, activeAnimation: Tany
   }, [scene])
 
   useEffect(() => {
-    const idle = idleActions[idleNames[0] ?? '']
-    const dance = danceActions[danceNames.find((name) => name === 'macarena') ?? danceNames[0] ?? '']
+    const idle = actions.idle
+    const dance = actions.dance
+    const greeting = actions.greeting
+    const allActions = [idle, dance, greeting]
 
     if (activeAnimation === 'bind') {
       for (const action of allActions) action?.stop()
@@ -79,15 +109,32 @@ export function useTanyRig(group: RefObject<Group | null>, activeAnimation: Tany
       return
     }
 
-    const active = activeAnimation === 'dance' ? dance : idle
-    const inactive = activeAnimation === 'dance' ? idle : dance
-    inactive?.fadeOut(0.2)
+    const active = activeAnimation === 'dance' ? dance : activeAnimation === 'greeting' ? greeting : idle
+    for (const action of allActions) {
+      if (action !== active) action?.fadeOut(0.2)
+    }
+
+    if (activeAnimation === 'greeting') {
+      greetingCompleted.current = false
+      active?.setLoop(LoopOnce, 1)
+    } else {
+      active?.setLoop(LoopRepeat, Infinity)
+    }
     active?.reset().fadeIn(0.2).play()
 
     return () => {
       active?.fadeOut(0.2)
     }
-  }, [activeAnimation, allActions, danceActions, danceNames, idleActions, idleNames])
+  }, [activeAnimation, actions])
+
+  useFrame(() => {
+    const greeting = actions.greeting
+    if (activeAnimation !== 'greeting' || !greeting || greetingCompleted.current) return
+    if (greeting.time >= greeting.getClip().duration) {
+      greetingCompleted.current = true
+      greetingFinishedRef.current?.()
+    }
+  })
 
   return scene
 }

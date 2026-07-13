@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -36,6 +37,7 @@ type FbxResult = {
   readonly inputBytes: number
   readonly outputBytes: number
   readonly path: string
+  readonly version: string
 }
 
 export function fbxAssetLoaderPlugin(): Plugin {
@@ -97,12 +99,26 @@ export function fbxAssetLoaderPlugin(): Plugin {
       if (config.command === 'serve') {
         const serveKey = toServeKey(id, config.root)
         serveKeyToId.set(serveKey, id)
-        return `export default ${JSON.stringify(`${FBX_SERVE_PREFIX}${encodeURIComponent(serveKey)}?v=${result.outputBytes}`)};`
+        return `export default ${JSON.stringify(`${FBX_SERVE_PREFIX}${encodeURIComponent(serveKey)}?v=${result.version}`)};`
       }
 
       const base = path.basename(stripQueryAndHash(id), path.extname(stripQueryAndHash(id)))
       const assetId = this.emitFile({ name: `${base}.glb`, source: result.bytes, type: 'asset' })
       return `export default import.meta.ROLLUP_FILE_URL_${assetId};`
+    },
+    handleHotUpdate(context) {
+      if (!config || !isProjectFbxAsset(context.file, config.root)) return
+
+      const updatedModules = []
+      for (const moduleId of converted.keys()) {
+        if (stripQueryAndHash(moduleId) !== context.file) continue
+        converted.delete(moduleId)
+        reports.delete(moduleId)
+
+        const module = context.server.moduleGraph.getModuleById(moduleId)
+        if (module) updatedModules.push(module)
+      }
+      return updatedModules.length > 0 ? updatedModules : undefined
     },
     closeBundle() {
       if (reports.size === 0) {
@@ -162,7 +178,13 @@ async function convertFbxAsset(moduleId: string): Promise<FbxResult> {
     }
 
     const bytes = await io.writeBinary(document)
-    return { bytes, inputBytes, outputBytes: bytes.byteLength, path: filePath }
+    return {
+      bytes,
+      inputBytes,
+      outputBytes: bytes.byteLength,
+      path: filePath,
+      version: createHash('sha256').update(bytes).digest('hex').slice(0, 12),
+    }
   } finally {
     await rm(dir, { recursive: true, force: true })
   }

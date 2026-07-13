@@ -10,6 +10,7 @@ import { geometries, materials } from '../../features/world/materials/materials'
 import { Relic } from '../../features/world/entities/Relic'
 import { Water } from '../../features/world/entities/Water'
 import { Tany } from '../../features/character/entities/Tany/Tany'
+import type { TanyAnimation } from '../../features/character/entities/Tany/Tany'
 
 // Central canal — matches the raised stone reservoir authored in Blockout.
 // Surface a touch below the 0.4 kerb top so the water sits inside the rim.
@@ -56,7 +57,21 @@ function GradientSky() {
   return null
 }
 
-export function StarterScene({ isDancing = false }: { readonly isDancing?: boolean }) {
+type StarterSceneProps = {
+  readonly isDancing?: boolean
+  readonly onGreeting?: () => void
+  readonly onGreetingFinished?: () => void
+  readonly onGreetingVoiceFinished?: () => void
+  readonly tanyAnimation?: TanyAnimation
+}
+
+export function StarterScene({
+  isDancing = false,
+  onGreeting,
+  onGreetingFinished,
+  onGreetingVoiceFinished,
+  tanyAnimation,
+}: StarterSceneProps) {
   return (
     <>
       <GradientSky />
@@ -129,7 +144,16 @@ export function StarterScene({ isDancing = false }: { readonly isDancing?: boole
         <Relic position={[0.4, 3.4, 5]} scale={1.3} />
         {/* Real Tany character (optimized Tripo GLB) standing on the open floor
             left of the canal, turned toward the camera. */}
-        <Tany isDancing={isDancing} position={[3.5, 0, 3.2]} rotationY={0.25} scale={1.25} />
+        <Tany
+          animation={tanyAnimation}
+          isDancing={isDancing}
+          onGreeting={onGreeting}
+          onGreetingFinished={onGreetingFinished}
+          onGreetingVoiceFinished={onGreetingVoiceFinished}
+          position={[3.5, 0, 3.2]}
+          rotationY={0.25}
+          scale={1.25}
+        />
       </ShadowGroup>
 
       <OrbitControls
