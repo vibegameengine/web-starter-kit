@@ -1,0 +1,17 @@
+.button {
+  bottom: 28px;
+  left: 28px;
+  min-height: 82px;
+  min-width: 238px;
+  padding: 18px 38px;
+  pointer-events: auto;
+  position: absolute;
+  font: 700 17px/1 'Trebuchet MS', system-ui, sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.button:focus-visible {
+  outline: 2px solid #fff2cc;
+  outline-offset: 3px;
+}

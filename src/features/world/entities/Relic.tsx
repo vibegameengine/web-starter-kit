@@ -13,7 +13,7 @@ interface RelicProps {
 
 /**
  * ECS entity: a floating arcane relic — a slowly spinning, gently hovering white
- * crystal shard that gives the otherwise-static demo world a living focal point.
+ * crystal shard that gives the canal a persistent focal point.
  * Geometry and material come from the shared registry (no inline `new`; see
  * threejs-instancing-materials); its behaviour is composed from the shared motion
  * components `useSpin` + `useBob`.

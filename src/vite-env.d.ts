@@ -18,6 +18,16 @@ declare module '*.mp3?audio-optimize=off' {
   export default url
 }
 
+declare module '*.fbx' {
+  const url: string
+  export default url
+}
+
+declare module '*.fbx?fbx=raw' {
+  const url: string
+  export default url
+}
+
 // `.glb` / `.gltf` imports resolve to the optimized asset URL (built by
 // `glbAssetOptimizerPlugin`). Per-import option forms (`?texture=…`,
 // `?texture-format=…`, `?glb-optimize=off`, …) are declared explicitly as they
@@ -56,9 +66,6 @@ declare module '*.glb?texture=1024&albedo&meshopt' {
   const url: string
   export default url
 }
-
-// Injected by `define` in vite.config.ts from package.json -> version.
-declare const __APP_VERSION__: string
 
 // three's WebGPU renderer + TSL node system ship no bundled .d.ts on these
 // subpaths, so declare the symbols we use as `any` (the node graph is dynamic).

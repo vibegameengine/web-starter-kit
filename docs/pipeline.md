@@ -106,14 +106,6 @@ plugin code in memory otherwise.
 React and still get stable renders — important when a heavy scene re-renders on
 every state tick.
 
-## 6. Version as a single source of truth
-
-`package.json -> version` is injected as `__APP_VERSION__` via Vite `define` and
-surfaced through [`src/config/appVersion.ts`](../src/config/appVersion.ts). Bump
-it with `npm run version:patch|minor|major` — the script updates `package.json`
-and `package-lock.json` together, and the build, tooling, and any UI that shows
-the version all read the same number.
-
 ## Configuration reference
 
 - **TypeScript** — three-file project-reference setup

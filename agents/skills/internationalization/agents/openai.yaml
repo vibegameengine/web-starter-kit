@@ -1,0 +1,4 @@
+interface:
+  display_name: "Internationalization"
+  short_description: "Типизированная локализация ru/en по feature"
+  default_prompt: "Use $internationalization to localize this feature with typed ru/en dictionaries."

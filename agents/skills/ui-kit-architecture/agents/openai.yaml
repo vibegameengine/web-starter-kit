@@ -1,0 +1,4 @@
+interface:
+  display_name: "UI Kit Architecture"
+  short_description: "Build isolated reusable game UI kits"
+  default_prompt: "Use $ui-kit-architecture to organize reusable game UI components and their assets."

@@ -7,13 +7,10 @@ import { defineConfig } from 'vitest/config'
 import {
   audioAssetOptimizerPlugin,
   bootstrapAssetRegistryPlugin,
+  fbxAssetLoaderPlugin,
   glbAssetOptimizerPlugin,
   imagetoolsDevCachePlugin,
 } from './vite'
-
-const packageJson = JSON.parse(fs.readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as {
-  version: string
-}
 
 // Load GLSL shader files as default-exported strings — the vendored realism-
 // effects TRAA in src/shared/vendor/realism-effects imports .glsl/.frag/.vert this way.
@@ -39,9 +36,6 @@ export default defineConfig({
   // Relative base keeps the built bundle portable across static hosts
   // (itch.io, Yandex Games S3, GitHub Pages sub-paths, plain file servers).
   base: './',
-  define: {
-    __APP_VERSION__: JSON.stringify(packageJson.version),
-  },
   plugins: [
     shaderRawLoader(),
     // Walks the static import graph from the entry and exposes every reachable
@@ -58,6 +52,7 @@ export default defineConfig({
     // `?texture=1024` / `?texture-format=keep` / `?texture-quality=90`, or bypass
     // with `?glb-optimize=off`.
     glbAssetOptimizerPlugin(),
+    fbxAssetLoaderPlugin(),
     react(),
     babel({ presets: [reactCompilerPreset()] }),
     // Serves imagetools output from disk cache in dev so repeated transforms are cheap.

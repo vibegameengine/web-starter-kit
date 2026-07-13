@@ -17,6 +17,8 @@ import {
   useBootstrapRenderRequestId,
 } from '../../features/bootstrap'
 import { ShadowThrottle } from '../../shared/lib/ShadowThrottle'
+import { DepthAwareVfxPortal } from '../../shared/lib/DepthAwareVfxPortal'
+import { DanceFireworks } from '../../features/world/entities/DanceFireworks'
 import { registerWarmupResources } from '../../features/world/materials/materials'
 import { Debug } from './Debug'
 import { MotionBlur } from './effects/MotionBlur'
@@ -32,7 +34,7 @@ registerWarmupResources()
  * key. ShaderWarmup pre-compiles the shaders and only then dismisses the
  * bootstrap overlay — so the first visible frame has no compile stutter.
  */
-export function GameCanvas() {
+export function GameCanvas({ isDancing = false }: { readonly isDancing?: boolean }) {
   const requestId = useBootstrapRenderRequestId()
   const [warmed, setWarmed] = useState(false)
 
@@ -61,12 +63,13 @@ export function GameCanvas() {
           but halves the shadow pass cost. */}
       <ShadowThrottle every={2} />
 
-      <StarterScene />
+      <StarterScene isDancing={isDancing} />
+
+      <DepthAwareVfxPortal>
+        <DanceFireworks active={isDancing} />
+      </DepthAwareVfxPortal>
 
       <EffectComposer multisampling={0}>
-        {/* Ambient occlusion — dark crevices give the scene depth. halfRes makes
-            it ~4× cheaper; depthAwareUpsampling (on by default) keeps the upscale
-            clean, and fewer samples cut cost further. */}
         {/* halfRes → ~4× cheaper AO; depthAwareUpsampling (default) keeps it clean. */}
         <N8AO
           halfRes

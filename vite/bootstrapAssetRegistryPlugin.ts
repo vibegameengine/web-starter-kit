@@ -98,6 +98,19 @@ export function bootstrapAssetRegistryPlugin(
       const assets = await collectBootstrapAssets(this, options.entry, config.root)
       return createBootstrapAssetModule(assets)
     },
+    handleHotUpdate({ file, server }) {
+      if (!config || !isSourceFile(file, config.root)) {
+        return
+      }
+
+      // The virtual module is a derived snapshot of the complete import graph.
+      // Invalidate it on a source edit so newly imported UI assets are included
+      // in the blocking preloader without restarting Vite.
+      const registryModule = server.moduleGraph.getModuleById(RESOLVED_VIRTUAL_BOOTSTRAP_ASSETS_ID)
+      if (registryModule) {
+        server.moduleGraph.invalidateModule(registryModule)
+      }
+    },
   }
 }
 
@@ -291,6 +304,11 @@ async function getFileSize(filePath: string): Promise<number> {
 function toDisplayPath(filePath: string, root: string): string {
   const relativePath = path.relative(root, filePath)
   return relativePath.startsWith('..') ? filePath : relativePath
+}
+
+function isSourceFile(filePath: string, root: string): boolean {
+  const relativePath = path.relative(path.join(root, 'src'), filePath)
+  return relativePath.length > 0 && !relativePath.startsWith('..') && !path.isAbsolute(relativePath)
 }
 
 function isDeferredAssetImport(importId: string): boolean {

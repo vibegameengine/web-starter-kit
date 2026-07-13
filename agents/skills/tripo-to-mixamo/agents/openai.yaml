@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tripo to Mixamo"
+  short_description: "Preserve direct Mixamo FBX animation"
+  default_prompt: "Use $tripo-to-mixamo to prepare one Tripo model GLB for untouched Mixamo FBX animations."

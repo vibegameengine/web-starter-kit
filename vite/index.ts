@@ -1,4 +1,5 @@
 export { audioAssetOptimizerPlugin } from './audioAssetOptimizerPlugin'
 export { bootstrapAssetRegistryPlugin } from './bootstrapAssetRegistryPlugin'
+export { fbxAssetLoaderPlugin } from './fbxAssetLoaderPlugin'
 export { glbAssetOptimizerPlugin } from './glbAssetOptimizerPlugin'
 export { imagetoolsDevCachePlugin } from './imagetoolsDevCachePlugin'

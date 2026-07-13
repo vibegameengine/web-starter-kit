@@ -1,8 +1,8 @@
 /**
  * Character motion — the ECS "systems" layer: pure, frame-independent math with
  * no React and no three. Given elapsed time it returns transforms, so the logic
- * stays unit-testable. The hooks in `../components` apply the result to an
- * entity's ref every frame.
+ * stays unit-testable. The shared `useSpin` and `useBob` hooks apply the result
+ * to an entity's ref every frame.
  */
 
 export interface SpinOptions {

@@ -2,13 +2,11 @@ import { Grid, OrbitControls } from '@react-three/drei'
 import { Canvas } from '@react-three/fiber'
 import { Suspense } from 'react'
 
-import { TanyRig } from '../../features/character/entities/TanyRig'
+import { Tany, type TanyAnimation } from '../../features/character/entities/Tany/Tany'
 
 interface CharacterDebugSceneProps {
-  /** Clip to play; `null` → default bind pose. */
-  activeClip?: string | null
-  /** Reports the rig's available clip names to the screen UI. */
-  onClips?: (names: string[]) => void
+  /** Production Tany animation to inspect. */
+  animation?: TanyAnimation
 }
 
 /**
@@ -17,7 +15,7 @@ interface CharacterDebugSceneProps {
  * HDRI so it works offline; DEV-only, mounted by CharacterDebugScreen behind the
  * /character-debug route.
  */
-export function CharacterDebugScene({ activeClip = null, onClips }: CharacterDebugSceneProps) {
+export function CharacterDebugScene({ animation = 'bind' }: CharacterDebugSceneProps) {
   return (
     <Canvas
       shadows
@@ -40,7 +38,7 @@ export function CharacterDebugScene({ activeClip = null, onClips }: CharacterDeb
       <directionalLight position={[-6, 5, -4]} intensity={0.5} color="#bcd2ec" />
 
       <Suspense fallback={null}>
-        <TanyRig position={[0, 0, 0]} activeClip={activeClip} onClips={onClips} />
+        <Tany animation={animation} position={[0, 0, 0]} />
       </Suspense>
 
       {/* Ground catcher for the shadow. */}

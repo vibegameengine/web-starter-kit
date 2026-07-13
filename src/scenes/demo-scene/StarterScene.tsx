@@ -9,7 +9,7 @@ import { ColoredProps } from '../../features/world/entities/ColoredProps'
 import { geometries, materials } from '../../features/world/materials/materials'
 import { Relic } from '../../features/world/entities/Relic'
 import { Water } from '../../features/world/entities/Water'
-import { Tany } from '../../features/character/entities/Tany'
+import { Tany } from '../../features/character/entities/Tany/Tany'
 
 // Central canal — matches the raised stone reservoir authored in Blockout.
 // Surface a touch below the 0.4 kerb top so the water sits inside the rim.
@@ -56,7 +56,7 @@ function GradientSky() {
   return null
 }
 
-export function StarterScene() {
+export function StarterScene({ isDancing = false }: { readonly isDancing?: boolean }) {
   return (
     <>
       <GradientSky />
@@ -104,9 +104,8 @@ export function StarterScene() {
         <Lightformer form="rect" intensity={0.3} position={[12, 5, 6]} scale={[10, 10, 1]} color="#f0e6d6" />
       </Environment>
 
-      {/* The whole world is static right now — tag it so the future shadow (and
-          GI) split can bake it once. Dynamic units will get their own
-          <ShadowGroup kind="dynamic"> when they're added. */}
+      {/* Static world geometry. ShadowGroup records the static/dynamic contract;
+          the current renderer still uses one throttled three.js shadow map. */}
       <ShadowGroup kind="static">
         {/* Ground */}
         <mesh
@@ -120,17 +119,17 @@ export function StarterScene() {
         <ColoredProps />
       </ShadowGroup>
 
-      {/* Water filling the central canal (planar reflections + ripples). */}
+      {/* Water filling the central canal: procedural ripples and a sky fresnel,
+          with no separate reflection pass. */}
       <Water size={CANAL_SIZE} position={CANAL_POS} level={CANAL_LEVEL} />
 
-      {/* First dynamic unit: a slowly spinning, hovering relic above the canal —
-          gives the otherwise-static world a living focal point. Tagged dynamic so
-          the future shadow/GI split treats it separately from the baked world. */}
+      {/* Dynamic actors: the relic hovers above the canal and Tany can dance.
+          Their tag is ready for a later cached-shadow/GI split. */}
       <ShadowGroup kind="dynamic">
         <Relic position={[0.4, 3.4, 5]} scale={1.3} />
         {/* Real Tany character (optimized Tripo GLB) standing on the open floor
             left of the canal, turned toward the camera. */}
-        <Tany position={[3.5, 0, 3.2]} rotationY={0.25} scale={1.25} />
+        <Tany isDancing={isDancing} position={[3.5, 0, 3.2]} rotationY={0.25} scale={1.25} />
       </ShadowGroup>
 
       <OrbitControls

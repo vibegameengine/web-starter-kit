@@ -1,0 +1,51 @@
+.uiKitPatch9Button,
+.uiKitPatch9Surface {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  display: inline-flex;
+  justify-content: center;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.uiKitPatch9Button {
+  cursor: pointer;
+  transition:
+    transform 140ms ease,
+    background-color 140ms ease,
+    color 140ms ease,
+    border-color 140ms ease,
+    opacity 140ms ease;
+}
+
+.uiKitPatch9Button,
+.uiKitPatch9Surface {
+  background-image: var(--patch9-rendered-image);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  border-radius: 0;
+  box-shadow: none;
+  color: var(--patch9-text-color, inherit);
+}
+
+.uiKitPatch9Button:disabled {
+  box-shadow: none;
+  cursor: not-allowed;
+  filter: saturate(0.78) brightness(0.94);
+  opacity: 0.48;
+}
+
+.uiKitPatch9Button[data-disabled-texture='true']:disabled {
+  filter: none;
+  opacity: 1;
+}
+
+.uiKitPatch9Button:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.uiKitPatch9Button:not(:disabled):active {
+  transform: translateY(1px);
+}

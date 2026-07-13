@@ -14,10 +14,15 @@
   "ignore": [
     "src/features/character/entities/PlaceholderCharacter.tsx",
     "src/features/world/entities/Fountain.tsx",
+    "src/shared/config/vfxPipeline.ts",
+    "src/shared/lib/audio/soundMixer.ts",
+    "src/shared/lib/VfxPortalPass.tsx",
+    "src/features/ui-kit/components/Patch9Button/Patch9Button.tsx",
     "src/scenes/demo-scene/effects/Ssgi.tsx",
     "src/scenes/demo-scene/effects/ssgiShader.ts",
     "src/scenes/demo-scene/effects/Traa.tsx",
     "src/scenes/demo-scene/webgpu/ReadyGate.tsx",
-    "src/scenes/demo-scene/webgpu/SSGIPipeline.tsx"
+    "src/scenes/demo-scene/webgpu/SSGIPipeline.tsx",
+    "vite/fbx2gltf.d.ts"
   ]
 }

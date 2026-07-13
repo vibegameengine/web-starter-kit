@@ -11,10 +11,10 @@ src/
   main.tsx            # entry: mount BootstrapGate + App, one place only
   App.tsx             # route/screen composition root
   index.css           # global reset + design tokens (CSS variables)
-  config/             # cross-cutting constants (e.g. injected app version)
-  bootstrap/          # the readiness-gate feature (systems + ui)
-  features/<name>/    # isolated features; import only via the feature's index.ts
-  shared/             # framework-free helpers reused across features
+  app/router/         # routing only; app-owned screens live in app/ui/
+  scenes/             # canvas/world composition roots
+  features/<slice>/   # isolated vertical slices
+  shared/             # framework-free helpers and app-wide config
 ```
 
 Rule of thumb: **dependencies point inward.** UI renders state and emits intent;
@@ -31,7 +31,12 @@ one folder:
   React state**. This is where anything worth unit-testing lives.
 - `entities/*` / `scene/*` — for canvas/WebGL apps, the runtime objects
   (an ECS-style split: `entity → components(hooks) → systems`).
-- `localization/*`, `config/*`, `assets/*` — colocated with the feature.
+- `localization/*`, `config/*` — colocated with the feature when they are
+  feature-owned.
+- Private runtime assets live beside their narrowest importing component, for
+  example `ui/MenuScreen/assets/` or `entities/Hero/assets/`. A model shared by
+  two entities belongs under their narrowest common owner, for example
+  `entities/assets/`. Never create `features/<slice>/assets/` as a bucket.
 - `index.ts` — the feature's public surface. Other code imports the feature
   through this file, not its internals.
 
@@ -44,9 +49,10 @@ The `bootstrap/` feature in this kit is a concrete example of the
   of `entities`, `components`, and `systems`. Import each module from its real
   layer so dependency boundaries stay visible. (A single public `index.ts` per
   feature is fine — that's the boundary, not an internal shortcut.)
-- **No production import from a root `assets/` staging folder.** An asset used at
-  runtime lives next to where it's used (colocated `assets/`), or next to the
-  shared primitive that owns it.
+- **No detached production asset buckets.** An asset used at runtime lives next
+  to its narrowest owner (colocated `assets/`), or under
+  `shared/<owner>/assets/` when a shared primitive owns it. In particular,
+  `features/<slice>/assets/` and `shared/assets/` are forbidden.
 - **CSS Modules by default** for component styles; no new global class-name
   stylesheets for feature UI.
 - **Clean-code discipline:** single responsibility per unit, intention-revealing

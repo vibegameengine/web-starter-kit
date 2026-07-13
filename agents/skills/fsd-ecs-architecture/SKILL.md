@@ -4,9 +4,9 @@ description: >-
   Where every file goes in this project's src/ and how to work in it. The
   codebase is Feature-Sliced Design (FSD) layers + a Unity-style ECS. ECS
   mapping: an ENTITY is a React component that IS a game being
-  (features/<slice>/entities/*.tsx); a COMPONENT
-  is a React hook you attach to any entity (features/<slice>/components/use*.ts);
-  a SYSTEM is pure framework-free logic (features/<slice>/systems/*.ts). MANDATORY
+  (features/slice/entities/*.tsx); a COMPONENT
+  is a React hook you attach to any entity (features/slice/components/use*.ts);
+  a SYSTEM is pure framework-free logic (features/slice/systems/*.ts). MANDATORY
   before adding, moving, or renaming any file under src/ — new entity, hook,
   system, screen, scene, feature, shared util, asset, or route. Enforces: correct
   layer placement, relative imports (no path aliases), deep cross-slice imports
@@ -77,10 +77,11 @@ src/
                       # Deep-imports entities from features. This is the composition root.
   features/
     <slice>/          # a vertical slice of the game. Holds entities/ components/ systems/
-                      # ui/ materials/ assets/ + optional index.ts (public API = its screen)
+                      # ui/ materials/ + optional index.ts (public API = its screen)
   shared/
-    config/           # app-wide constants (appVersion.ts)
+    config/           # app-wide constants (vfxPipeline.ts)
     lib/              # cross-feature primitives (ShadowGroup, ShadowThrottle, shadowLayers)
+    <owner>/assets/   # assets of a true shared primitive; the owner imports them
     vendor/           # third-party code we vendored (realism-effects)
   vite-env.d.ts       # ambient types; stays at src root
 ```
@@ -98,12 +99,15 @@ public boundary.
 | A thing that exists in the world (character, prop, building, water) | `features/<slice>/entities/X.tsx` | A React component. Behaviour comes from attached hooks. |
 | Reusable per-frame behaviour (spin, bob, follow, health-drain) | `features/<slice>/components/useX.ts`, or `shared/lib/` if used by 2+ features | A hook taking a ref/target. Keep it entity-agnostic. |
 | Pure game/math logic (layout, damage, pathing, RNG-free math) | `features/<slice>/systems/X.ts`, or `shared/lib/` if generic | No React, no three. **This is the layer you unit-test.** |
-| A full screen (HUD + canvas mount, a debug lab) | `features/<slice>/ui/XScreen.tsx` | Screens mount scenes; they don't contain the scene graph. |
+| A feature-owned screen (HUD + canvas mount, a debug lab) | `features/<slice>/ui/XScreen.tsx` | Screens mount scenes; they don't contain the scene graph. |
+| Visible DOM overlay for the starter scene | `features/ui-kit/components/DemoSceneHud/` | Presentation-only: canvas child, labels and callbacks come from the screen. |
+| An app route screen with no vertical domain (for example main menu) | `app/ui/<screen>/XScreen.tsx` | Compose feature public UI, keep routing here. |
 | The `<Canvas>` + post + scene graph | `scenes/<scene-name>/` | Deep-imports feature entities. One folder per distinct world. |
 | three.js Material/Geometry registries | `features/<slice>/materials/` | e.g. `world/materials/materials.ts`. |
-| An asset (png/mp3/glb) used by one feature | `features/<slice>/assets/` | Import it relatively from within the feature. |
+| A private asset (png/mp3/glb) | Next to the narrowest consumer, e.g. `components/X/assets/` | The importing component owns it; never use a detached asset bucket. |
+| A true common asset used across independent features | `shared/<owner>/assets/` | The shared primitive imports it directly; never create `shared/assets/` without an owner. |
 | A primitive used by ≥2 features | `shared/lib/` | Only promote to shared once a second consumer exists (YAGNI). |
-| An app-wide constant | `shared/config/` | e.g. `appVersion.ts`. |
+| An app-wide constant | `shared/config/` | e.g. `vfxPipeline.ts`. |
 | A new route | `app/router/AppRouter.tsx` | See "Adding a route" below. |
 
 ## Import rules
@@ -120,7 +124,8 @@ public boundary.
 ## Adding a new feature (recipe)
 
 1. `features/<slice>/` with the subfolders you actually need
-   (`entities/ components/ systems/ ui/`; add `materials/ assets/` if used).
+   (`entities/ components/ systems/ ui/`; add `materials/` if used). Put an
+   asset in the directory of the specific component/screen that imports it.
 2. Write **systems** first (pure, testable) → then **components** (hooks that
    call systems) → then **entities** (components that attach hooks) → then a
    **ui/ screen** if it needs its own route.
@@ -151,9 +156,8 @@ const CharacterDebugScreen = ENABLE_DEBUG_ROUTES
 
 Do not delete unused/WIP render code (see memory `never-delete-without-permission`).
 Give it a home instead: preserve passes/entities in place unwired, and turn
-salvageable screens into **DEV-only routes** (the old pipeline demo lives at
-`/pipeline-demo`, the character lab at `/character-debug`). This keeps `knip`
-honest without losing work.
+salvageable labs into **DEV-only routes** (the character lab lives at
+`/character-debug`). This keeps `knip` honest without losing work.
 
 ## Verify
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Patch9 UI"
+  short_description: "Patch9-рамки и интерактивный игровой UI"
+  default_prompt: "Use $patch9-ui to build a responsive, clickable Patch9 game UI."

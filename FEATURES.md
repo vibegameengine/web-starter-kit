@@ -10,13 +10,12 @@ Legend: ✅ transferred · 🔧 transferred + decoupled/generalized · ⛔ exclu
 
 | Piece | Status | Notes |
 | --- | --- | --- |
-| `vite.config.ts` (plugin wiring, `base: './'`, `define`) | ✅ | Coverage `include` re-scoped to the kit's tested modules |
+| `vite.config.ts` (plugin wiring, `base: './'`) | ✅ | Coverage `include` re-scoped to the kit's tested modules |
 | `bootstrapAssetRegistryPlugin` | ✅ | Verbatim |
 | `imagetoolsDevCachePlugin` | ✅ | Verbatim |
 | `audioAssetOptimizerPlugin` | 🔧 | Path match generalized: `src/**/assets/audio/*.mp3` (was `src/features/**`) |
 | `vite-imagetools` + `vite-plugin-image-optimizer` | ✅ | Same quality settings |
 | React Compiler (`@rolldown/plugin-babel` + preset) | ✅ | Verbatim |
-| `__APP_VERSION__` define from `package.json` | ✅ | Surfaced via `src/config/appVersion.ts` |
 | `tsconfig.json` / `.app.json` / `.node.json` | ✅ | `node` config also includes `vite/` + `scripts/` |
 | `eslint.config.js` (flat) | ✅ | Verbatim |
 | `knip.json` | ✅ | Verbatim |

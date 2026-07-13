@@ -1,41 +1,44 @@
 import { useState } from 'react'
 
 import { useReportInitialRenderReady } from '../../bootstrap'
+import type { TanyAnimation } from '../entities/Tany/Tany'
 import { CharacterDebugScene } from '../../../scenes/character-debug-scene/CharacterDebugScene'
 import styles from './CharacterDebugScreen.module.css'
 
 /**
- * DEV-only screen (route: /character-debug) hosting the Tany rig turntable with
- * a pose/animation switcher: "Default pose" holds the bind pose, each clip
- * button plays that animation. Clip names come up from the rig once it loads.
+ * DEV-only screen (route: /character-debug) hosting the same production Tany
+ * entity as the game scene. The controls select its bind, idle and Mixamo dance
+ * states without introducing a second character implementation.
  */
 export function CharacterDebugScreen() {
   useReportInitialRenderReady()
 
-  const [clips, setClips] = useState<string[]>([])
-  const [active, setActive] = useState<string | null>(null)
+  const [animation, setAnimation] = useState<TanyAnimation>('bind')
 
   return (
     <div className={styles.root}>
-      <CharacterDebugScene activeClip={active} onClips={setClips} />
+      <CharacterDebugScene animation={animation} />
 
       <div className={styles.panel}>
         <span className={styles.panelTitle}>Pose / Animation</span>
         <button
           type="button"
-          className={active === null ? styles.itemActive : styles.item}
-          onClick={() => setActive(null)}
+          className={animation === 'bind' ? styles.itemActive : styles.item}
+          onClick={() => setAnimation('bind')}
         >
           Default pose
         </button>
-        {clips.map((clip) => (
+        {[
+          ['idle', 'Idle'],
+          ['dance', 'Macarena'],
+        ].map(([mode, label]) => (
           <button
-            key={clip}
+            key={mode}
             type="button"
-            className={active === clip ? styles.itemActive : styles.item}
-            onClick={() => setActive(clip)}
+            className={animation === mode ? styles.itemActive : styles.item}
+            onClick={() => setAnimation(mode as TanyAnimation)}
           >
-            {clip}
+            {label}
           </button>
         ))}
       </div>

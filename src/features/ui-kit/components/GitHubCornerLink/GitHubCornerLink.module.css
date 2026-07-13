@@ -1,0 +1,96 @@
+.link {
+  display: block;
+  height: 88px;
+  pointer-events: auto;
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 88px;
+  z-index: 11;
+}
+
+.link svg {
+  display: block;
+  filter: drop-shadow(-2px 3px 3px rgba(0, 0, 0, 0.24));
+  height: 100%;
+  overflow: visible;
+  transition: filter 160ms ease, transform 160ms ease;
+  width: 100%;
+}
+
+.corner {
+  fill: #24292f;
+}
+
+.octocatArm,
+.octocatBody {
+  fill: #fff;
+}
+
+.octocatArm {
+  transform-origin: 130px 106px;
+}
+
+.label {
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  width: 1px;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.link:hover svg,
+.link:focus-visible svg {
+  filter: drop-shadow(-2px 4px 5px rgba(0, 0, 0, 0.34));
+  transform: scale(1.035);
+}
+
+.link:hover .corner,
+.link:focus-visible .corner {
+  fill: #32383f;
+}
+
+.link:hover .octocatArm {
+  animation: octocat-wave 560ms ease-in-out;
+}
+
+.link:focus-visible {
+  outline: 2px solid #fff2cc;
+  outline-offset: -3px;
+}
+
+@keyframes octocat-wave {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  20%,
+  60% {
+    transform: rotate(-25deg);
+  }
+
+  40%,
+  80% {
+    transform: rotate(10deg);
+  }
+}
+
+@media (max-width: 620px) {
+  .link {
+    height: 64px;
+    width: 64px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .link svg {
+    transition: none;
+  }
+
+  .link:hover .octocatArm {
+    animation: none;
+  }
+}

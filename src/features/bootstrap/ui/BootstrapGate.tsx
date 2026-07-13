@@ -7,6 +7,8 @@ import {
 } from 'react'
 import styles from './BootstrapGate.module.css'
 
+import type { BootstrapLocale } from '../localization/register'
+import { getInitialBootstrapLocale, useBootstrapI18n } from '../localization/useBootstrapI18n'
 import type { BootstrapStep } from '../systems/bootstrapSteps'
 import { requestInitialRenderReady } from '../systems/initialRenderReady'
 import { preloadBootstrapAssets } from '../systems/preloadBootstrapAssets'
@@ -57,6 +59,7 @@ export type BootstrapGateProps = {
 type BootstrapViewModel = {
   detail: string | null
   error: string | null
+  locale: BootstrapLocale
   phase: BootstrapPhase
   progress: number
   renderRequestId: number
@@ -79,14 +82,16 @@ export function BootstrapGate({
   const [viewModel, setViewModel] = useState<BootstrapViewModel>({
     detail: null,
     error: null,
+    locale: getInitialBootstrapLocale(),
     phase: prepareSteps && prepareSteps.length > 0 ? 'prepare' : 'assets',
     progress: 0,
     renderRequestId: 0,
     retryToken: 0,
   })
 
-  const progressLabel = labels?.progress ?? 'Loading'
-  const retryLabel = labels?.retry ?? 'Retry'
+  const { t } = useBootstrapI18n(viewModel.locale)
+  const retryLabel = labels?.retry ?? t('retry')
+  const resolvedProgressLabel = labels?.progress ?? t('progressLabel')
 
   const plan = useMemo(
     () =>
@@ -218,7 +223,7 @@ export function BootstrapGate({
     onRetry: viewModel.phase === 'failed' ? handleRetry : null,
     phase: viewModel.phase,
     progress: viewModel.progress,
-    progressLabel,
+    progressLabel: resolvedProgressLabel,
     retryLabel,
   }
 
@@ -260,6 +265,7 @@ export function BootstrapGate({
     setViewModel((current) => ({
       detail: null,
       error: null,
+      locale: current.locale,
       phase: hasPrepareSteps ? 'prepare' : 'assets',
       progress: 0,
       renderRequestId: 0,
