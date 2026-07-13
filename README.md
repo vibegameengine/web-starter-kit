@@ -3,7 +3,9 @@
 An **AI-agent-native** foundation for shipping browser games with
 Vite 8 · React 19 · TypeScript · Three.js.
 
-![Three.js scene — an animated character beside a reflective canal and a ruined colonnade under soft directional light](docs/screenshot.png)
+[**Open the live demo →**](https://vibegameengine.github.io/web-starter-kit/)
+
+[![Three.js scene — an animated character beside a reflective canal and a ruined colonnade under soft directional light](docs/screenshot.png)](https://vibegameengine.github.io/web-starter-kit/)
 
 > [!IMPORTANT]
 > ## For coding agents: start here
