@@ -8,6 +8,7 @@
     "dev": "vite",
     "postinstall": "node scripts/link-agent-skills.ts",
     "build": "tsc -b && vite build",
+    "build:gh-pages": "VITE_BASE_PATH=/web-starter-kit/ npm run build",
     "preview": "vite preview",
     "lint": "eslint .",
     "knip": "knip --include files,exports",

@@ -33,9 +33,9 @@ const shaderRawLoader = () => ({
 
 // https://vite.dev/config/
 export default defineConfig({
-  // Relative base keeps the built bundle portable across static hosts
-  // (itch.io, Yandex Games S3, GitHub Pages sub-paths, plain file servers).
-  base: './',
+  // Static hosts use the portable relative default. GitHub project Pages needs
+  // its repository sub-path so BrowserRouter and emitted assets agree.
+  base: process.env.VITE_BASE_PATH ?? './',
   plugins: [
     shaderRawLoader(),
     // Walks the static import graph from the entry and exposes every reachable

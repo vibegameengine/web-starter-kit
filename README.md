@@ -142,7 +142,9 @@ you attach), *system* (pure, tested logic). Scenes are the composition root;
 
 ## Deployment
 
-`base: './'` keeps the build portable across static hosts (itch.io, Yandex Games,
-GitHub Pages, plain file servers). Serve `.glb` with gzip/brotli for the smallest
-transfer. All optimizers are **dev dependencies — nothing ships in your bundle.**
-Requires Node 20+.
+`npm run build` keeps its relative asset base for portable static hosts. For this
+repository's GitHub project Pages run `npm run build:gh-pages`: it emits the
+`/web-starter-kit/` base and includes a `404.html` SPA fallback, so refreshes and
+deep links preserve React Router history. Serve `.glb` with gzip/brotli for the
+smallest transfer. All optimizers are **dev dependencies — nothing ships in your
+bundle.** Requires Node 20+.

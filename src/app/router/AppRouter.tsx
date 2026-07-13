@@ -13,9 +13,23 @@ const CharacterDebugScreen = ENABLE_DEBUG_ROUTES
     })
   : null
 
+const PAGES_REDIRECT_KEY = 'web-starter-kit:pages-redirect'
+const configuredBaseName = import.meta.env.BASE_URL.replace(/\/$/, '')
+const APP_BASE_NAME = configuredBaseName && configuredBaseName !== '.' ? configuredBaseName : undefined
+
+function restoreGitHubPagesRoute() {
+  const redirect = window.sessionStorage.getItem(PAGES_REDIRECT_KEY)
+  if (!redirect || !APP_BASE_NAME || !redirect.startsWith(`${APP_BASE_NAME}/`)) return
+
+  window.sessionStorage.removeItem(PAGES_REDIRECT_KEY)
+  window.history.replaceState(null, '', redirect)
+}
+
 export function AppRouter() {
+  restoreGitHubPagesRoute()
+
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={APP_BASE_NAME}>
       <Suspense fallback={null}>
         <Routes>
           {/* Main scene — the 3D starter/demo world. */}
