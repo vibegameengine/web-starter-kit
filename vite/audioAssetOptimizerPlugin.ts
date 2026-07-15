@@ -4,12 +4,26 @@ import vm from 'node:vm'
 
 import { MPEGDecoder } from 'mpg123-decoder'
 import type { Plugin, ResolvedConfig } from 'vite'
+import { normalizePath } from 'vite'
+
+import { createAssetOptimizerCache } from './assetOptimizerCache'
+import type { AssetOptimizerCache } from './assetOptimizerCache'
 
 type AudioOptimizeResult = {
   readonly bytes: Uint8Array
   readonly inputBytes: number
   readonly outputBytes: number
   readonly path: string
+  readonly wasOptimized: boolean
+  readonly wasNormalized: boolean
+  readonly cacheKey: string
+  readonly fromCache: boolean
+}
+
+// Persisted alongside the optimized bytes so a cache hit can rebuild the report
+// without re-encoding. `outputBytes` is always `bytes.byteLength`.
+type AudioCacheMeta = {
+  readonly inputBytes: number
   readonly wasOptimized: boolean
   readonly wasNormalized: boolean
 }
@@ -26,6 +40,12 @@ type Mp3EncoderLike = new (
 const AUDIO_MODULE_QUERY = 'audio-optimized'
 const AUDIO_OPT_OUT_QUERY = 'audio-optimize'
 const AUDIO_SERVE_PREFIX = '/@audio-optimizer/'
+const AUDIO_CACHE_NAMESPACE = 'audio-optimizer'
+// Bump when the encode/normalize pipeline changes so stale cache entries are ignored.
+const AUDIO_CACHE_VERSION = 1
+// The audio pipeline has no per-import options (opt-out is filtered before it
+// reaches optimization), so every entry shares one variant tag.
+const AUDIO_CACHE_VARIANT = 'default'
 const LAME_BUNDLE_PATH = path.resolve('node_modules/lamejs/lame.all.js')
 const LONG_TRACK_DURATION_SECONDS = 12
 const LONG_TRACK_BITRATE = 96
@@ -47,6 +67,7 @@ let mp3EncoderCtorPromise: Promise<Mp3EncoderLike> | null = null
  */
 export function audioAssetOptimizerPlugin(): Plugin {
   let config: ResolvedConfig | null = null
+  let cache: AssetOptimizerCache | null = null
   const optimizedAssets = new Map<string, Promise<AudioOptimizeResult>>()
   const reports = new Map<string, AudioOptimizeResult>()
   const serveKeyToFilePath = new Map<string, string>()
@@ -56,6 +77,7 @@ export function audioAssetOptimizerPlugin(): Plugin {
     enforce: 'pre',
     configResolved(resolvedConfig) {
       config = resolvedConfig
+      cache = createAssetOptimizerCache(resolvedConfig.root, AUDIO_CACHE_NAMESPACE, AUDIO_CACHE_VERSION)
     },
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
@@ -69,13 +91,13 @@ export function audioAssetOptimizerPlugin(): Plugin {
         const serveKey = decodeServeKey(requestUrl)
         const filePath = serveKeyToFilePath.get(serveKey)
 
-        if (!filePath) {
+        if (!filePath || !cache) {
           res.statusCode = 404
           res.end('Audio asset not found')
           return
         }
 
-        const result = await getOptimizedAsset(optimizedAssets, reports, filePath)
+        const result = await getOptimizedAsset(optimizedAssets, reports, cache, filePath)
 
         res.statusCode = 200
         res.setHeader('Content-Type', 'audio/mpeg')
@@ -83,6 +105,28 @@ export function audioAssetOptimizerPlugin(): Plugin {
         res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
         res.end(result.bytes)
       })
+    },
+    // Pre-warm on update: when a source track changes while the dev server is
+    // running, drop its memoized result, re-encode it eagerly (warming the disk +
+    // memory caches), then hand HMR the changed modules so the client refetches
+    // the fresh bytes instead of the stale optimized ones.
+    async handleHotUpdate(context) {
+      if (!config || !cache) {
+        return
+      }
+
+      const file = normalizePath(context.file)
+
+      if (!isProjectAudioAsset(file, config.root) || !optimizedAssets.has(file)) {
+        return
+      }
+
+      optimizedAssets.delete(file)
+      reports.delete(file)
+      await getOptimizedAsset(optimizedAssets, reports, cache, file).catch(() => undefined)
+
+      const modules = context.server.moduleGraph.getModulesByFile(file)
+      return modules ? [...modules] : undefined
     },
     async resolveId(source, importer) {
       if (!config || !shouldOptimizeImport(source)) {
@@ -104,18 +148,18 @@ export function audioAssetOptimizerPlugin(): Plugin {
       return `${filePath}?${AUDIO_MODULE_QUERY}&bootstrap=deferred`
     },
     async load(id) {
-      if (!config || !isOptimizedAudioModuleId(id)) {
+      if (!config || !cache || !isOptimizedAudioModuleId(id)) {
         return null
       }
 
       const filePath = stripQueryAndHash(id)
-      const result = await getOptimizedAsset(optimizedAssets, reports, filePath)
+      const result = await getOptimizedAsset(optimizedAssets, reports, cache, filePath)
 
       if (config.command === 'serve') {
         const serveKey = toServeKey(filePath, config.root)
         serveKeyToFilePath.set(serveKey, filePath)
 
-        return createUrlModule(createServeUrl(serveKey, result.outputBytes))
+        return createUrlModule(createServeUrl(serveKey, result.cacheKey))
       }
 
       const assetId = this.emitFile({
@@ -143,7 +187,7 @@ export function audioAssetOptimizerPlugin(): Plugin {
         }
 
         console.log(
-          `[audio] ${action} ${toRelativePath(result.path)}: ${formatBytes(result.inputBytes)} -> ${formatBytes(result.outputBytes)}`,
+          `[audio] ${action}${result.fromCache ? ' (cached)' : ''} ${toRelativePath(result.path)}: ${formatBytes(result.inputBytes)} -> ${formatBytes(result.outputBytes)}`,
         )
       }
 
@@ -153,15 +197,16 @@ export function audioAssetOptimizerPlugin(): Plugin {
 }
 
 async function getOptimizedAsset(
-  cache: Map<string, Promise<AudioOptimizeResult>>,
+  memoryCache: Map<string, Promise<AudioOptimizeResult>>,
   reports: Map<string, AudioOptimizeResult>,
+  diskCache: AssetOptimizerCache,
   filePath: string,
 ): Promise<AudioOptimizeResult> {
-  let pendingResult = cache.get(filePath)
+  let pendingResult = memoryCache.get(filePath)
 
   if (!pendingResult) {
-    pendingResult = optimizeAudioAsset(filePath)
-    cache.set(filePath, pendingResult)
+    pendingResult = optimizeAudioAsset(filePath, diskCache)
+    memoryCache.set(filePath, pendingResult)
   }
 
   const result = await pendingResult
@@ -169,9 +214,29 @@ async function getOptimizedAsset(
   return result
 }
 
-async function optimizeAudioAsset(filePath: string): Promise<AudioOptimizeResult> {
+async function optimizeAudioAsset(
+  filePath: string,
+  diskCache: AssetOptimizerCache,
+): Promise<AudioOptimizeResult> {
   const inputBytes = await readFile(filePath)
   const inputSize = inputBytes.byteLength
+
+  // Content-addressed: an edit to the source track is a cache miss, an unchanged
+  // track is a hit across dev restarts and builds.
+  const cacheKey = diskCache.computeKey(inputBytes, AUDIO_CACHE_VARIANT)
+  const cached = await diskCache.read<AudioCacheMeta>(cacheKey)
+  if (cached) {
+    return {
+      bytes: cached.bytes,
+      inputBytes: cached.meta.inputBytes,
+      outputBytes: cached.bytes.byteLength,
+      path: filePath,
+      wasNormalized: cached.meta.wasNormalized,
+      wasOptimized: cached.meta.wasOptimized,
+      cacheKey,
+      fromCache: true,
+    }
+  }
 
   const decoder = new MPEGDecoder({ enableGapless: true })
   await decoder.ready
@@ -216,27 +281,52 @@ async function optimizeAudioAsset(filePath: string): Promise<AudioOptimizeResult
     const wasNormalized = Math.abs(finalGain - 1) > 0.0001
 
     if (encoded.byteLength >= inputSize && !wasNormalized) {
-      return {
-        bytes: inputBytes,
+      return finalizeResult(diskCache, cacheKey, {
+        bytes: new Uint8Array(inputBytes),
         inputBytes: inputSize,
         outputBytes: inputSize,
         path: filePath,
         wasNormalized: false,
         wasOptimized: false,
-      }
+        cacheKey,
+        fromCache: false,
+      })
     }
 
-    return {
+    return finalizeResult(diskCache, cacheKey, {
       bytes: encoded,
       inputBytes: inputSize,
       outputBytes: encoded.byteLength,
       path: filePath,
       wasNormalized,
       wasOptimized: encoded.byteLength < inputSize,
-    }
+      cacheKey,
+      fromCache: false,
+    })
   } finally {
     decoder.free()
   }
+}
+
+// Persist the freshly optimized result to the disk cache before returning it, so
+// the next dev restart / build reuses it. Cache-write failures are non-fatal.
+async function finalizeResult(
+  diskCache: AssetOptimizerCache,
+  cacheKey: string,
+  result: AudioOptimizeResult,
+): Promise<AudioOptimizeResult> {
+  await diskCache
+    .write<AudioCacheMeta>(cacheKey, {
+      bytes: result.bytes,
+      meta: {
+        inputBytes: result.inputBytes,
+        wasNormalized: result.wasNormalized,
+        wasOptimized: result.wasOptimized,
+      },
+    })
+    .catch(() => undefined)
+
+  return result
 }
 
 async function encodeMp3(
@@ -337,8 +427,11 @@ function createUrlModule(url: string): string {
   return `export default ${JSON.stringify(url)};`
 }
 
-function createServeUrl(serveKey: string, version: number): string {
-  return `${AUDIO_SERVE_PREFIX}${encodeURIComponent(serveKey)}?v=${version}`
+function createServeUrl(serveKey: string, version: string): string {
+  // `version` is the content-addressed cache key, so the served URL changes iff
+  // the optimized bytes change — the browser's immutable cache never sticks on a
+  // stale variant after a source edit + dev refresh.
+  return `${AUDIO_SERVE_PREFIX}${encodeURIComponent(serveKey)}?v=${version.slice(0, 16)}`
 }
 
 function decodeServeKey(requestUrl: string): string {

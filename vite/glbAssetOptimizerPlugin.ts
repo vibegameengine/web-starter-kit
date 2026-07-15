@@ -1,13 +1,17 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 
-import { NodeIO } from '@gltf-transform/core'
+import { Logger, NodeIO } from '@gltf-transform/core'
 import type { Transform } from '@gltf-transform/core'
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions'
 import { dedup, flatten, meshopt, prune, textureCompress } from '@gltf-transform/functions'
 import { MeshoptEncoder } from 'meshoptimizer'
 import sharp from 'sharp'
 import type { Plugin, ResolvedConfig } from 'vite'
+import { normalizePath } from 'vite'
+
+import { createAssetOptimizerCache } from './assetOptimizerCache'
+import type { AssetOptimizerCache } from './assetOptimizerCache'
 
 type TextureFormat = 'webp' | 'jpeg' | 'png' | 'avif' | 'keep'
 
@@ -25,11 +29,23 @@ type GlbOptimizeResult = {
   readonly outputBytes: number
   readonly path: string
   readonly wasOptimized: boolean
+  readonly cacheKey: string
+  readonly fromCache: boolean
+}
+
+// Persisted alongside the optimized bytes so a cache hit can rebuild the report
+// without re-running the pipeline. `outputBytes` is always `bytes.byteLength`.
+type GlbCacheMeta = {
+  readonly inputBytes: number
+  readonly wasOptimized: boolean
 }
 
 const GLB_MODULE_QUERY = 'glb-optimized'
 const GLB_OPT_OUT_QUERY = 'glb-optimize'
 const GLB_SERVE_PREFIX = '/@glb-optimizer/'
+const GLB_CACHE_NAMESPACE = 'glb-optimizer'
+// Bump when the optimization pipeline changes so stale cache entries are ignored.
+const GLB_CACHE_VERSION = 1
 
 // Per-import overrides, e.g. `?texture=1024&texture-format=keep`.
 const TEXTURE_SIZE_QUERY = 'texture'
@@ -41,6 +57,10 @@ const ALBEDO_ONLY_QUERY = 'albedo'
 // `?meshopt` — quantize + Meshopt-compress geometry/morph/animation buffers
 // (EXT_meshopt_compression). drei's useGLTF wires the decoder automatically.
 const MESHOPT_QUERY = 'meshopt'
+
+// Silences gltf-transform's per-transform INFO/WARN chatter (`prune: Removed
+// types…`, `reorder: …`) — cosmetic noise on every processed model.
+const QUIET_LOGGER = new Logger(Logger.Verbosity.ERROR)
 
 const DEFAULT_MAX_TEXTURE_SIZE = 2048
 const DEFAULT_TEXTURE_FORMAT: TextureFormat = 'webp'
@@ -70,6 +90,7 @@ const NORMAL_LIKE_SLOTS = ['normalTexture']
  */
 export function glbAssetOptimizerPlugin(): Plugin {
   let config: ResolvedConfig | null = null
+  let cache: AssetOptimizerCache | null = null
   const optimizedAssets = new Map<string, Promise<GlbOptimizeResult>>()
   const reports = new Map<string, GlbOptimizeResult>()
   const serveKeyToId = new Map<string, string>()
@@ -79,6 +100,7 @@ export function glbAssetOptimizerPlugin(): Plugin {
     enforce: 'pre',
     configResolved(resolvedConfig) {
       config = resolvedConfig
+      cache = createAssetOptimizerCache(resolvedConfig.root, GLB_CACHE_NAMESPACE, GLB_CACHE_VERSION)
     },
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
@@ -92,13 +114,13 @@ export function glbAssetOptimizerPlugin(): Plugin {
         const serveKey = decodeServeKey(requestUrl)
         const moduleId = serveKeyToId.get(serveKey)
 
-        if (!moduleId) {
+        if (!moduleId || !cache) {
           res.statusCode = 404
           res.end('GLB asset not found')
           return
         }
 
-        const result = await getOptimizedAsset(optimizedAssets, reports, moduleId)
+        const result = await getOptimizedAsset(optimizedAssets, reports, cache, moduleId)
 
         res.statusCode = 200
         res.setHeader('Content-Type', 'model/gltf-binary')
@@ -106,6 +128,45 @@ export function glbAssetOptimizerPlugin(): Plugin {
         res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
         res.end(result.bytes)
       })
+    },
+    // Pre-warm on update: when a source model changes while the dev server is
+    // running, drop its memoized result, re-optimize it eagerly (so the disk +
+    // memory caches are hot before the browser asks), then hand HMR the changed
+    // modules so the client refetches the fresh bytes. Without this the in-memory
+    // cache (keyed by import id, not content) would keep serving the STALE
+    // optimized bytes for an edited-in-place model.
+    async handleHotUpdate(context) {
+      if (!config || !cache || !isProjectModelAsset(normalizePath(context.file), config.root)) {
+        return
+      }
+
+      const file = normalizePath(context.file)
+      const affected = [...optimizedAssets.keys()].filter(
+        (moduleId) => normalizePath(stripQueryAndHash(moduleId)) === file,
+      )
+
+      if (affected.length === 0) {
+        return
+      }
+
+      const modules = []
+      for (const moduleId of affected) {
+        optimizedAssets.delete(moduleId)
+        reports.delete(moduleId)
+
+        const module = context.server.moduleGraph.getModuleById(moduleId)
+        if (module) {
+          modules.push(module)
+        }
+      }
+
+      await Promise.all(
+        affected.map((moduleId) =>
+          getOptimizedAsset(optimizedAssets, reports, cache!, moduleId).catch(() => undefined),
+        ),
+      )
+
+      return modules.length > 0 ? modules : undefined
     },
     async resolveId(source, importer) {
       if (!config || !isInterceptableModelImport(source)) {
@@ -131,17 +192,17 @@ export function glbAssetOptimizerPlugin(): Plugin {
       return `${filePath}?${GLB_MODULE_QUERY}${suffix}`
     },
     async load(id) {
-      if (!config || !isOptimizedModelModuleId(id)) {
+      if (!config || !cache || !isOptimizedModelModuleId(id)) {
         return null
       }
 
-      const result = await getOptimizedAsset(optimizedAssets, reports, id)
+      const result = await getOptimizedAsset(optimizedAssets, reports, cache, id)
 
       if (config.command === 'serve') {
         const serveKey = toServeKey(id, config.root)
         serveKeyToId.set(serveKey, id)
 
-        return createUrlModule(createServeUrl(serveKey, result.outputBytes))
+        return createUrlModule(createServeUrl(serveKey, result.cacheKey))
       }
 
       const assetId = this.emitFile({
@@ -167,7 +228,7 @@ export function glbAssetOptimizerPlugin(): Plugin {
         }
 
         console.log(
-          `[glb] ${result.wasOptimized ? 'optimized' : 'kept'} ${toRelativePath(result.path)}: ${formatBytes(result.inputBytes)} -> ${formatBytes(result.outputBytes)}`,
+          `[glb] ${result.wasOptimized ? 'optimized' : 'kept'}${result.fromCache ? ' (cached)' : ''} ${toRelativePath(result.path)}: ${formatBytes(result.inputBytes)} -> ${formatBytes(result.outputBytes)}`,
         )
       }
 
@@ -177,15 +238,16 @@ export function glbAssetOptimizerPlugin(): Plugin {
 }
 
 async function getOptimizedAsset(
-  cache: Map<string, Promise<GlbOptimizeResult>>,
+  memoryCache: Map<string, Promise<GlbOptimizeResult>>,
   reports: Map<string, GlbOptimizeResult>,
+  diskCache: AssetOptimizerCache,
   moduleId: string,
 ): Promise<GlbOptimizeResult> {
-  let pendingResult = cache.get(moduleId)
+  let pendingResult = memoryCache.get(moduleId)
 
   if (!pendingResult) {
-    pendingResult = optimizeModelAsset(moduleId)
-    cache.set(moduleId, pendingResult)
+    pendingResult = optimizeModelAsset(moduleId, diskCache)
+    memoryCache.set(moduleId, pendingResult)
   }
 
   const result = await pendingResult
@@ -193,10 +255,33 @@ async function getOptimizedAsset(
   return result
 }
 
-async function optimizeModelAsset(moduleId: string): Promise<GlbOptimizeResult> {
+async function optimizeModelAsset(
+  moduleId: string,
+  diskCache: AssetOptimizerCache,
+): Promise<GlbOptimizeResult> {
   const filePath = stripQueryAndHash(moduleId)
   const options = parseOptimizeOptions(moduleId)
+  const bypass = shouldBypassOptimization(moduleId)
   const isBinaryInput = path.extname(filePath).toLowerCase() === '.glb'
+
+  // Hash the raw source bytes + resolved options, so an edit to the source (or a
+  // changed option) is a cache miss and re-optimizes, while an unchanged source
+  // is a hit across dev restarts and builds.
+  const sourceBytes = new Uint8Array(await readFile(filePath))
+  const cacheKey = diskCache.computeKey(sourceBytes, serializeVariant(options, bypass))
+
+  const cached = await diskCache.read<GlbCacheMeta>(cacheKey)
+  if (cached) {
+    return {
+      bytes: cached.bytes,
+      inputBytes: cached.meta.inputBytes,
+      outputBytes: cached.bytes.byteLength,
+      path: filePath,
+      wasOptimized: cached.meta.wasOptimized,
+      cacheKey,
+      fromCache: true,
+    }
+  }
 
   const io = new NodeIO().registerExtensions(ALL_EXTENSIONS)
 
@@ -211,23 +296,26 @@ async function optimizeModelAsset(moduleId: string): Promise<GlbOptimizeResult> 
   // Baseline = the true `.glb` file bytes, or, for `.gltf`, a plain repack into
   // a single `.glb` (the honest single-file equivalent to compare against).
   const originalBytes = isBinaryInput
-    ? new Uint8Array(await readFile(filePath))
+    ? sourceBytes
     : await new NodeIO().registerExtensions(ALL_EXTENSIONS).writeBinary(await io.read(filePath))
   const inputSize = originalBytes.byteLength
 
   // `?glb-optimize=off` opts a single import out — we still handle it (so the id
   // resolves) but emit the untouched bytes with no texture/geometry changes.
-  if (shouldBypassOptimization(moduleId)) {
-    return {
+  if (bypass) {
+    return finalizeResult(diskCache, cacheKey, {
       bytes: originalBytes,
       inputBytes: inputSize,
       outputBytes: inputSize,
       path: filePath,
       wasOptimized: false,
-    }
+      cacheKey,
+      fromCache: false,
+    })
   }
 
   const document = await io.read(filePath)
+  document.setLogger(QUIET_LOGGER)
 
   const transforms = [
     ...(options.albedoOnly ? [stripToAlbedo()] : []),
@@ -259,22 +347,57 @@ async function optimizeModelAsset(moduleId: string): Promise<GlbOptimizeResult> 
   const encoded = await io.writeBinary(document)
 
   if (encoded.byteLength >= inputSize) {
-    return {
+    return finalizeResult(diskCache, cacheKey, {
       bytes: originalBytes,
       inputBytes: inputSize,
       outputBytes: inputSize,
       path: filePath,
       wasOptimized: false,
-    }
+      cacheKey,
+      fromCache: false,
+    })
   }
 
-  return {
+  return finalizeResult(diskCache, cacheKey, {
     bytes: encoded,
     inputBytes: inputSize,
     outputBytes: encoded.byteLength,
     path: filePath,
     wasOptimized: true,
-  }
+    cacheKey,
+    fromCache: false,
+  })
+}
+
+// Persist the freshly optimized result to the disk cache before returning it, so
+// the next dev restart / build reuses it. Cache-write failures are non-fatal.
+async function finalizeResult(
+  diskCache: AssetOptimizerCache,
+  cacheKey: string,
+  result: GlbOptimizeResult,
+): Promise<GlbOptimizeResult> {
+  await diskCache
+    .write<GlbCacheMeta>(cacheKey, {
+      bytes: result.bytes,
+      meta: { inputBytes: result.inputBytes, wasOptimized: result.wasOptimized },
+    })
+    .catch(() => undefined)
+
+  return result
+}
+
+// A deterministic tag for the resolved options, so distinct per-import settings
+// (texture size/format/quality, albedo, meshopt, opt-out) get distinct cache
+// keys. Irrelevant query params (e.g. `bootstrap`) never reach here.
+function serializeVariant(options: GlbOptimizeOptions, bypass: boolean): string {
+  return JSON.stringify({
+    albedoOnly: options.albedoOnly,
+    bypass,
+    maxTextureSize: options.maxTextureSize,
+    meshopt: options.meshopt,
+    textureFormat: options.textureFormat,
+    textureQuality: options.textureQuality,
+  })
 }
 
 function parseOptimizeOptions(moduleId: string): GlbOptimizeOptions {
@@ -365,8 +488,11 @@ function createUrlModule(url: string): string {
   return `export default ${JSON.stringify(url)};`
 }
 
-function createServeUrl(serveKey: string, version: number): string {
-  return `${GLB_SERVE_PREFIX}${encodeURIComponent(serveKey)}?v=${version}`
+function createServeUrl(serveKey: string, version: string): string {
+  // `version` is the content-addressed cache key, so the served URL changes iff
+  // the optimized bytes change — the browser's immutable cache never sticks on a
+  // stale variant after a source edit + dev refresh.
+  return `${GLB_SERVE_PREFIX}${encodeURIComponent(serveKey)}?v=${version.slice(0, 16)}`
 }
 
 function decodeServeKey(requestUrl: string): string {
