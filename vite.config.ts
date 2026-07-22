@@ -36,6 +36,18 @@ export default defineConfig({
   // Static hosts use the portable relative default. GitHub project Pages needs
   // its repository sub-path so BrowserRouter and emitted assets agree.
   base: process.env.VITE_BASE_PATH ?? './',
+  // Keep ecosystem peer dependencies on upstream R3F, but resolve every runtime
+  // import to the maintained Vibegameengine fork. This provides its native FPS
+  // cap without introducing a second R3F context beside drei/postprocessing.
+  resolve: {
+    alias: {
+      '@react-three/fiber': '@vibegameengine/react-three-fiber',
+    },
+    dedupe: ['three', 'react', 'react-dom', '@vibegameengine/react-three-fiber'],
+  },
+  optimizeDeps: {
+    include: ['@vibegameengine/react-three-fiber'],
+  },
   plugins: [
     shaderRawLoader(),
     // Walks the static import graph from the entry and exposes every reachable
