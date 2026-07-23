@@ -1,0 +1,265 @@
+.root {
+  display: grid;
+  box-sizing: border-box;
+  min-height: 100vh;
+  background: #f5f5f7;
+  color: #1d1d1f;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', Inter, sans-serif;
+  grid-template-columns: 268px minmax(0, 1fr);
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  box-sizing: border-box;
+  height: 100vh;
+  min-height: 100vh;
+  overflow-y: auto;
+  padding: 32px 18px;
+  border-right: 1px solid #d2d2d7;
+  background: rgb(255 255 255 / 88%);
+  color: #1d1d1f;
+  box-shadow: 1px 0 0 rgb(255 255 255 / 70%);
+  backdrop-filter: blur(20px);
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: currentcolor;
+  color: #6e6e73;
+  font: 700 11px/1.2 -apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, sans-serif;
+  letter-spacing: 0.08em;
+  opacity: 1;
+}
+
+.title {
+  margin: 0 0 24px;
+  font-size: 25px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.sceneLink {
+  display: block;
+  margin: -10px 0 20px;
+  padding: 10px 12px;
+  border: 1px solid #007aff;
+  border-radius: 9px;
+  background: #eef6ff;
+  color: #0065cf;
+  font: 700 13px/1.2 -apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, sans-serif;
+  text-decoration: none;
+}
+
+.sceneLink:hover,
+.sceneLink:focus-visible { background: #dceeff; }
+
+.sceneLink:focus-visible { outline: 2px solid #1d1d1f; outline-offset: 2px; }
+
+.componentList {
+  display: grid;
+  gap: 4px;
+}
+
+.component,
+.componentSelected {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: #1d1d1f;
+  font: 600 15px/1.25 -apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+
+.component:hover,
+.component:focus-visible {
+  background: #ebebf0;
+  outline: none;
+}
+
+.componentSelected {
+  border-color: #007aff;
+  background: #007aff;
+  color: #fff;
+}
+
+.workspace {
+  display: grid;
+  min-width: 0;
+  min-height: 100vh;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.workspaceHeader {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 32px 42px 25px;
+  border-bottom: 1px solid #d2d2d7;
+  background: rgb(255 255 255 / 84%);
+  backdrop-filter: blur(20px);
+}
+
+.workspaceHeader h2,
+.workspaceHeader p {
+  margin: 0;
+}
+
+.workspaceHeader h2 {
+  margin-top: 9px;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.workspaceHeader > p:last-child {
+  margin-top: 8px;
+  color: #6e6e73;
+  font-size: 15px;
+}
+
+.headerControls { flex: 1 1 360px; max-width: 720px; }
+.headerControls :global([data-pixel-diff-inspector]) { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; }
+.headerControls :global([data-pixel-diff-inspector]) > button { width: auto; }
+.headerControls :global([data-pixel-diff-inspector]) > [role='toolbar'] { display: flex; flex: none; }
+.headerControls :global([data-pixel-diff-inspector]) > [role='toolbar'] > button { border-right: 1px solid #39516c; border-bottom: 0; white-space: nowrap; }
+.headerControls :global([data-pixel-diff-inspector]) > [role='toolbar'] > button:last-child { border-right: 0; }
+
+.canvas {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  background: #c4c7cb;
+}
+
+/* Zoom & pan surface: wheel zooms toward the cursor; hold Space to drag-pan. */
+.viewport {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: default;
+  touch-action: none;
+}
+
+.viewportPan { cursor: grab; }
+.viewportPan:active { cursor: grabbing; }
+
+.viewportContent {
+  position: relative;
+  transform-origin: center center;
+  will-change: transform;
+}
+
+/* The grid lives inside the transform so it pans and zooms with the preview. */
+.grid {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8000px;
+  height: 8000px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  background:
+    linear-gradient(#6b7278 2px, transparent 2px) 0 0 / 200px 200px,
+    linear-gradient(90deg, #6b7278 2px, transparent 2px) 0 0 / 200px 200px,
+    linear-gradient(#9aa0a6 1px, transparent 1px) 0 0 / 20px 20px,
+    linear-gradient(90deg, #9aa0a6 1px, transparent 1px) 0 0 / 20px 20px,
+    conic-gradient(from 90deg at 1px 1px, #c4c7cb 25%, #bcbfc3 0 50%, #c4c7cb 0 75%, #bcbfc3 0) 0 0 / 40px 40px;
+}
+
+.previewLayer { position: relative; }
+
+.zoomControls {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 8px;
+  border: 1px solid rgb(0 0 0 / 12%);
+  border-radius: 10px;
+  background: rgb(255 255 255 / 88%);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 18%);
+  backdrop-filter: blur(12px);
+  user-select: none;
+}
+
+.zoomControls button {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid #d2d2d7;
+  border-radius: 7px;
+  background: #fff;
+  color: #1d1d1f;
+  font: 600 14px/1 -apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, sans-serif;
+  cursor: pointer;
+}
+
+.zoomControls button:hover { background: #ebebf0; }
+
+.zoomHint {
+  margin-right: 4px;
+  color: #6e6e73;
+  font: 500 12px/1 -apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, sans-serif;
+  white-space: nowrap;
+}
+
+.zoomValue {
+  min-width: 46px;
+  color: #1d1d1f;
+  font: 600 13px/1 -apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, sans-serif;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.empty {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  background: #f5f5f7;
+  color: #1d1d1f;
+  font: 600 22px/1.3 -apple-system, BlinkMacSystemFont, 'SF Pro Display', Inter, sans-serif;
+}
+
+@media (max-width: 720px) {
+  .root {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: static;
+    height: auto;
+    min-height: 0;
+    padding: 22px 18px;
+  }
+
+  .title {
+    margin-bottom: 16px;
+  }
+
+  .componentList {
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  }
+
+  .workspace {
+    min-height: calc(100vh - 220px);
+  }
+
+  .workspaceHeader,
+  .canvas {
+    padding: 26px;
+  }
+
+  .workspaceHeader { align-items: flex-start; flex-direction: column; }
+  .headerControls { width: 100%; }
+}

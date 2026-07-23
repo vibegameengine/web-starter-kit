@@ -1,0 +1,4 @@
+.zone { position: relative; width: var(--virtual-stick-zone-size, 180px); height: var(--virtual-stick-zone-size, 180px); touch-action: none; user-select: none; }
+.base { position: absolute; bottom: 14px; left: 50%; width: 94px; height: 94px; transform: translateX(-50%); border: 2px solid rgb(255 255 255 / 48%); border-radius: 50%; background: rgb(12 27 42 / 36%); box-shadow: inset 0 0 0 8px rgb(255 255 255 / 8%), 0 8px 22px rgb(4 16 28 / 28%); pointer-events: none; }
+.nub { position: absolute; top: 50%; left: 50%; width: 42px; height: 42px; transform: translate(-50%, -50%); border-radius: 50%; background: #6faed8; box-shadow: 0 3px 12px rgb(4 16 28 / 45%); transition: transform 45ms linear; }
+@media (prefers-reduced-motion: reduce) { .nub { transition: none; } }

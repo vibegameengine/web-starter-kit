@@ -1,6 +1,6 @@
 import { useLayoutEffect } from 'react'
 
-import { waitForPatch9ImagesReady } from '../../ui-kit/components/Patch9Button/patch9ImageRenderer'
+import { waitForPatch9ImagesReady } from '../../../shared/lib/patch9/patch9ImageRenderer'
 import { reportInitialRenderReady } from '../systems/initialRenderReady'
 import { useBootstrapRenderRequestId } from './useBootstrapRenderRequestId'
 

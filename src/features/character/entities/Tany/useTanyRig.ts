@@ -4,10 +4,14 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import type { RefObject } from 'react'
 import { LoopOnce, LoopRepeat, Mesh, MeshBasicMaterial, MeshStandardMaterial } from 'three'
 import type { AnimationClip, Group, Object3D, Quaternion, Vector3 } from 'three'
+import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js'
 
+import { collectSkinnedMeshes } from '../../../../shared/lib/glbModel/collectSkinnedMeshes'
+import { mergeSkinnedModel } from '../../../../shared/lib/glbModel/mergeSkinnedModel'
 import danceUrl from './assets/animations/macarena-dance.fbx'
 import greetingUrl from './assets/animations/Standing Greeting.fbx'
 import tanyUrl from './assets/models/tany-idle-mixamo-rigged.glb?texture=1024&albedo&meshopt'
+import { createSwordMergePart } from './SwordBack'
 
 useGLTF.preload(tanyUrl)
 useGLTF.preload(danceUrl)
@@ -35,7 +39,17 @@ export function useTanyRig(
   const bindPose = useRef<BindTransform[]>([])
   const greetingCompleted = useRef(false)
   const greetingFinishedRef = useRef(onGreetingFinished)
-  const { scene, animations } = useGLTF(tanyUrl)
+  const { scene: sourceScene, animations } = useGLTF(tanyUrl)
+  const scene = useMemo(() => {
+    // The merger mutates its input. Clone first so the GLTF cache and its sibling
+    // instances keep their untouched skeletons and source meshes.
+    const ownedScene = cloneSkinned(sourceScene)
+    const body = collectSkinnedMeshes(ownedScene)[0]
+    if (!body) throw new Error('Tany model has no skinned body mesh')
+    createSwordMergePart(body)
+    if (!mergeSkinnedModel(ownedScene)) throw new Error('Tany sword merger did not produce a combined skinned mesh')
+    return ownedScene
+  }, [sourceScene])
   const { animations: danceAnimations } = useGLTF(danceUrl)
   const { animations: greetingAnimations } = useGLTF(greetingUrl)
   // One mixer owns every clip for this one skeleton. Separate mixers overwrite

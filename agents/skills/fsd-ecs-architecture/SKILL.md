@@ -120,6 +120,12 @@ public boundary.
   screen** goes in one (e.g. `features/world/index.ts` re-exports `GameScreen`,
   consumed by the router). Do not re-export entities/hooks/systems you only use
   inside the feature — `knip` will flag them.
+- **Never re-export an asset-bearing visual module from a feature barrel.** An
+  effect, render entity, or material that imports images, audio, models, or
+  shaders must be imported directly from its owning file. Pure systems, types,
+  and code-only helpers may use a barrel. A DEV/lab screen must never share a
+  barrel with a production visual consumer: that makes its assets
+  production-reachable.
 
 ## Adding a new feature (recipe)
 

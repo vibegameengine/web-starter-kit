@@ -25,15 +25,17 @@
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.1",
     "@react-three/postprocessing": "^3.0.4",
+    "@recast-navigation/three": "^0.43.1",
+    "@vibegameengine/r3f-perf": "^7.2.5",
     "@vibegameengine/react-three-fiber": "9.6.1-vibegame.1",
     "@vibegameengine/shader-warmup": "^1.1.0",
     "@vibegameengine/ui-scaler": "^1.0.2",
     "howler": "^2.2.4",
     "photon-realtime": "^4.4.0",
-    "r3f-perf": "^7.2.3",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router-dom": "^7.18.1",
+    "recast-navigation": "^0.43.1",
     "three": "^0.185.1"
   },
   "devDependencies": {

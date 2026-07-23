@@ -10,6 +10,10 @@
 
     /* Bundler mode */
     "moduleResolution": "bundler",
+    "baseUrl": ".",
+    "paths": {
+      "@react-three/fiber": ["node_modules/@vibegameengine/react-three-fiber"]
+    },
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",

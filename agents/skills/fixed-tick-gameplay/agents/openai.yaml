@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fixed-Tick Gameplay"
+  short_description: "Keep gameplay simulation independent from render FPS."
+  default_prompt: "Define or implement gameplay timing with a fixed simulation tick and frame-rate-independent presentation."

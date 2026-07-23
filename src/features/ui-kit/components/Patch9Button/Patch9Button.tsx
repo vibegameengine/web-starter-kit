@@ -8,12 +8,12 @@ import type {
 } from 'react'
 
 import './Patch9Button.css'
-import type { Patch9Config } from './Patch9Button.types'
+import type { Patch9Config } from '../../../../shared/lib/patch9/Patch9.types'
 import {
   releasePatch9Image,
   retainPatch9Image,
   type Patch9ImageSource,
-} from './patch9ImageRenderer'
+} from '../../../../shared/lib/patch9/patch9ImageRenderer'
 
 type Props = {
   readonly children: ReactNode

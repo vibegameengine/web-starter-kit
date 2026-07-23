@@ -38,6 +38,16 @@ from `/src/main.tsx` and exposes **every reachable asset** through
 frame. Optimization (shrinking bytes) and the registry (preloading them) are two
 independent concerns — a new asset type must be added to **both**.
 
+## Import-boundary gate
+
+The registry follows source-level static imports and re-exports; it does not
+know which barrel export the runtime actually consumes. Therefore import every
+**asset-bearing visual module** directly from its owning file: effects, render
+entities, and materials that import images, audio, models, or shaders. Pure
+code-only helpers and types may use a barrel. Never put a DEV/lab/reference
+screen and a production visual module in the same barrel: it pulls the lab's
+assets into the production registry and `dist`.
+
 ## The shared optimizer-plugin shape
 
 All three optimizers follow the same contract. When you add or modify one, match
@@ -175,6 +185,13 @@ dropping them at build. See `features/character/entities/Tany.tsx`.
 - A **blocking** model dominates the preloader bar (byte-weighted), so it gates
   first paint. Cut it with `?meshopt`, or move it off the critical path with
   `?bootstrap=deferred` if a late pop-in is acceptable.
+- **Overwriting a source asset in place does NOT refresh in a running dev server** —
+  the optimizer caches its result by import URL (see the "Cache optimization promises
+  by id" rule), not by file content, so the browser keeps serving the STALE optimized
+  bytes. After you rewrite a `.glb`/image/audio the app imports, restart dev **and**
+  `rm -rf node_modules/.vite` to clear the cache; otherwise a fixed asset still shows
+  the old (or a mid-experiment, broken/invisible) version. Symptom that wastes hours:
+  "I re-exported the model but the app looks unchanged / the mesh went invisible."
 
 ## Verify a change end-to-end
 

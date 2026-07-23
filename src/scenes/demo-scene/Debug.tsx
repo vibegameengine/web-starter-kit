@@ -1,4 +1,4 @@
-import { Perf } from 'r3f-perf'
+import { Perf } from '@vibegameengine/r3f-perf'
 import { useEffect, useState } from 'react'
 
 /**

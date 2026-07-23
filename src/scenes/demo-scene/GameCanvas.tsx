@@ -19,6 +19,7 @@ import {
 } from '../../features/bootstrap'
 import { ShadowThrottle } from '../../shared/lib/ShadowThrottle'
 import { DepthAwareVfxPortal } from '../../shared/lib/DepthAwareVfxPortal'
+import { useFrameRateCap, useGraphicsSettings } from '../../shared/lib/graphics'
 import { DanceFireworks } from '../../features/world/entities/DanceFireworks'
 import { registerWarmupResources } from '../../features/world/materials/materials'
 import { Debug } from './Debug'
@@ -52,6 +53,8 @@ export function GameCanvas({
 }: GameCanvasProps) {
   const requestId = useBootstrapRenderRequestId()
   const [warmed, setWarmed] = useState(false)
+  const graphics = useGraphicsSettings()
+  const frameRateCap = useFrameRateCap()
 
   useEffect(() => {
     if (warmed && requestId !== 0) {
@@ -63,10 +66,11 @@ export function GameCanvas({
     <Canvas
       flat
       shadows="soft"
+      maxFps={frameRateCap}
       // dpr 1: every full-screen post pass (N8AO, Bloom, SMAA, tone map…) scales
       // with resolution, so >1 on a retina display multiplies their cost. This
       // is the single biggest fps lever here — the N8AO demo runs at dpr 1 too.
-      dpr={1}
+      dpr={graphics.dpr}
       camera={{ fov: 40, near: 0.1, far: 260, position: [6.2, 3, 10.5] }}
       gl={{ antialias: false, powerPreference: 'high-performance', stencil: false }}
     >
@@ -76,7 +80,7 @@ export function GameCanvas({
       {/* Refresh the shadow map every 2nd frame instead of every frame — the sun
           is fixed and objects move little between frames, so it's imperceptible
           but halves the shadow pass cost. */}
-      <ShadowThrottle every={2} />
+      <ShadowThrottle every={graphics.shadowThrottle} />
 
       <StarterScene
         isDancing={isDancing}

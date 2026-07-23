@@ -7,10 +7,11 @@ description: >-
   repeated meshes with InstancedMesh (drei <Instances>/<Instance>), never one
   <mesh> per object; (2) define every material and geometry ONCE in the shared
   registry and reuse it — tint per-instance with instance color — never `new
-  THREE.Material()` / `new THREE.Geometry()` inline. Shared assets are registered
-  with @vibegameengine/shader-warmup so their shaders precompile. Trigger on:
+  THREE.Material()` / `new THREE.Geometry()` inline. Shared assets register with
+  `@vibegameengine/shader-warmup`'s central warmup service. Trigger on:
   "too many draw calls", "scene is slow", "add N of these", "spawn", "props",
-  "instancing", "material", high draw-call count in r3f-perf.
+  "instancing", "material", "shader warmup", "shader stutter", "warmup
+  splash", "ShaderWarmupRegistry", high draw-call count in r3f-perf.
 ---
 
 # Instancing & material reuse (draw-call budget)
@@ -75,18 +76,90 @@ export const geometries = {
   ground: new THREE.PlaneGeometry(200, 200, 1, 1),
 } as const
 
-// Register every geo/material pair so @vibegameengine/shader-warmup precompiles
-// its GPU program before the first visible frame (no first-appearance stutter).
+// Register every used geometry/material pair in the existing central service.
 let registered = false
 export function registerWarmupResources() {
   if (registered) return
   registered = true
   ShaderWarmupRegistry.register('ground', geometries.ground, materials.ground)
   ShaderWarmupRegistry.register('clay-box', geometries.box, materials.clay)
-  ShaderWarmupRegistry.register('clay-cone', geometries.cone, materials.clay)
-  ShaderWarmupRegistry.register('clay-column', geometries.column, materials.clay)
+}
+
+registerWarmupResources()
+```
+
+## Rule 3 — register material pairs in the existing central service
+
+`Material` is a JS description; register every geometry/material pair that can
+enter the scene in `@vibegameengine/shader-warmup` before its `ShaderWarmup`
+component mounts:
+
+```ts
+ShaderWarmupRegistry.register('world-ground', groundGeometry, groundMaterial)
+ShaderWarmupRegistry.register('enemy-rings', ringGeometry, ringMaterial)
+ShaderWarmupRegistry.register('enemy-rings-instanced', ringGeometry, ringMaterial, {
+  drawMode: 'instanced',
+})
+```
+
+- Do **not** register every effect. Ten effects sharing one pair need one entry.
+- `drawMode` must match the real render object: omit it for `<mesh>`, use
+  `'instanced'` for `<instancedMesh>`. If one material is used by both, register
+  both variants under different IDs.
+- A complex effect is split into simulation/logic and its material pairs; do not
+  mount the whole effect as a second warmup mechanism.
+- A runtime light is also a shader variant. If an effect reveals a new
+  `PointLight`/`SpotLight`/`DirectionalLight`, keep that light mounted in the
+  real scene at `intensity={0}` from the first frame; hide only the visual mesh
+  subtree. Otherwise its first activation changes the scene light count and
+  recompiles every affected lit material despite all effect materials being
+  registered.
+- The Canvas mounts the library's `ShaderWarmup`; it owns mount → compile
+  → unmount and the existing registry remains the sole source of truth.
+
+## Rule 4 — one library-owned `ShaderWarmup` per Canvas
+
+Do not write a scene-local gate, readiness timer, second registry, manifest, or
+effect-owned warmup component. The linked `@vibegameengine/shader-warmup`
+package owns the lifecycle through `ShaderWarmup`:
+
+```tsx
+import { ShaderWarmup } from '@vibegameengine/shader-warmup'
+
+function SceneCanvas() {
+  const [warmed, setWarmed] = useState(false)
+
+  return (
+    <Canvas>
+      <ShaderWarmup
+        onWarming={() => setWarmed(false)}
+        onReady={() => setWarmed(true)}
+      />
+      <Scene />
+    </Canvas>
+  )
 }
 ```
+
+The boundary mounts invisible resources with `dispose={null}`, runs `gl.compile`,
+waits one rendered frame, then unmounts the temporary objects. It listens to the
+central registry and to
+`webglcontextrestored`, so a new resource starts another warmup cycle. Wire
+`onWarming` to the splash state; `onReady` alone would leave a late resource
+ungated.
+
+- Register assets before the Canvas whenever possible. Late registration is a
+  safety path, not permission to create materials during a live effect.
+- A Canvas that deliberately owns a fixed subset may pass `resources={[...]}`;
+  that subset does not subscribe to unrelated global resources.
+- Duplicate IDs are errors in authoring: the library keeps the first resource and
+  warns if a later registration has a different geometry, material or variant.
+- `ShaderWarmupBoundary` / `ReadySignal` are deprecated compatibility exports.
+  New code always uses `ShaderWarmup`.
+- While developing the linked local package, keep
+  `@vibegameengine/shader-warmup` in `vite.config.ts` → `optimizeDeps.exclude`.
+  Otherwise Vite can serve a stale prebundled copy from `node_modules/.vite` and
+  silently run an older warmup API after the library was rebuilt.
 
 Why module scope: a material created in a component body is rebuilt on every
 render, leaks GPU memory, and forces a fresh shader compile. One shared instance

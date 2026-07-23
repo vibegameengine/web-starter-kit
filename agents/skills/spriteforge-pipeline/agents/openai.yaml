@@ -1,0 +1,4 @@
+interface:
+  display_name: "SpriteForge Pipeline"
+  short_description: "Кейинг, граф и экспорт игровых спрайтов"
+  default_prompt: "Use $spriteforge-pipeline to key, refine, and export this game asset in SpriteForge."

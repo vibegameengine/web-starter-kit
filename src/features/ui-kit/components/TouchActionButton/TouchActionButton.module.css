@@ -1,0 +1,6 @@
+.button { position: relative; display: grid; width: var(--touch-action-size, 68px); height: var(--touch-action-size, 68px); place-items: center; overflow: hidden; border: 2px solid color-mix(in srgb, var(--accent) 72%, white); border-radius: 50%; background: color-mix(in srgb, var(--accent) 25%, #102131); box-shadow: inset 0 0 0 6px rgb(255 255 255 / 10%), 0 5px 16px rgb(4 16 28 / 38%); color: white; cursor: pointer; touch-action: none; transition: transform 70ms ease, filter 120ms ease; }
+.button:disabled { opacity: .45; cursor: default; }
+.pressed { transform: scale(.93); filter: brightness(1.18); }
+.content { position: relative; z-index: 1; font: 700 22px/1 system-ui, sans-serif; pointer-events: none; }
+.cooldown { position: absolute; inset: 0; background: conic-gradient(from 0deg, rgb(4 12 20 / 72%) var(--cooldown), transparent 0); pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .button { transition: none; } }

@@ -13,6 +13,13 @@ const CharacterDebugScreen = ENABLE_DEBUG_ROUTES
     })
   : null
 
+// The gallery is part of the public starter-kit walkthrough: the scene links
+// here so users can inspect the reusable controls in isolation.
+const UiKitGallery = lazy(async () => {
+  const module = await import('../../features/ui-kit')
+  return { default: module.UiKitGallery }
+})
+
 const PAGES_REDIRECT_KEY = 'web-starter-kit:pages-redirect'
 const configuredBaseName = import.meta.env.BASE_URL.replace(/\/$/, '')
 const APP_BASE_NAME = configuredBaseName && configuredBaseName !== '.' ? configuredBaseName : undefined
@@ -38,6 +45,8 @@ export function AppRouter() {
           {CharacterDebugScreen ? (
             <Route path="/character-debug" element={<CharacterDebugScreen />} />
           ) : null}
+
+          <Route path="/ui-kit/*" element={<UiKitGallery />} />
 
           <Route path="*" element={<Navigate replace to="/" />} />
         </Routes>

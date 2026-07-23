@@ -42,6 +42,9 @@ export default defineConfig({
   resolve: {
     alias: {
       '@react-three/fiber': '@vibegameengine/react-three-fiber',
+      // Photon only uses the native browser WebSocket here; this avoids bundling
+      // its Node-only `ws` fallback.
+      ws: new URL('./vite/ws-browser-stub.js', import.meta.url).pathname,
     },
     dedupe: ['three', 'react', 'react-dom', '@vibegameengine/react-three-fiber'],
   },

@@ -1,8 +1,10 @@
 import { ScalableContainer } from '@vibegameengine/ui-scaler'
 import type { ReactNode } from 'react'
 
+import { useResponsiveTargetWidth } from '../../../../shared/lib/ui-scale/useResponsiveTargetWidth'
 import { DanceControl } from '../DanceControl/DanceControl'
 import { GitHubCornerLink } from '../GitHubCornerLink/GitHubCornerLink'
+import { StarterKitShowcase } from '../StarterKitShowcase/StarterKitShowcase'
 import styles from './DemoSceneHud.module.css'
 
 export type DemoSceneHudLabels = {
@@ -25,18 +27,22 @@ type DemoSceneHudProps = {
   readonly labels: DemoSceneHudLabels
   readonly onDanceToggle: () => void
   readonly sourceLink: DemoSceneHudSourceLink
+  readonly uiKitHref: string
 }
 
 /**
  * Presentational shell for the starter scene: it owns responsive HUD layout and
  * controls, while the caller supplies the canvas, labels and gameplay callback.
  */
-export function DemoSceneHud({ children, isDancing, labels, onDanceToggle, sourceLink }: DemoSceneHudProps) {
+export function DemoSceneHud({ children, isDancing, labels, onDanceToggle, sourceLink, uiKitHref }: DemoSceneHudProps) {
+  const targetWidth = useResponsiveTargetWidth({ desktop: 1280, mobilePortrait: 640 })
+
   return (
     <div className={styles.root}>
       {children}
       <GitHubCornerLink href={sourceLink.href} label={sourceLink.label} />
-      <ScalableContainer targetWidth={1280} zIndex={10}>
+      <ScalableContainer targetWidth={targetWidth} zIndex={10}>
+        <StarterKitShowcase uiKitHref={uiKitHref} />
         <DanceControl
           isDancing={isDancing}
           onToggle={onDanceToggle}

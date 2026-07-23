@@ -31,6 +31,7 @@ const ASSET_EXTENSIONS = new Set([
   '.otf',
   '.glb',
   '.gltf',
+  '.fbx',
 ])
 
 type BootstrapAssetKind = 'audio' | 'font' | 'image' | 'model' | 'other'
@@ -274,7 +275,7 @@ function getAssetKind(extension: string): BootstrapAssetKind {
     return 'audio'
   }
 
-  if (extension === '.glb' || extension === '.gltf') {
+  if (extension === '.glb' || extension === '.gltf' || extension === '.fbx') {
     return 'model'
   }
 

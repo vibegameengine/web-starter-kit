@@ -1,0 +1,4 @@
+interface:
+  display_name: "Alpha Atlas Slicing"
+  short_description: "Semantic alpha atlas slicing"
+  default_prompt: "Use $alpha-atlas-semantic-slicing to classify and slice this transparent UI atlas."
