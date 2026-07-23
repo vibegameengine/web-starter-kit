@@ -14,6 +14,10 @@ output/
 .claude/skills
 .codex/skills
 
+# Local agent work-in-progress: screenshots, renders, probes and handoff notes.
+# Read wip/README.md before work; never add this directory to Git.
+/wip/
+
 # Playwright
 /test-results/
 /playwright-report/

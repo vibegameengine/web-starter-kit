@@ -33,6 +33,14 @@
 
 ## Roles
 
+## Local WIP (mandatory)
+
+Before starting work, **always read `wip/README.md`**. `wip/` is a local,
+Git-ignored workspace for verification screenshots, temporary renders, debug
+probes and active handoff notes. Put those artifacts there — never in `docs/`,
+source directories or commits. If it is missing, create `wip/README.md` before
+producing WIP artifacts and keep its current task notes accurate.
+
 All agent roles and workflow rules live in [agents/AGENTS.md](./agents/AGENTS.md).
 
 Start there, then open the selected role under `agents/<role>/AGENTS.md`.
