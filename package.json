@@ -65,7 +65,7 @@
     "meshoptimizer": "^1.2.0",
     "mpg123-decoder": "^1.0.3",
     "playwright": "^1.58.2",
-    "sharp": "^0.34.5",
+    "sharp": "^0.35.3",
     "svgo": "^4.0.1",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.57.0",
@@ -73,5 +73,8 @@
     "vite-imagetools": "^10.0.0",
     "vite-plugin-image-optimizer": "^2.0.3",
     "vitest": "^4.1.0"
+  },
+  "overrides": {
+    "sharp": "$sharp"
   }
 }

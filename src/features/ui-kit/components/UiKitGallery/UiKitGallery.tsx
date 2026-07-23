@@ -13,6 +13,7 @@ const previews = Object.values(previewModules)
 
 const MIN_SCALE = 0.25
 const MAX_SCALE = 8
+const DEFAULT_VIEW = { scale: 1, x: 0, y: 0 }
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
 /** DEV gallery for visually validating every public UI-kit component in isolation. */
@@ -36,7 +37,13 @@ export function UiKitGallery() {
   }, [navigate, requestedId, selectedPreview])
 
   // --- Zoom & pan of the preview viewport --------------------------------
-  const [view, setView] = useState({ scale: 1, x: 0, y: 0 })
+  const selectedPreviewId = selectedPreview?.id ?? ''
+  const [view, setView] = useState({ previewId: selectedPreviewId, ...DEFAULT_VIEW })
+  const activeView = view.previewId === selectedPreviewId ? view : DEFAULT_VIEW
+  const selectedPreviewIdRef = useRef(selectedPreviewId)
+  useLayoutEffect(() => {
+    selectedPreviewIdRef.current = selectedPreviewId
+  }, [selectedPreviewId])
   // Pan only while Space is held so dragging never conflicts with clicking the
   // preview's own controls (Figma-style).
   const [spaceHeld, setSpaceHeld] = useState(false)
@@ -64,18 +71,20 @@ export function UiKitGallery() {
     return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up) }
   }, [])
 
-  const reset = useCallback(() => setView({ scale: 1, x: 0, y: 0 }), [])
-  // Reset the transform whenever a different component is selected.
-  useEffect(() => reset(), [reset, selectedPreview?.id])
+  const reset = useCallback(() => {
+    setView({ previewId: selectedPreviewIdRef.current, ...DEFAULT_VIEW })
+  }, [])
 
   const zoomBy = useCallback((factor: number, cx?: number, cy?: number) => {
     setView((current) => {
-      const scale = clamp(current.scale * factor, MIN_SCALE, MAX_SCALE)
-      const k = scale / current.scale
+      const previewId = selectedPreviewIdRef.current
+      const base = current.previewId === previewId ? current : DEFAULT_VIEW
+      const scale = clamp(base.scale * factor, MIN_SCALE, MAX_SCALE)
+      const k = scale / base.scale
       const px = cx ?? 0
       const py = cy ?? 0
       // Keep the point under the cursor (or origin) stationary while scaling.
-      return { scale, x: px - (px - current.x) * k, y: py - (py - current.y) * k }
+      return { previewId, scale, x: px - (px - base.x) * k, y: py - (py - base.y) * k }
     })
   }, [])
 
@@ -101,7 +110,11 @@ export function UiKitGallery() {
     if (!moved.current && Math.hypot(dx, dy) < 4) return
     moved.current = true
     last.current = { x: event.clientX, y: event.clientY }
-    setView((current) => ({ ...current, x: current.x + dx, y: current.y + dy }))
+    setView((current) => {
+      const previewId = selectedPreviewIdRef.current
+      const base = current.previewId === previewId ? current : DEFAULT_VIEW
+      return { ...base, previewId, x: base.x + dx, y: base.y + dy }
+    })
   }, [])
 
   const onPointerUp = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
@@ -159,7 +172,7 @@ export function UiKitGallery() {
             onClickCapture={onClickCapture}
           >
             {/* Grid + preview share one transform, so the whole canvas pans and zooms together. */}
-            <div className={styles.viewportContent} style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }}>
+            <div className={styles.viewportContent} style={{ transform: `translate(${activeView.x}px, ${activeView.y}px) scale(${activeView.scale})` }}>
               <div className={styles.grid} aria-hidden="true" />
               <div className={styles.previewLayer}>{selectedPreview.render()}</div>
             </div>
@@ -167,7 +180,7 @@ export function UiKitGallery() {
           <div className={styles.zoomControls} aria-label="Zoom controls">
             <span className={styles.zoomHint}>Hold Space to pan</span>
             <button type="button" onClick={() => zoomBy(1 / 1.25)} aria-label="Zoom out">−</button>
-            <span className={styles.zoomValue}>{Math.round(view.scale * 100)}%</span>
+            <span className={styles.zoomValue}>{Math.round(activeView.scale * 100)}%</span>
             <button type="button" onClick={() => zoomBy(1.25)} aria-label="Zoom in">+</button>
             <button type="button" onClick={reset} aria-label="Reset view">Reset</button>
           </div>

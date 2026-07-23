@@ -141,7 +141,7 @@ function InstanceGroup({ geo, items }: { geo: keyof typeof geometries; items: It
 }
 
 export function Blockout() {
-  const groups = useMemo(buildGroups, [])
+  const groups = useMemo(() => buildGroups(), [])
 
   return (
     <group>

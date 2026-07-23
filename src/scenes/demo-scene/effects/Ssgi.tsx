@@ -30,7 +30,6 @@ class SsgiEffectImpl extends Effect {
   constructor({ radius = 4, intensity = 1, distanceFalloff = 1 }: SsgiOptions = {}) {
     super('SsgiEffect', SSGI_FRAGMENT, {
       blendFunction: BlendFunction.NORMAL,
-      // eslint-disable-next-line no-bitwise
       attributes: EffectAttribute.CONVOLUTION | EffectAttribute.DEPTH,
       defines: new Map([['SAMPLES', String(SAMPLES)]]),
       uniforms: new Map<string, Uniform<unknown>>([

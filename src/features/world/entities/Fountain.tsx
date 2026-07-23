@@ -120,7 +120,7 @@ export function Fountain({ center = [0, 8], radius = 2.2, particles = 500 }: Fou
   }, [])
 
   // --- Particle jet ---------------------------------------------------------
-  const dropTex = useMemo(makeDropTexture, [])
+  const dropTex = useMemo(() => makeDropTexture(), [])
   const pointsMat = useMemo(
     () =>
       new THREE.PointsMaterial({
