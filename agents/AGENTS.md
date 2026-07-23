@@ -14,6 +14,7 @@
 - Narrative designer: [narrative-design/AGENTS.md](./narrative-design/AGENTS.md)
 - Motion designer: [motion-design/AGENTS.md](./motion-design/AGENTS.md)
 - Platform publishing: [platform-publishing/AGENTS.md](./platform-publishing/AGENTS.md)
+- SMM strategist: [smm/AGENTS.md](./smm/AGENTS.md)
 
 ## Start Here
 - Read [memory.md](./memory.md) before noticeable work.
@@ -30,6 +31,16 @@
 - Choose `narrative-design` for story, characters, tone of voice, naming, dialogue, lore, onboarding text, and narrative framing.
 - Choose `motion-design` for animation intent, timing, easing, feedback, transitions, ceremony, and reduced-motion strategy.
 - Choose `platform-publishing` for release readiness, metadata, platform compliance, package requirements, submission, and store blockers.
+- Choose `smm` for social-media strategy, audience research, content systems, hooks, attention retention, media publication rules, community loops, and social performance experiments.
+
+## Programmer Role Gate
+- Before choosing `programmer` as the leading role, explicitly answer all three questions:
+  1. **Есть ли дизайн?**
+  2. **Решены ли все вопросы реализации?**
+  3. **Продуманы ли все UX- и UI-кейсы, включая крайние случаи?**
+- The `programmer` role is allowed only when every answer is an evidence-backed **yes**.
+- If any answer is **no**, uncertain, assumed, or unsupported, the leading role must be one of the relevant design/project roles (`manager`, `system-design`, `product-design`, `game-design`, `narrative-design`, or `motion-design`). Resolve the missing decisions in that role before switching to `programmer`.
+- A user request to “implement”, “build”, or “write code” does not bypass this gate when design, realization, UX, or UI decisions are still open.
 
 ## No Silent Role Drift
 - Do not silently mix roles.
@@ -40,6 +51,14 @@
 - Do not frame work as a PoC, MVP, prototype, temporary shortcut, or placeholder unless the user explicitly asks.
 - Small steps are acceptable, but each step must fit the final architecture and remain safe to evolve.
 - If an asset or implementation detail is temporary, the contract and behavior must still be replaceable without rewriting the feature.
+
+## Scene-Fidelity Invariant
+- Never alter the player entity, shared camera contract, or entity scale to fit a scene to a reference.
+- Scene composition uses a dedicated DEV-only authoring camera; only after that visual gate passes may the unchanged player be mounted into the scene.
+- Final placement is explicit authored world coordinates and source-locked dimensions, verified in headed frames both before and after player mount.
+- Never multiply scene coordinates or transforms to resize/spread a composition. Structures are local-coordinate prefabs moved manually as one unit.
+- Every scene entity/prefab/character/building root scale is always `[1, 1, 1]`; dimensions belong to prefab geometry.
+- Visual object acceptance is valid only after headed front/side/back inspection in a DEV-only isolated scene. A full-level frame never substitutes for this gate.
 
 ## Runtime Checks
 - Use Playwright for browser/runtime verification instead of HTTP-only checks.
@@ -67,3 +86,5 @@
 - Role-specific memory lives in `agents/<role>/memory.md`.
 - Memory stores durable decisions, constraints, user preferences, source-of-truth changes, and cross-role conflicts.
 - Do not duplicate canonical rules from `AGENTS.md` into memory.
+# Geometry invariant: final scene assets never ship as bare primitives. Use only
+# intentional faceted/compound silhouettes with readable cuts and notches.

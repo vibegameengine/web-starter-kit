@@ -1,0 +1,4 @@
+interface:
+  display_name: "Visual Verification Gate"
+  short_description: "Visual-first acceptance for UI and game scenes"
+  default_prompt: "Use $visual-verification-gate to define and execute the visual acceptance workflow for this change."
