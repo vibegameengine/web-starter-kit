@@ -1,0 +1,142 @@
+/* The app is mounted inside the bootstrap gate's `position: fixed; inset: 0`
+   shell, so the DOCUMENT never scrolls — every game screen is exactly one
+   viewport. This index is the rare screen that is taller than one.
+   It therefore scrolls INSIDE its own box instead of asking the page to: a
+   local fix, because the shell is shared with the raid and the hub, where a
+   scrollable document would be a bug. */
+.root {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  /* Belt and braces: `inset: 0` already sizes it to the shell, and an explicit
+     100% keeps it exactly one viewport tall even if a wrapper is ever added
+     between this screen and the gate. Without a bounded height there is nothing
+     for `overflow-y` to overflow, and the list is simply clipped. */
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 34px 42px 60px;
+  background: #f5f5f7;
+  color: #1d1d1f;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', Inter, sans-serif;
+}
+
+.header {
+  display: flex;
+  gap: 28px;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 30px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid #d2d2d7;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: #6e6e73;
+  font: 700 11px/1.2 inherit;
+  letter-spacing: 0.08em;
+}
+
+.title {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.subtitle {
+  max-width: 62ch;
+  margin: 9px 0 0;
+  color: #6e6e73;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.headerSide {
+  display: grid;
+  gap: 10px;
+  justify-items: end;
+}
+
+.search {
+  box-sizing: border-box;
+  width: 260px;
+  padding: 9px 12px;
+  border: 1px solid #d2d2d7;
+  border-radius: 9px;
+  background: #fff;
+  color: #1d1d1f;
+  font: 500 14px/1.2 inherit;
+}
+
+.search:focus-visible {
+  border-color: #007aff;
+  outline: none;
+}
+
+.links {
+  display: flex;
+  gap: 8px;
+}
+
+.link {
+  padding: 8px 12px;
+  border: 1px solid #007aff;
+  border-radius: 9px;
+  background: #eef6ff;
+  color: #0065cf;
+  font: 700 13px/1.2 inherit;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.link:hover,
+.link:focus-visible { background: #dceeff; }
+
+.group { margin-bottom: 38px; }
+
+.groupTitle {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  margin: 0 0 15px;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.groupCount {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #e4e4e9;
+  color: #6e6e73;
+  font: 600 12px/1.5 inherit;
+}
+
+.grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(auto-fill, minmax(268px, 1fr));
+}
+
+.empty {
+  padding: 60px 0;
+  color: #6e6e73;
+  font-size: 16px;
+  text-align: center;
+}
+
+@media (max-width: 720px) {
+  .root { padding: 22px 18px 40px; }
+
+  .header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .headerSide { justify-items: stretch; }
+  .search { width: 100%; }
+}

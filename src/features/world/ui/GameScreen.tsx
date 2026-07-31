@@ -25,6 +25,9 @@ const DEMO_SCENE_SOURCE_LINK: DemoSceneHudSourceLink = {
 /** Main 3D surface and its scaled game UI. */
 export function GameScreen() {
   const uiKitGalleryHref = useHref('/ui-kit/starter-showcase')
+  // Resolved unconditionally — a hook cannot be skipped — but only handed over in
+  // DEV, because that is the only build in which `/labs` is routed at all.
+  const labsHref = useHref('/labs')
   const [isDancing, setIsDancing] = useState(false)
   const [isGreetingRequested, setIsGreetingRequested] = useState(false)
   const [greetingAnimationFinished, setGreetingAnimationFinished] = useState(false)
@@ -65,6 +68,7 @@ export function GameScreen() {
     <DemoSceneHud
       isDancing={isDancing}
       labels={DEMO_SCENE_HUD_LABELS}
+      labsHref={import.meta.env.DEV ? labsHref : undefined}
       onDanceToggle={toggleDance}
       sourceLink={DEMO_SCENE_SOURCE_LINK}
       uiKitHref={uiKitGalleryHref}

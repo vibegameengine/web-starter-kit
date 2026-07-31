@@ -1,0 +1,81 @@
+.card {
+  display: grid;
+  box-sizing: border-box;
+  overflow: hidden;
+  border: 1px solid #d2d2d7;
+  border-radius: 14px;
+  background: #fff;
+  color: #1d1d1f;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, sans-serif;
+  text-decoration: none;
+  grid-template-rows: auto minmax(0, 1fr);
+  transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+}
+
+.card:hover,
+.card:focus-visible {
+  border-color: #007aff;
+  box-shadow: 0 8px 22px rgb(0 0 0 / 12%);
+  transform: translateY(-2px);
+  outline: none;
+}
+
+.thumb {
+  display: grid;
+  aspect-ratio: 16 / 9;
+  place-items: center;
+  overflow: hidden;
+  border-bottom: 1px solid #d2d2d7;
+  background: #c4c7cb;
+}
+
+.image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* An uncaptured preview is deliberately drab and hatched: it must read as a
+   hole in the index, not as a styled placeholder tile. */
+.missing {
+  padding: 8px 12px;
+  color: #6e6e73;
+  font: 600 12px/1.2 inherit;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.card[data-has-preview='false'] .thumb {
+  background:
+    repeating-linear-gradient(
+      135deg,
+      #dcdce1 0 10px,
+      #d2d2d7 10px 20px
+    );
+}
+
+.body {
+  display: grid;
+  gap: 5px;
+  align-content: start;
+  padding: 13px 15px 15px;
+}
+
+.title {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.description {
+  color: #4b4b50;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.id {
+  margin-top: 3px;
+  color: #86868b;
+  font: 500 11px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+}

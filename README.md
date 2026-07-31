@@ -110,7 +110,7 @@ folders. Its current feature mix includes:
 
 | Capability | Where |
 | --- | --- |
-| 30+ agent skills + 8 roles | [agents/](agents/AGENTS.md) · [agents/skills/](agents/skills/) |
+| 45+ agent skills + 8 roles | [agents/](agents/AGENTS.md) · [agents/skills/](agents/skills/) |
 | GLB/glTF optimizer — textures, Meshopt, albedo-only, per-import flags | [vite/glbAssetOptimizerPlugin.ts](vite/glbAssetOptimizerPlugin.ts) |
 | FBX → GLB converter — animation-only by default, `?fbx=raw` for full assets | [vite/fbxAssetLoaderPlugin.ts](vite/fbxAssetLoaderPlugin.ts) |
 | Direct Mixamo workflow — one With-Skin GLB plus untouched animation FBXs | [agents/skills/tripo-to-mixamo/](agents/skills/tripo-to-mixamo/) |
@@ -122,7 +122,11 @@ folders. Its current feature mix includes:
 | Russian/English bootstrap copy with typed feature-local dictionaries | [src/features/bootstrap/localization/](src/features/bootstrap/localization/) |
 | Image transforms + optimize + dev cache | [vite.config.ts](vite.config.ts) |
 | Instancing + shared material/geometry registry | [src/features/world/](src/features/world/entities/Blockout.tsx) |
-| Static/dynamic shadow-caster tags + throttled shadows | [src/shared/lib/](src/shared/lib/ShadowGroup.tsx) |
+| Static/dynamic shadow-caster tags + cached shadow map (bake the world once, redraw movers) | [src/shared/lib/shadows/](src/shared/lib/shadows/cachedShadowRig.ts) |
+| DEV lab library — one route per system, registry-generated, preview-card index | [src/app/labs/](src/app/labs/labRegistry.ts) · [/labs](src/app/ui/labs/LabsScreen.tsx) |
+| Shared lab stage — one canvas, sun, shadow rig, post chain and orbit rig for every lab | [src/scenes/lab-stage/LabStage.tsx](src/scenes/lab-stage/LabStage.tsx) |
+| Physics ragdoll for any Mixamo humanoid — capsule per limb, limited joints, two clocks | [src/features/ragdoll/](src/features/ragdoll/systems/ragdollBody.ts) |
+| Fixed-tick simulation bus — gameplay off the render frame | [src/shared/lib/simulation/](src/shared/lib/simulation/FixedTick.tsx) |
 | Two-stage readiness gate | [src/features/bootstrap/](src/features/bootstrap/) |
 | Strict TS refs · flat ESLint · Vitest · Playwright · Knip · React Compiler | root configs |
 

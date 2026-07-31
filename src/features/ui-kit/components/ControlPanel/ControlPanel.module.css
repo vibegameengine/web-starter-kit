@@ -1,0 +1,31 @@
+/* Same glass as the demo scene's RENDER panel — hairline blue border, cool
+   gradient, blur — so a panel added anywhere in the kit is recognisably the same
+   object rather than a second style someone will have to reconcile later. */
+.panel {
+  box-sizing: border-box;
+  padding: 10px;
+  border: 1px solid rgb(168 222 255 / 24%);
+  border-radius: 10px;
+  background: linear-gradient(145deg, rgb(5 30 48 / 72%), rgb(3 17 30 / 79%));
+  box-shadow: 0 9px 25px rgb(1 12 23 / 30%), inset 0 1px rgb(255 255 255 / 7%);
+  backdrop-filter: blur(10px);
+  color: #eaf7ff;
+  font-family: 'Trebuchet MS', system-ui, sans-serif;
+}
+
+.heading {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  color: #9adcfb;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.heading output {
+  color: rgb(238 250 255 / 72%);
+  font-size: 8px;
+  letter-spacing: 0.04em;
+}

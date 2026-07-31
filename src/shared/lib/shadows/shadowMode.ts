@@ -1,12 +1,19 @@
 import { useSyncExternalStore } from 'react'
 
-/** Persisted player-facing shadow choice. `?shadows=` remains a DEV-only override. */
+/**
+ * Persisted player-facing shadow choice. `?shadows=` remains a DEV-only override.
+ *
+ * `cached` is the default: the static world is baked once and only the movers
+ * are redrawn (ShadowCompositor). `legacy` re-renders the whole shadow map on a
+ * throttle — kept as the escape hatch for hardware or a scene where caching
+ * misbehaves.
+ */
 export type ShadowMode = 'legacy' | 'cached'
 
 const STORAGE_KEY = 'web-starter-kit:shadow-mode:v1'
 
 export function normalizeShadowMode(value: string | null | undefined): ShadowMode {
-  return value === 'cached' ? 'cached' : 'legacy'
+  return value === 'legacy' ? 'legacy' : 'cached'
 }
 
 function readDevOverride(): ShadowMode | null {
@@ -19,7 +26,7 @@ function readInitialShadowMode(): ShadowMode {
   try {
     return normalizeShadowMode(window.localStorage.getItem(STORAGE_KEY))
   } catch {
-    return 'legacy'
+    return 'cached'
   }
 }
 

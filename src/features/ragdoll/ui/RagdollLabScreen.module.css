@@ -1,0 +1,77 @@
+.screen {
+  height: 100vh;
+  position: relative;
+  width: 100vw;
+}
+
+/* The panel floats over the canvas but must never swallow camera drags, so only
+   its actual controls take pointer events.
+
+   Pinned to a CORNER, never across the middle. Centred, the panel covered the
+   ground the body lands on — the one part of the frame the lab exists to show —
+   and it also ate the pointer, so a throw aimed "at the body" was really aimed at
+   the middle of the canvas. */
+.hud {
+  bottom: 14px;
+  display: flex;
+  left: 14px;
+  pointer-events: none;
+  position: absolute;
+  width: min(430px, calc(100vw - 28px));
+}
+
+/* "H" takes the panel out of the frame — and `display` above beats the `hidden`
+   attribute's UA `display: none`, so without this rule the key did nothing and
+   the controls stayed in every capture of the body. */
+.hud[hidden] {
+  display: none;
+}
+
+.hud > * {
+  pointer-events: auto;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* One labelled group per set of controls: the label carries the group's meaning
+   so the buttons do not each have to spell it out. */
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.groupLabel {
+  color: #9adcfb;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.hint {
+  color: rgb(224 245 255 / 62%);
+  font-size: 11px;
+  line-height: 1.45;
+  margin: 2px 0 0;
+}
+
+.key {
+  background: rgb(120 199 239 / 14%);
+  border-radius: 3px;
+  color: #d9f1ff;
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  padding: 1px 5px;
+}

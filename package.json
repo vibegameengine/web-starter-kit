@@ -19,12 +19,14 @@
     "version:bump": "node scripts/bump-version.ts",
     "version:major": "node scripts/bump-version.ts major",
     "version:minor": "node scripts/bump-version.ts minor",
-    "version:patch": "node scripts/bump-version.ts patch"
+    "version:patch": "node scripts/bump-version.ts patch",
+    "labs:previews": "node scripts/shot-lab-previews.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.1",
     "@react-three/postprocessing": "^3.0.4",
+    "@react-three/rapier": "^2.2.0",
     "@recast-navigation/three": "^0.43.1",
     "@vibegameengine/r3f-perf": "^7.2.5",
     "@vibegameengine/react-three-fiber": "9.6.1-vibegame.1",

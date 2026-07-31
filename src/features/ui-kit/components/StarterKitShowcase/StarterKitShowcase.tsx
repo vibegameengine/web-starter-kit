@@ -6,18 +6,27 @@ const FRAME_CAPS: readonly FrameRateCap[] = [0, 60, 30]
 const GRAPHICS_QUALITIES: readonly GraphicsQuality[] = ['performance', 'economy']
 
 type StarterKitShowcaseProps = {
+  /**
+   * Entry into the DEV lab index. Omitted in production builds, where the lab
+   * routes do not exist — a link that lands on a redirect back to the scene is
+   * worse than no link, because it reads as the feature being broken.
+   */
+  readonly labsHref?: string
   readonly uiKitHref: string
 }
 
-/** Live rendering controls plus a direct entry into the isolated UI-kit gallery. */
-export function StarterKitShowcase({ uiKitHref }: StarterKitShowcaseProps) {
+/** Live rendering controls plus direct entries into the UI-kit gallery and DEV labs. */
+export function StarterKitShowcase({ labsHref, uiKitHref }: StarterKitShowcaseProps) {
   const quality = useGraphicsQuality()
   const graphics = useGraphicsSettings()
   const frameRateCap = useFrameRateCap()
 
   return (
     <aside className={styles.root} aria-label="Live starter-kit demonstrations">
-      <a className={styles.galleryLink} href={uiKitHref}>OPEN UI-KIT ↗</a>
+      <nav className={styles.entries} aria-label="Isolated surfaces">
+        <a className={styles.galleryLink} data-testid="open-ui-kit" href={uiKitHref}>OPEN UI-KIT ↗</a>
+        {labsHref ? <a className={styles.galleryLink} data-testid="open-labs" href={labsHref}>OPEN LABS ↗</a> : null}
+      </nav>
       <section className={styles.render} aria-label="Render controls">
         <div className={styles.renderHeading}>
           <span>RENDER</span>

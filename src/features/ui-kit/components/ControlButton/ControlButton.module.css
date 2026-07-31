@@ -1,0 +1,55 @@
+/* The demo scene's render switches, lifted verbatim so every panel in the kit
+   speaks with one voice: cool glass, hairline blue border, pressed state as a lit
+   fill rather than a different shape — a control that changes size when selected
+   makes the whole panel jump. */
+.button {
+  min-height: 24px;
+  box-sizing: border-box;
+  padding: 5px 9px;
+  border: 1px solid rgb(161 221 255 / 22%);
+  border-radius: 4px;
+  background: rgb(120 199 239 / 7%);
+  color: rgb(224 245 255 / 72%);
+  cursor: pointer;
+  font: 800 9px/1 'Trebuchet MS', system-ui, sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.button:hover:not(:disabled) {
+  border-color: rgb(161 221 255 / 45%);
+  color: #eaf7ff;
+}
+
+.button[aria-pressed='true'] {
+  border-color: #91dcff;
+  background: rgb(94 200 255 / 25%);
+  box-shadow: 0 0 11px rgb(94 200 255 / 18%);
+  color: white;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.button:focus-visible {
+  outline: 2px solid white;
+  outline-offset: 2px;
+}
+
+/* The panel's own call to action — the gallery-link gradient at control size. */
+.accent {
+  composes: button;
+  border-color: rgb(134 222 255 / 82%);
+  background: linear-gradient(135deg, rgb(20 113 157 / 95%), rgb(6 48 81 / 98%));
+  box-shadow: 0 4px 14px rgb(1 12 23 / 45%), inset 0 1px rgb(232 251 255 / 22%);
+  color: #f4fcff;
+}
+
+.accent:hover:not(:disabled) {
+  border-color: white;
+  background: linear-gradient(135deg, #1a9cdd, #0d5c94);
+  color: white;
+}

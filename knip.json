@@ -13,6 +13,7 @@
   ],
   "ignore": [
     "src/features/character/entities/PlaceholderCharacter.tsx",
+    "src/features/ragdoll/systems/capturedPose.ts",
     "src/features/world/entities/Fountain.tsx",
     "src/shared/config/vfxPipeline.ts",
     "src/shared/lib/audio/soundMixer.ts",
@@ -50,6 +51,7 @@
   ],
   "ignoreIssues": {
     "src/features/ui-kit/index.ts": ["exports"],
+    "src/shared/lib/shadowLayers.ts": ["exports"],
     "src/features/ui-kit/components/PixelDiffInspector/PixelDiffInspector.tsx": ["exports"],
     "src/features/ui-kit/systems/pixelDiff.ts": ["exports"],
     "src/shared/config/graphicsPresets.ts": ["exports"],
