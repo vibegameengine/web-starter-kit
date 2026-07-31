@@ -1,5 +1,23 @@
 /// <reference types="vite/client" />
 
+/**
+ * Baked in by the Vite config from `VITE_ENABLE_SHOWCASE`: does this build ship
+ * the DEV lab index and the UI-kit gallery? A literal, so Rollup can fold it and
+ * drop everything behind it. Read it through `shared/lib/showcase.ts`.
+ */
+declare const __SHOWCASE_SURFACES__: boolean
+
+interface ImportMetaEnv {
+  /**
+   * `'true'` keeps the INSPECTION surfaces — the DEV lab index and the UI-kit
+   * gallery — in a PRODUCTION build. Opt-in, for a showcase deployment where
+   * those surfaces are the point (this kit's own Pages site). A shipping game
+   * leaves it unset, and both surfaces — routes, screens, preview images and
+   * every asset they reach — are tree-shaken out. See `shared/lib/showcase.ts`.
+   */
+  readonly VITE_ENABLE_SHOWCASE?: string
+}
+
 declare module 'virtual:bootstrap-assets' {
   export type BootstrapAssetEntry = {
     deferred: boolean

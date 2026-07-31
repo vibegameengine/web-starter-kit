@@ -146,9 +146,14 @@ you attach), *system* (pure, tested logic). Scenes are the composition root;
 
 ## Deployment
 
-`npm run build` keeps its relative asset base for portable static hosts. For this
-repository's GitHub project Pages run `npm run build:gh-pages`: it emits the
-`/web-starter-kit/` base and includes a `404.html` SPA fallback, so refreshes and
-deep links preserve React Router history. Serve `.glb` with gzip/brotli for the
+`npm run build` keeps its relative asset base for portable static hosts, and
+strips both inspection surfaces — the DEV labs and the UI-kit gallery. For this repository's GitHub project Pages run
+`npm run build:gh-pages`: it emits the `/web-starter-kit/` base, includes a
+`404.html` SPA fallback so refreshes and deep links preserve React Router
+history, and sets `VITE_ENABLE_SHOWCASE=true` so `/labs` and `/ui-kit` ship — those
+surfaces are what this kit is showing off, and the scene links to them only when
+they exist. Leave that variable unset in a game: with it unset both surfaces —
+routes, screens, preview images and every asset they reach — are tree-shaken out
+of the bundle. Serve `.glb` with gzip/brotli for the
 smallest transfer. All optimizers are **dev dependencies — nothing ships in your
 bundle.** Requires Node 20+.

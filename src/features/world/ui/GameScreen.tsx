@@ -26,7 +26,9 @@ const DEMO_SCENE_SOURCE_LINK: DemoSceneHudSourceLink = {
 export function GameScreen() {
   const uiKitGalleryHref = useHref('/ui-kit/starter-showcase')
   // Resolved unconditionally — a hook cannot be skipped — but only handed over in
-  // DEV, because that is the only build in which `/labs` is routed at all.
+  // Hrefs are computed unconditionally (hooks), but only handed over when the
+  // build actually routes them. Same flag as the router, read the same raw way —
+  // a link to a route this build does not contain is worse than no link.
   const labsHref = useHref('/labs')
   const [isDancing, setIsDancing] = useState(false)
   const [isGreetingRequested, setIsGreetingRequested] = useState(false)
@@ -68,10 +70,10 @@ export function GameScreen() {
     <DemoSceneHud
       isDancing={isDancing}
       labels={DEMO_SCENE_HUD_LABELS}
-      labsHref={import.meta.env.DEV ? labsHref : undefined}
+      labsHref={__SHOWCASE_SURFACES__ ? labsHref : undefined}
       onDanceToggle={toggleDance}
       sourceLink={DEMO_SCENE_SOURCE_LINK}
-      uiKitHref={uiKitGalleryHref}
+      uiKitHref={__SHOWCASE_SURFACES__ ? uiKitGalleryHref : undefined}
     >
       <GameCanvas
         isDancing={isDancing}

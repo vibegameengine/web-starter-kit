@@ -32,10 +32,20 @@ const shaderRawLoader = () => ({
 })
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   // Static hosts use the portable relative default. GitHub project Pages needs
   // its repository sub-path so BrowserRouter and emitted assets agree.
   base: process.env.VITE_BASE_PATH ?? './',
+  // Whether this build ships the inspection surfaces (DEV labs, UI-kit gallery).
+  //
+  // Injected as a LITERAL rather than read from `import.meta.env` in the module
+  // that needs it, because that is what makes it disappear: Rollup folds a
+  // literal across module boundaries and drops the dynamic imports behind it,
+  // while a `const` initialised from an env expression stays opaque and the
+  // whole surface ships anyway — measured, not assumed (7.9 MB against 3.4 MB).
+  define: {
+    __SHOWCASE_SURFACES__: JSON.stringify(command === 'serve' || process.env.VITE_ENABLE_SHOWCASE === 'true'),
+  },
   // Keep ecosystem peer dependencies on upstream R3F, but resolve every runtime
   // import to the maintained Vibegameengine fork. This provides its native FPS
   // cap without introducing a second R3F context beside drei/postprocessing.
@@ -118,4 +128,4 @@ export default defineConfig({
     ],
     globals: true,
   },
-})
+}))

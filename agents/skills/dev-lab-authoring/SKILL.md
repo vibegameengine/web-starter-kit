@@ -48,6 +48,14 @@ Why this is a hard rule and not a preference:
   from production code **defeats the stripping**: the lab's modules, and every
   asset they reach, land in the shipped bundle. The tree-shaking looks like it
   works because the *route* is gone; the weight is still there.
+  - The one sanctioned exception is a **showcase deployment** — a demo site whose
+    whole point is the labs — switched on by an explicit build flag, off by
+    default, and shared by every inspection surface the kit has rather than
+    invented per surface. It changes what ships, never what may import what:
+    production code importing a lab stays banned either way, and a lab still
+    exports nothing but its manifest. Whatever renders the LINK to such a route
+    must read the same flag, or a build ships a button to a route it does not
+    contain.
 - The same leak happens through a **shared barrel**. If a feature's public
   barrel re-exports its lab screen, the lab is in the same chunk as the
   production screen beside it. Never put a lab and a production visual module in

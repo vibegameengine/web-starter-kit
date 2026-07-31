@@ -24,12 +24,13 @@ export type DemoSceneHudSourceLink = {
 type DemoSceneHudProps = {
   readonly children: ReactNode
   readonly isDancing: boolean
-  /** DEV lab index, when this build has one. */
+  /** DEV lab index, when this build ships one. */
   readonly labsHref?: string
   readonly labels: DemoSceneHudLabels
   readonly onDanceToggle: () => void
   readonly sourceLink: DemoSceneHudSourceLink
-  readonly uiKitHref: string
+  /** UI-kit gallery, when this build ships one. */
+  readonly uiKitHref?: string
 }
 
 /**

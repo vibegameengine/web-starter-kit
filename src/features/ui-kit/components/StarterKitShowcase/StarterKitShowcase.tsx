@@ -7,12 +7,13 @@ const GRAPHICS_QUALITIES: readonly GraphicsQuality[] = ['performance', 'economy'
 
 type StarterKitShowcaseProps = {
   /**
-   * Entry into the DEV lab index. Omitted in production builds, where the lab
-   * routes do not exist — a link that lands on a redirect back to the scene is
-   * worse than no link, because it reads as the feature being broken.
+   * Entries into the DEV lab index and the UI-kit gallery. BOTH are omitted in an
+   * ordinary production build, where those routes do not exist — a link that
+   * lands on a redirect back to the scene is worse than no link, because it
+   * reads as the feature being broken.
    */
   readonly labsHref?: string
-  readonly uiKitHref: string
+  readonly uiKitHref?: string
 }
 
 /** Live rendering controls plus direct entries into the UI-kit gallery and DEV labs. */
@@ -24,7 +25,7 @@ export function StarterKitShowcase({ labsHref, uiKitHref }: StarterKitShowcasePr
   return (
     <aside className={styles.root} aria-label="Live starter-kit demonstrations">
       <nav className={styles.entries} aria-label="Isolated surfaces">
-        <a className={styles.galleryLink} data-testid="open-ui-kit" href={uiKitHref}>OPEN UI-KIT ↗</a>
+        {uiKitHref ? <a className={styles.galleryLink} data-testid="open-ui-kit" href={uiKitHref}>OPEN UI-KIT ↗</a> : null}
         {labsHref ? <a className={styles.galleryLink} data-testid="open-labs" href={labsHref}>OPEN LABS ↗</a> : null}
       </nav>
       <section className={styles.render} aria-label="Render controls">
