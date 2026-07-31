@@ -79,12 +79,23 @@ export function RagdollLabScene({
       perf={false}
       sun={{ radius: 10 }}
     >
-      {/* timeStep="vary" steps once per render frame with the frame delta. The
-          ragdoll drives bones from the raw solver pose (rapier's interpolation
-          only lerps the managed object, not the body), so a fixed step would hold
-          bones for 2-3 frames then jump on a high-refresh display. Varying the
-          step keeps them moving smoothly. */}
-      <Physics debug={debugColliders} gravity={[0, gravity, 0]} numSolverIterations={12} timeStep="vary">
+      {/* A FIXED step, because "vary" hands the solver the frame delta and a
+          stalled frame is measured in seconds.
+          
+          Measured: with "vary", blocking the page's main thread for 3 s while the
+          corpse lay asleep launched it from y = 0.15 to y = 29.8 in two seconds
+          and it never came back. The binding clamps a varying delta at 0.5 s and
+          takes ONE step with it — half a second of gravity applied in a single
+          integration across eleven jointed bodies. A fixed step splits the same
+          stall into sub-steps and the island survives it.
+          
+          What this costs: the ragdoll drives bones from the raw solver pose
+          (rapier's interpolation only lerps the binding's managed objects, not
+          our bodies), so above 60 Hz a bone holds its pose for a frame or two
+          before moving. That is a smoothness artefact on a corpse; the
+          alternative was the corpse leaving the level. Interpolating our own
+          write-back is the way to get both back. */}
+      <Physics debug={debugColliders} gravity={[0, gravity, 0]} numSolverIterations={12} timeStep={1 / 60}>
         <FixedTickProvider bus={tick}>
           <FixedTickClock bus={tick} />
           <Suspense fallback={null}>
