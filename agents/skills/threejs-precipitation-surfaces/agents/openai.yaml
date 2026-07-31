@@ -1,0 +1,4 @@
+interface:
+  display_name: "Three.js Weather Surfaces"
+  short_description: "Couple precipitation with surface response."
+  default_prompt: "Use $threejs-precipitation-surfaces to connect rain or snow to visible surface changes."

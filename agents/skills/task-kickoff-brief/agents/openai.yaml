@@ -1,0 +1,4 @@
+interface:
+  display_name: "Task Kickoff Brief"
+  short_description: "Restate the task and pick skills before editing"
+  default_prompt: "Use $task-kickoff-brief to restate the task as understood, plan the work, and name the skills to load."

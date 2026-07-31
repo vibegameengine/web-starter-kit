@@ -1,0 +1,4 @@
+interface:
+  display_name: "Three.js Procedural Fields"
+  short_description: "Design shared, inspectable visual fields."
+  default_prompt: "Use $threejs-procedural-fields to design coherent shared fields for this material or terrain."

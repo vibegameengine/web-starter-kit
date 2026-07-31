@@ -1,0 +1,4 @@
+interface:
+  display_name: "Three.js Water Optics"
+  short_description: "Build coherent waves, water shading, and foam."
+  default_prompt: "Use $threejs-water-optics to build a bounded water surface with coherent optics."

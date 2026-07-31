@@ -1,0 +1,4 @@
+interface:
+  display_name: "Gameplay Space Composition"
+  short_description: "Build dense, readable game spaces from a reference."
+  default_prompt: "Use gameplay-space-composition to turn this reference into a dense, navigable, hand-authored gameplay space."

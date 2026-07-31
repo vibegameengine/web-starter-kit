@@ -1,0 +1,4 @@
+interface:
+  display_name: "Three.js Procedural Architecture"
+  short_description: "Build modular architectural asset kits."
+  default_prompt: "Use $threejs-procedural-architecture to design a modular architectural asset without generating its scene placement."

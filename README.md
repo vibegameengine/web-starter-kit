@@ -110,7 +110,7 @@ folders. Its current feature mix includes:
 
 | Capability | Where |
 | --- | --- |
-| 45+ agent skills + 8 roles | [agents/](agents/AGENTS.md) · [agents/skills/](agents/skills/) |
+| 65+ agent skills + 8 roles | [agents/](agents/AGENTS.md) · [agents/skills/](agents/skills/) |
 | GLB/glTF optimizer — textures, Meshopt, albedo-only, per-import flags | [vite/glbAssetOptimizerPlugin.ts](vite/glbAssetOptimizerPlugin.ts) |
 | FBX → GLB converter — animation-only by default, `?fbx=raw` for full assets | [vite/fbxAssetLoaderPlugin.ts](vite/fbxAssetLoaderPlugin.ts) |
 | Direct Mixamo workflow — one With-Skin GLB plus untouched animation FBXs | [agents/skills/tripo-to-mixamo/](agents/skills/tripo-to-mixamo/) |

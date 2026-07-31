@@ -1,0 +1,4 @@
+interface:
+  display_name: "Three.js Event VFX"
+  short_description: "Build pooled, event-driven realtime VFX."
+  default_prompt: "Use $threejs-procedural-vfx to design a readable pooled event effect."

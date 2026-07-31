@@ -1,0 +1,4 @@
+interface:
+  display_name: "Three.js Procedural Materials"
+  short_description: "Build coherent texture-backed PBR materials."
+  default_prompt: "Use $threejs-procedural-materials to design an inspectable PBR material system."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Three.js Authored Vegetation"
+  short_description: "Render authored vegetation with stable wind."
+  default_prompt: "Use $threejs-authored-vegetation to render explicitly placed vegetation with rooted wind."

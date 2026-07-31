@@ -1,0 +1,4 @@
+interface:
+  display_name: "Three.js Image Pipeline"
+  short_description: "Coordinate HDR post-processing safely."
+  default_prompt: "Use $threejs-image-pipeline to define safe post-processing pass ownership and order."
