@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useHref } from 'react-router-dom'
 
 import { useReportInitialRenderReady } from '../../../features/bootstrap'
 import { LabCard } from '../../../features/ui-kit'
@@ -15,6 +15,13 @@ import styles from './LabsScreen.module.css'
  */
 export function LabsScreen() {
   useReportInitialRenderReady()
+
+  // Resolved through the router, ONCE, because the cards are plain anchors and a
+  // raw `/labs/<id>` ignores the app's basename: on a project Pages deployment
+  // every card pointed at the domain root and the whole index became unusable
+  // from the UI, while typing the same URL by hand worked. One call, then string
+  // concatenation — `useHref` is a hook and cards are a list.
+  const labsHref = useHref('/labs')
 
   const [query, setQuery] = useState('')
 
@@ -77,7 +84,7 @@ export function LabsScreen() {
                 <LabCard
                   data-testid={`labs-card-${lab.id}`}
                   description={lab.description}
-                  href={`/labs/${lab.id}`}
+                  href={`${labsHref}/${lab.id}`}
                   id={lab.id}
                   key={lab.id}
                   preview={lab.preview}
