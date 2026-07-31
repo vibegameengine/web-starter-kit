@@ -34,6 +34,7 @@
     "src/shared/lib/navigation/index.ts",
     "src/shared/lib/navigation/recastNav.ts",
     "src/shared/lib/patch9/usePatch9Background.ts",
+    "src/shared/lib/react/useDedupedState.ts",
     "src/shared/lib/serialization/canonicalBytes.ts",
     "src/shared/lib/shadows/index.ts",
     "src/shared/lib/shadows/shadowInvalidation.ts",

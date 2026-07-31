@@ -2,6 +2,12 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import { App } from './App'
 import { BootstrapGate } from './features/bootstrap'
+import { trimUserTimingInDev } from './shared/lib/dev/trimUserTiming'
+
+// The browser never evicts user-timing entries and React's DEV build writes one
+// per component render, so a long session ends in an out-of-memory tab.
+// Installed before anything renders.
+trimUserTimingInDev()
 
 // Suppress native browser gestures that fight app/game UI (right-click menu,
 // text selection drag, native image drag). Optional — remove if your app wants
