@@ -18,6 +18,10 @@ output/
 # Read wip/README.md before work; never add this directory to Git.
 /wip/
 
+# Python bytecode from skill scripts
+__pycache__/
+*.py[cod]
+
 # Playwright
 /test-results/
 /playwright-report/
@@ -34,3 +38,4 @@ output/
 *.njsproj
 *.sln
 *.sw?
+.code-graph/
