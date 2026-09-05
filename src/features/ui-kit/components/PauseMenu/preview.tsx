@@ -9,7 +9,7 @@ import type { UiKitPreview } from '../../systems/uiKitPreview'
 
 const ENTRIES: readonly PauseMenuEntry[] = [
   { id: 'settings', label: 'Sound settings' },
-  { id: 'restart', label: 'Restart wave' },
+  { id: 'restart', label: 'Restart level' },
 ]
 
 const STAGE = {
@@ -27,7 +27,10 @@ const STAGE = {
 function Stage({ children, label }: { readonly children: React.ReactNode; readonly label: string }) {
   return (
     <div style={STAGE}>
-      <div style={{ padding: 12, color: 'rgb(224 245 255 / 45%)', font: "800 9px/1 'Trebuchet MS', sans-serif", letterSpacing: '0.1em' }}>
+      {/* The menu's backdrop is `position: fixed; z-index: 40` and covers the
+          whole stage, so this caption has to sit above 40 or it is read through
+          a blurred 62% scrim. */}
+      <div style={{ position: 'relative', zIndex: 41, padding: 12, color: '#cfe6f5', font: "800 11px/1 'Trebuchet MS', sans-serif", letterSpacing: '0.1em' }}>
         {label}
       </div>
       {children}
@@ -48,7 +51,7 @@ function PauseMenuPreview() {
           activeEntryId={view}
           data-testid="preview-pause-menu"
           entries={ENTRIES}
-          hint="Escape returns to the fight"
+          hint="Escape closes this menu"
           onBack={() => setView(null)}
           onResume={() => setView(null)}
           onSelect={(id) => setView(id === 'restart' ? null : id)}
@@ -70,7 +73,11 @@ function PauseMenuPreview() {
           <AudioSettingsControls onChange={() => {}} values={values} />
         </PauseMenu>
       </Stage>
-      <div style={{ alignSelf: 'center' }}>
+      {/* Full width under both stages, on a dark strip of its own. At 460 px
+          each the stages already fill a row, so a third flex child lands beside
+          them on the gallery's light grid — where this control, which is drawn
+          light-on-dark, is invisible. */}
+      <div style={{ flexBasis: '100%', padding: 10, borderRadius: 10, background: '#101b24' }}>
         <ControlButton onClick={() => setView(null)}>Reset the live one</ControlButton>
       </div>
     </div>
