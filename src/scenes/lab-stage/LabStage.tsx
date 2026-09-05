@@ -149,6 +149,14 @@ export type LabStageProps = {
   readonly environment?: boolean
   /** Reference grid. One metre per cell, five metres per section — everywhere. */
   readonly grid?: boolean
+  /**
+   * Mount the VFX light pool for this lab. Off unless a lab lights something
+   * with `<VfxLight>` — see `shared/lib/lights/VfxLights.tsx` for why the pool
+   * is fixed-size and permanent, and why an unused one is not free: three.js
+   * compiles the scene's light COUNT into every material, so eight idle lamps
+   * change every program in the lab.
+   */
+  readonly vfxLights?: boolean
   /** Shadow-receiving floor under the subject. */
   readonly ground?: boolean
   /** Floor extent in metres. */
@@ -201,6 +209,7 @@ export function LabStage({
   richPost,
   skyColor = SKY_COLOR,
   sun,
+  vfxLights = false,
 }: LabStageProps) {
   // The stage owns the readiness handshake so no lab has to remember it: a lab
   // that forgets leaves the bootstrap overlay up over a perfectly good frame.
@@ -261,10 +270,11 @@ export function LabStage({
       {/* Fill from the shadow side, so the dark half of a subject still has form. */}
       <directionalLight color={fillColor} intensity={0.35 * ambient} position={[-16, 8, -18]} />
 
-      {/* The game's VFX lamps, on every stage, so an effect lit here is lit the
-          same way in the raid — and so a lab that spawns a hundred flashes
-          never pays for a shader recompile to show one. */}
-      <VfxLightPool />
+      {/* The VFX lamps, opt-in. A lab that spawns flashes asks for the pool and
+          then never pays for a shader recompile to show one; a lab that spawns
+          none should not carry eight `pointLight`s it does not use, because the
+          count is compiled into every material in the scene either way. */}
+      {vfxLights ? <VfxLightPool /> : null}
 
       {/* The arena's image-based light, opt-in. `frames={1}` bakes it once: it
           is a static rig, and re-rendering the cube map every frame costs a lab

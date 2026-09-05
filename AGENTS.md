@@ -2,6 +2,12 @@
 
 ## ⛔ ABSOLUTE RULES (read first, no exceptions)
 
+Every rule below carries the incident that produced it, and those incidents
+happened in the game this kit was distilled from. Where an example names an
+arena, a wave, a mob or a route, that world is not in this repository — the
+number and the mechanism are what transfer, and they were measured, not
+imagined. The rules themselves apply here without exception.
+
 0. **COMMIT. As soon as a coherent piece works — commit it. Do not wait to be
    asked.** Not at the end of the task, not when the whole feature is finished,
    not "once it is proven": the moment a piece compiles and does something, it
@@ -84,11 +90,13 @@
    The answer was two rasters describing one wall — the drawing on the kit's
    ~1.75 m grid slid by a fractional recentre offset, the collision on a 0.9375 m
    grid pinned to the world origin, so a wall face could differ by half a cell,
-   0.47 m. That is arithmetic, and it was in
-   `dungeonLevelCollision.ts` and `dungeonLevelLayout.ts` the whole time. Instead
-   of reading them the agent planned to shoot at walls in a headed browser and
-   look — proposing to judge a 47 cm discrepancy by eye, in a screenshot, in a
-   scene with a live fight in it. The owner: *"твой расчёт, что ты каким-то чудом
+   0.47 m. That is arithmetic, and it sat in the level's two grid modules — the
+   one that draws and the one that collides — the whole time. Those files belong
+   to the game this kit was distilled from and are not in this repository; what
+   is portable is the shape of the fault, two rasters describing one wall.
+   Instead of reading them the agent planned to shoot at walls in a headed
+   browser and look — proposing to judge a 47 cm discrepancy by eye, in a
+   screenshot, in a scene with a live fight in it. The owner: *"твой расчёт, что ты каким-то чудом
    сможешь понять это кадром — как ты себе это вообще представляешь?"*
 
    The same session had already lost an hour to the same reflex: the yard was

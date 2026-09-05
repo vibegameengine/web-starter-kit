@@ -43,7 +43,7 @@ const FBX_MODE_QUERY = 'fbx'
 const FBX_SERVE_PREFIX = '/@fbx-loader/'
 const FBX_CACHE_NAMESPACE = 'fbx-loader'
 // Bump when the convert/strip/meshopt pipeline changes so stale entries are ignored.
-const FBX_CACHE_VERSION = 1
+const FBX_CACHE_VERSION = 2
 
 type FbxResult = {
   readonly bytes: Uint8Array

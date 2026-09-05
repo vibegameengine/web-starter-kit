@@ -198,6 +198,6 @@ subjects in it.**
 - [`rigging-a-weapon-arm.md`](./rigging-a-weapon-arm.md) — the cultist's gun arm,
   and why "no fingers on the gun, nothing to cut" was wrong.
 - `src/features/mob/components/useFootPlant.ts` — the runtime planter.
-- `src/features/mob/systems/legStepping.ts` — planting feet in world space and
+- `src/shared/lib/animation/legStepping.ts` — planting feet in world space and
   re-stepping in diagonal pairs, for movement in directions no take was captured
   for.
