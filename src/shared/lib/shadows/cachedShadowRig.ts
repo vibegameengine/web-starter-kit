@@ -68,6 +68,8 @@ type CachedShadowStats = {
   readonly bakes: number
   readonly dynamicCasters: number
   readonly mode: 'cached' | 'fallback'
+  /** Why the rig is not caching, or null while it is. */
+  readonly reason: string | null
   readonly staticCasters: number
 }
 
@@ -156,6 +158,12 @@ export class CachedShadowRig {
       bakes: this.bakeCount,
       dynamicCasters: this.casters.dynamic.length,
       mode: this.fallbackReason === null ? 'cached' : 'fallback',
+      // The rig knew WHY it fell back and kept it to itself: the DEV line said
+      // "fallback" and left the reader to guess between an unsupported renderer,
+      // an untagged scene and a second shadow-casting light. Those have entirely
+      // different fixes, and a scene can sit in the slow path for a long time
+      // before anyone notices it is in it at all.
+      reason: this.fallbackReason,
       staticCasters: this.casters.static.length,
     }
   }

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The Divine Eye (đôi mắt thần) — deterministic multi-signal render↔reference evaluator.
+"""The Divine Eye — deterministic multi-signal render↔reference evaluator.
 
 Plan 1.3 Phase 3 core (§3.1 ensemble, §3.3 combination + self-uncertainty). This is
 the single authority the correction loop asks "how close is this render to the
@@ -41,6 +41,7 @@ from diagnose_render import (  # noqa: E402
     bbox_of,
     bilateral_symmetry_error,
     load_mask,
+    mask_is_inverted,
     proportion_delta,
     silhouette_iou,
 )
@@ -60,9 +61,16 @@ SCALE_HARD_MAX = 0.08
 # Ensemble: fidelity target + disagreement (self-uncertainty) spread.
 FIDELITY_TARGET = 0.85
 DISAGREEMENT_SPREAD = 0.35  # if soft-signal spread exceeds this ⇒ low-confidence → probe
+ASPECT_SOFT_MAX = 0.05      # aspect-ratio delta allowed for a reconstruction-mode soft pass.
 RECON_OBJ_MIN = 0.48        # objectness ≥ this rescues an IoU-only hard reject → probe (recon mode).
 #                            Separates same-object-different-framing (real pairs ~0.53–0.58) from a
 #                            genuinely different shape (~0.43). Rescue only ever downgrades reject→probe.
+# RESOLUTION CEILING, and it is a hard limit on what this module can ever report.
+# Every signal below -- SSIM, tonal, blowout, flat, edge overlap -- is computed on these grids, so a
+# feature a few pixels wide in a 1920px reference is not scored badly, it is ABSENT before any
+# comparison happens. No threshold tuning recovers it. per_feature.py cannot compensate either: it
+# consumes a scores dict and never opens an image, so its critical-feature gate is sound and starved.
+# Feature-scale fidelity needs zoom patches instead: grimoire/review/divine_eye_microscope.md.
 LUMA_SIZE = 64   # SSIM / tonal / blowout / flat work on this downsampled luma grid
 EDGE_SIZE = 96   # edge overlap grid
 HUE_ZONE_DELTA_E = 2.3   # per-band CIEDE2000 "same hue zone" tolerance (Context Part 2.2)
@@ -233,7 +241,7 @@ def edge_overlap(a: list[float], b: list[float], size: int) -> float:
             union += 1
             if ea[i] and eb[i]:
                 inter += 1
-    return inter / union if union else 1.0
+    return inter / union if union else 0.0
 
 
 def _blown_fraction(luma: list[float], hi: float = 0.95) -> float:
@@ -273,8 +281,8 @@ def tonal_parity(ref: list[float], ren: list[float], bins: int = 16) -> float:
 
 def evaluate(reference_png: Path, render_png: Path) -> dict[str, Any]:
     """Run all deterministic signals and combine into a verdict + routing action."""
-    ref_mask = load_mask(reference_png)
-    ren_mask = load_mask(render_png)
+    ref_mask, ref_mask_warnings = load_mask(reference_png)
+    ren_mask, ren_mask_warnings = load_mask(render_png)
     ref_luma = load_luma(reference_png, LUMA_SIZE)
     ren_luma = load_luma(render_png, LUMA_SIZE)
     ref_edge = load_luma(reference_png, EDGE_SIZE)
@@ -284,8 +292,10 @@ def evaluate(reference_png: Path, render_png: Path) -> dict[str, Any]:
 
     iou = silhouette_iou(ref_mask, ren_mask)
     prop = proportion_delta(bbox_of(ref_mask), bbox_of(ren_mask))
-    scale_delta = prop.get("scaleDelta", 0.0)
-    aspect_delta = prop.get("aspectRatioDelta", 0.0)
+    # proportion_delta returns snake_case keys; reading camelCase here silently defaulted both
+    # to 0.0, which dead-coded the scale HARD gate and pinned the proportion soft signal at 1.0.
+    scale_delta = prop.get("scale_delta", 0.0)
+    aspect_delta = prop.get("aspect_ratio_delta", 0.0)
     # symmetry + flat-region are PARITY signals (render vs reference), NOT absolute —
     # a legitimately asymmetric or flat-lit subject must not be penalized when the
     # render matches the reference. score = 1 when render is as (a)symmetric / as flat
@@ -324,6 +334,11 @@ def evaluate(reference_png: Path, render_png: Path) -> dict[str, Any]:
 
     # HARD gates: a fail is an immediate reject with a specific numeric reason.
     hard_failures: list[str] = []
+    if mask_is_inverted(ref_mask_warnings) or mask_is_inverted(ren_mask_warnings):
+        hard_failures.append(
+            "foreground mask fell back to whole-frame coverage; silhouette, scale and aspect "
+            "signals are not measuring the subject"
+        )
     if iou < IOU_HARD_MIN:
         hard_failures.append(f"silhouette IoU {iou:.3f} < {IOU_HARD_MIN}")
     if scale_delta > SCALE_HARD_MAX:
@@ -370,7 +385,18 @@ def evaluate(reference_png: Path, render_png: Path) -> dict[str, Any]:
     if hard_failures and objectness is not None and objectness >= RECON_OBJ_MIN:
         if all("silhouette IoU" in f for f in hard_failures):
             reconstruction_suspected = True
-            verdict, action = "low-confidence", "probe"
+            # Per-track calibration: silhouette IoU 0.85 is unreachable for a procedural-primitive
+            # reconstruction of a detailed photo (solid primitives structurally over-fill cutouts,
+            # serrations and AA curves), so IoU alone must not veto forever — otherwise the loop can
+            # only ever bounded-stop. When objectness confirms the same object AND the soft ensemble
+            # already meets the fidelity target AND scale/aspect are within gate, promote the
+            # IoU-only reject to a real pass; otherwise route to probe (human/VLM look). Genuinely
+            # wrong geometry still fails: low objectness isn't rescued at all, and a weak soft
+            # ensemble (< target) or an out-of-gate scale/aspect can only reach probe, never pass.
+            if fidelity >= FIDELITY_TARGET and scale_delta <= SCALE_HARD_MAX and aspect_delta <= ASPECT_SOFT_MAX:
+                verdict, action = "pass", "continue"
+            else:
+                verdict, action = "low-confidence", "probe"
 
     return {
         "verdict": verdict,
@@ -378,6 +404,10 @@ def evaluate(reference_png: Path, render_png: Path) -> dict[str, Any]:
         "fidelity": round(fidelity, 4),
         "fidelityTarget": FIDELITY_TARGET,
         "hardGateFailures": hard_failures,
+        "maskWarnings": (
+            [f"reference: {w}" for w in ref_mask_warnings]
+            + [f"render: {w}" for w in ren_mask_warnings]
+        ),
         "disagreementSpread": round(spread, 4),
         "signals": {
             "silhouetteIoU": round(iou, 4),

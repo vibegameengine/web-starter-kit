@@ -1,0 +1,29 @@
+/* No frame of its own: this part always sits inside a SettingsSection, and a
+   second border around it would double the edge. */
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Caption and control on one line, with the caption column the same width as
+   ControlSlider's so a settings screen mixing sliders and choices lines up. */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.label {
+  flex: 0 0 auto;
+  min-width: 58px;
+  color: rgb(224 245 255 / 72%);
+  font: 800 9px/1 'Trebuchet MS', system-ui, sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.control {
+  flex: 1 1 auto;
+  min-width: 0;
+}

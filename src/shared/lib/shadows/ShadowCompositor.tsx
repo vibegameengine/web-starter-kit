@@ -64,11 +64,12 @@ export function ShadowCompositor({ every = 2 }: { every?: number }) {
 
     if (import.meta.env.DEV) {
       const stats = rig.stats()
-      const line = `${stats.mode}:${stats.staticCasters}:${stats.dynamicCasters}`
+      const line = `${stats.mode}:${stats.reason ?? ''}:${stats.staticCasters}:${stats.dynamicCasters}`
       if (line !== reported.current) {
         reported.current = line
         console.info(
-          `[shadows] ${stats.mode} — ${stats.staticCasters} static casters baked, ${stats.dynamicCasters} redrawn per frame`,
+          `[shadows] ${stats.mode}${stats.reason ? ` (${stats.reason})` : ''} — ` +
+            `${stats.staticCasters} static casters baked, ${stats.dynamicCasters} redrawn per frame`,
         )
       }
     }

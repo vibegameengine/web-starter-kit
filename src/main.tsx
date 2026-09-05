@@ -3,6 +3,7 @@ import './index.css'
 import { App } from './App'
 import { BootstrapGate } from './features/bootstrap'
 import { trimUserTimingInDev } from './shared/lib/dev/trimUserTiming'
+import { initAudioSettings } from './shared/lib/audio/audioSettings'
 
 // The browser never evicts user-timing entries and React's DEV build writes one
 // per component render, so a long session ends in an out-of-memory tab.
@@ -23,6 +24,8 @@ blockedNativeInteractionEvents.forEach((eventName) => {
     true,
   )
 })
+
+initAudioSettings()
 
 createRoot(document.getElementById('root')!).render(
   <BootstrapGate labels={{ progress: 'Loading', retry: 'Retry' }}>

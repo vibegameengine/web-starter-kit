@@ -30,3 +30,14 @@ Keep composition ownership outside this skill: placement and transforms must com
 - Grass floats above or clips through terrain.
 - Wind makes every plant move in identical phase.
 - Placement is generated instead of supplied as explicit authored scene data.
+
+## Edge treatment
+
+Chamfer every edge that is not deliberately sharp: a perfectly sharp arris is one
+pixel wide at every distance, so it aliases when the camera moves and disappears
+when it stops. The sizes, the exceptions, and the reason they are optical rather
+than decorative are in
+[`../_conventions/edge-treatment.md`](../_conventions/edge-treatment.md) — one
+copy, because a rule kept in seventeen places is a rule that is right in some of
+them. Treat its figures as a default for metre-scale work and set your own if
+your project's scale or look differs.

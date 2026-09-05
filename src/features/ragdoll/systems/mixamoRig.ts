@@ -102,7 +102,28 @@ export type RagdollJoint = {
 export type RagdollSpec = {
   readonly segments: readonly RagdollSegment[]
   readonly joints: readonly RagdollJoint[]
+  /**
+   * Rapier collision groups for every capsule of this body, or undefined to leave
+   * the engine's default (collide with everything).
+   *
+   * Set only when the body asked for `selfCollision: 'off'`, because turning a
+   * pair of contacts off at the JOINTS is not enough on its own: a wide trunk
+   * also intersects limbs it is not jointed to, and nothing was filtering those.
+   */
+  readonly collisionGroups?: number
 }
+
+/**
+ * The membership bit every self-ignoring ragdoll shares, and the filter that
+ * excludes it.
+ *
+ * One bit rather than one per body: with sixteen available and corpses coming and
+ * going, per-instance bits run out and have to be recycled. The cost of sharing
+ * is that two such bodies also pass through EACH OTHER — two corpses in a heap
+ * rather than a pile. Each still collides with the world, which is the part that
+ * decides whether a body lies on the floor or falls through it.
+ */
+const RAGDOLL_SELF_GROUP = (0x8000 << 16) | 0x7fff
 
 // Segment table by normalized bone name: [id, head, tail(for length/dir), radiusFactor, massFraction].
 // radius = radiusFactor × bone length, keeping the ragdoll scale-independent. massFraction is the
@@ -126,6 +147,18 @@ const SEGMENTS: readonly (readonly [string, string, string, number, number, numb
   ['shinL', 'leftleg', 'leftfoot', 0.26, 0.061, 0.15],
   ['thighR', 'rightupleg', 'rightleg', 0.32, 0.10, 0.15],
   ['shinR', 'rightleg', 'rightfoot', 0.26, 0.061, 0.15],
+  // FEET were added here and reverted. They are worth someone's time later, so
+  // the measurement is kept rather than the code: with `['footL','leftfoot',
+  // 'lefttoebase',0.30,0.0145,d]` and revolute ankles at [-45deg, +30deg] the
+  // imp's corpse span went 0.559 -> 1.047 of body height, straight through a
+  // floor it had never once reached — the feet ARE the extremity a short-limbed
+  // body is missing, and the mannequin control barely moved (0.728 -> 0.722),
+  // which says this was more body being simulated rather than a wider ruler.
+  // But rest time went 3.55s +/- 0.94 to 6.67s +/- 1.46, and BOTH bodies then
+  // failed to settle inside four seconds. Damping the feet like the forearms
+  // (d = 1.2) did not help: 6.99s, worse. Two light bodies at the end of the
+  // chain keep the rest detector awake, and that needs solving before feet can
+  // come back.
 ]
 
 /**
@@ -236,6 +269,12 @@ const JOINTS: readonly JointRow[] = [
   // twist COMBINE, and 45+60 let the head reach ~105° of total deviation — enough to
   // fold chin-to-chest, which a limp neck cannot do. Verified the cone limits really
   // are enforced by clamping this row to 5° and measuring 7° of deviation.
+  // A contact pair on the NECK was tried here and reverted, so it is not tried a
+  // third time: the head does sink toward the chest without one, but switching it
+  // on cost the mannequin both its span (0.728 -> 0.644) and its rest (settled
+  // true -> false) while moving the imp 0.612 -> 0.606, which is nothing. The
+  // file's own note above says why — a trunk capsule wide enough to swallow its
+  // own joint anchor is one the solver spends the whole corpse pushing out of.
   { id: 'neck', parent: 'torso', child: 'head', anchor: 'head', kind: 'cone', twist: [-deg(35), deg(35)], swing: [-deg(35), deg(35)], relaxable: true },
   { id: 'shoulderL', parent: 'torso', child: 'upperArmL', anchor: 'leftarm', kind: 'cone', twist: [-deg(45), deg(45)], swing: [-deg(75), deg(75)], swingSide: [-deg(60), deg(60)], contacts: true, damping: 3 },
   { id: 'elbowL', parent: 'upperArmL', child: 'lowerArmL', anchor: 'leftforearm', kind: 'revolute', limit: [0, 2.5], buckle: deg(70), relaxable: true },
@@ -282,12 +321,21 @@ type RigIndex = {
   readonly bones: Map<string, Bone>
   /** Every named node, bones included — used to measure tails. */
   readonly nodes: Map<string, Object3D>
+  /**
+   * The body's own mesh, when it has one. It is what says how THICK a limb is:
+   * a bone carries a length and a direction and nothing else, so a capsule sized
+   * off it is sized off a proportion someone guessed for a different body.
+   */
+  readonly skinned: SkinnedMesh | null
 }
 
 function indexRig(root: Object3D): RigIndex {
   const bones = new Map<string, Bone>()
   const nodes = new Map<string, Object3D>()
+  let skinned: SkinnedMesh | null = null
   root.traverse((object) => {
+    const mesh = object as SkinnedMesh
+    if (skinned === null && mesh.isSkinnedMesh && mesh.skeleton) skinned = mesh
     if (!object.name) return
     const name = normalizeBoneName(object.name)
     const bone = object as Bone
@@ -300,15 +348,270 @@ function indexRig(root: Object3D): RigIndex {
       nodes.set(name, object)
     }
   })
-  return { bones, nodes }
+  return { bones, nodes, skinned }
 }
+
+/**
+ * Every vertex the body owns, sorted into the bone that carries most of it and
+ * expressed in THAT bone's own frame.
+ *
+ * This is the measurement the capsules were missing. A radius written as a
+ * fraction of bone length is a guess about proportion, and it is the same guess
+ * for every body that ever uses this rig: the numbers in `SEGMENTS` were fitted
+ * to a full-height Mixamo mannequin, whose thighs are short and thick relative to
+ * the bone. Put a metre-tall imp with long thin legs on the same fractions and it
+ * collapses inside capsules half again too wide for it — which is exactly what it
+ * did, in front of the person who asked for it.
+ *
+ * Bone-local, because that is the one frame in which "how far is this vertex from
+ * the bone" is a question with an answer. The skin's own inverse bind matrix is
+ * the change of basis, and it is also what makes this immune to whatever space
+ * the vertex positions happen to be stored in — an asset built with `?meshopt`
+ * has its positions rescaled and re-centred, and the matching inverse bind takes
+ * that straight back out.
+ */
+/**
+ * Cached per ASSET, keyed by geometry, and the cache is what makes it affordable.
+ *
+ * This walks every vertex of a twenty-thousand-vertex body and allocates a
+ * `Vector3` for each one. It ran once per MOUNT — six to twelve times in the
+ * frame a wave spawns — and the result is identical every time: `cloneSkinned`
+ * shares the geometry and copies `bindMatrix` and `boneInverses`, and the points
+ * are computed in bone-LOCAL bind space, so nothing about a particular clone can
+ * change them. Keyed on the geometry rather than the mesh for exactly that
+ * reason, and stored by bone NAME so a fresh skeleton's own `Bone` objects can be
+ * looked up against it.
+ *
+ * It is NOT keyed on the scene's applied scale, and does not need to be: the
+ * scale `Mob` writes lands on the scene root, while `bindMatrix` and
+ * `boneInverses` come off the asset. The distinction matters here more than most
+ * places — a spec measured in the wrong space is the `?meshopt` bind-pose
+ * disaster in AGENTS.md rule 5 — so if this ever starts being keyed on anything,
+ * key it on the values it actually reads.
+ */
+const vertexClouds = new Map<string, Map<string, Vector3[]>>()
+
+function vertexCloud(skinned: SkinnedMesh): Map<Bone, Vector3[]> {
+  const { bones } = skinned.skeleton
+  const cached = vertexClouds.get(skinned.geometry.uuid)
+  if (cached) {
+    const rebuilt = new Map<Bone, Vector3[]>()
+    for (const bone of bones) {
+      const points = cached.get(bone.name)
+      if (points) rebuilt.set(bone, points)
+    }
+    return rebuilt
+  }
+
+  const cloud = new Map<Bone, Vector3[]>()
+  const byName = new Map<string, Vector3[]>()
+  const geometry = skinned.geometry
+  const position = geometry.getAttribute('position')
+  const skinIndex = geometry.getAttribute('skinIndex')
+  const skinWeight = geometry.getAttribute('skinWeight')
+  if (!position || !skinIndex || !skinWeight) return cloud
+
+  const { boneInverses } = skinned.skeleton
+  const point = new Vector3()
+  for (let vertex = 0; vertex < position.count; vertex += 1) {
+    // The DOMINANT bone only. A vertex shared between a thigh and a shin belongs
+    // to whichever actually carries it; splitting it between both would let every
+    // joint's bulge inflate the capsule on each side of it.
+    let bestSlot = 0
+    let bestWeight = -1
+    for (let slot = 0; slot < 4; slot += 1) {
+      const weight = skinWeight.getComponent(vertex, slot)
+      if (weight > bestWeight) {
+        bestWeight = weight
+        bestSlot = slot
+      }
+    }
+    if (bestWeight <= 0) continue
+    // The skin index IS the bone's index in the skeleton. It used to look the
+    // bone back up with `bones.indexOf(bone)` — a linear scan over 47 bones, run
+    // once per vertex, inside the vertex loop.
+    const boneIndex = skinIndex.getComponent(vertex, bestSlot)
+    const bone = bones[boneIndex]
+    if (!bone) continue
+
+    point.fromBufferAttribute(position, vertex).applyMatrix4(skinned.bindMatrix)
+    point.applyMatrix4(boneInverses[boneIndex])
+    const existing = cloud.get(bone)
+    if (existing) { existing.push(point.clone()) }
+    else {
+      const started = [point.clone()]
+      cloud.set(bone, started)
+      byName.set(bone.name, started)
+    }
+  }
+  vertexClouds.set(geometry.uuid, byName)
+  return cloud
+}
+
+/**
+ * How many directions around the bone the surface is sampled in.
+ *
+ * Sixteen is enough to see a limb as round and few enough that every sector has
+ * vertices in it on a mesh of this density.
+ */
+const RADIUS_SECTORS = 16
+/** Fraction of those directions the capsule is asked to contain. */
+const RADIUS_PERCENTILE = 0.8
+/** How far in from each end the measurement is taken. */
+const RADIUS_BAND = { high: 0.85, low: 0.15 }
+/** Below this many vertices on a bone the reading is noise whatever its shape. */
+const RADIUS_MIN_SAMPLES = 24
+/** Below this many filled sectors the reading is a sliver of mesh, not a cross-section. */
+const RADIUS_MIN_SECTORS = 8
+
+/**
+ * How thick this limb actually is, from the mesh, or null when the mesh cannot
+ * answer.
+ *
+ * The statistic is the NEAREST surface in each direction around the bone, and
+ * that choice is the whole of it. The obvious measurement — a high percentile of
+ * every vertex's distance from the axis — was tried and measures the wrong thing
+ * on any character wearing anything: a garment hangs OUTSIDE the body and is
+ * weighted to the bone underneath it, so it lands in the upper half of the
+ * distribution and drags the percentile with it. Measured on the imp, whose
+ * loincloth is weighted to the hips and thighs, that gave a thigh of 0.162 m on a
+ * 0.411 m bone and a pelvis of 0.137 m on a 0.070 m one — a body built out of
+ * spheres as wide as itself, which is exactly what a corpse flattened into a
+ * pancake looks like from the outside.
+ *
+ * Flesh is present in EVERY direction around a limb; cloth only adds far points
+ * in some of them and can never remove the near ones. So the nearest vertex per
+ * angular sector is the body's own surface whatever is draped over it, and the
+ * percentile is then taken across directions rather than across vertices. Same
+ * imp: thigh 0.055, shin 0.042, pelvis 0.095.
+ *
+ * Measured across the MIDDLE of the bone and never at its ends — a shoulder, a
+ * knee and a hand are all bulges sitting on the ends of bones, and a radius that
+ * contained them would describe the joint rather than the limb.
+ */
+function measuredRadius(cloud: Map<Bone, Vector3[]>, bone: Bone, tailLocal: Vector3): number | null {
+  const points = cloud.get(bone)
+  const axisLength = tailLocal.length()
+  if (!points || points.length < RADIUS_MIN_SAMPLES || axisLength < 1e-4) return null
+
+  const axis = tailLocal.clone().divideScalar(axisLength)
+  // Any two directions across the bone, to measure an angle around it.
+  const across = new Vector3()
+    .crossVectors(axis, Math.abs(axis.y) < 0.9 ? UP : new Vector3(1, 0, 0))
+    .normalize()
+  const alsoAcross = new Vector3().crossVectors(axis, across).normalize()
+
+  const nearest = new Array<number>(RADIUS_SECTORS).fill(Infinity)
+  const offset = new Vector3()
+  for (const point of points) {
+    const projection = point.dot(axis)
+    const t = projection / axisLength
+    if (t < RADIUS_BAND.low || t > RADIUS_BAND.high) continue
+    offset.copy(point).addScaledVector(axis, -projection)
+    const radius = offset.length()
+    const angle = Math.atan2(offset.dot(alsoAcross), offset.dot(across))
+    const sector = Math.min(RADIUS_SECTORS - 1, Math.floor(((angle + Math.PI) / (2 * Math.PI)) * RADIUS_SECTORS))
+    if (radius < nearest[sector]) nearest[sector] = radius
+  }
+
+  const filled = nearest.filter((radius) => Number.isFinite(radius)).sort((left, right) => left - right)
+  if (filled.length < RADIUS_MIN_SECTORS) return null
+  return filled[Math.min(filled.length - 1, Math.floor(filled.length * RADIUS_PERCENTILE))]
+}
+
 
 /**
  * Builds the ragdoll spec from a posed model. Reads current bone WORLD transforms,
  * so call after the model's matrices are up to date. Returns null if the core
  * bones (hips + a limb) are missing — i.e. the rig is not Mixamo-compatible.
  */
-export function buildRagdollSpec(root: Object3D): RagdollSpec | null {
+/**
+ * Per-BODY choices about how its capsules are found.
+ *
+ * They are options rather than behaviour because two bodies in this project
+ * genuinely need different answers, and neither answer is wrong. The authored
+ * fractions in `SEGMENTS` were fitted to a full-height humanoid and are
+ * deliberately slim at the trunk — `hipL/hipR` and the shoulders keep their
+ * contacts on so a limb cannot pass through the torso, and a trunk wide enough to
+ * swallow its own joint anchor is one the solver must push its own legs out of.
+ * That slimness is load-bearing for that body: measured, widening it stops the
+ * mannequin settling at all, at four, six and ten seconds.
+ *
+ * It is also wrong for a body shaped differently. The imp is hunched and its
+ * trunk bones are short, so the same fractions degenerate its pelvis to the 3 cm
+ * floor and make its torso half the thickness of its own thigh — a stick that
+ * never comes to rest and lands folded into itself.
+ */
+export type RagdollFitOptions = {
+  /**
+   * Take each capsule's thickness from the MESH instead of from the authored
+   * fraction of bone length. See `measuredRadius` for how, and why the obvious
+   * statistic measures a garment rather than a body.
+   *
+   * Off by default, and the default is the point: this changes the shape of every
+   * capsule on a body, and a body that already settles reliably has nothing to
+   * gain and a working configuration to lose.
+   */
+  readonly capsulesFromMesh?: boolean
+  /**
+   * Whether the segments of THIS body collide with each other.
+   *
+   * `trunk` (the default, and what every body did before this was an option):
+   * the four joints that exist to keep a limb out of the torso — the two hips and
+   * the two shoulders — keep their contacts, and every other jointed pair already
+   * has them off. It is what makes a corpse's arm lie ON its chest rather than
+   * inside it.
+   *
+   * `off`: nothing in this body touches itself, only the world.
+   */
+  readonly selfCollision?: 'off' | 'trunk'
+  /**
+   * Multiplies every segment's angular damping — how hard a limb resists being
+   * turned, which is what decides whether a corpse creeps or comes to rest.
+   *
+   * It travels with `capsulesFromMesh` in practice, and for a physical reason: a
+   * capsule fitted to a thin limb has less contact and less drag than the fat
+   * authored one it replaces, so the same body takes longer to stop. Measured on
+   * the imp, whose thighs went from 0.132 to 0.055 — it settled inside four
+   * seconds in one run out of three. The authored damping was fitted to the fat
+   * capsules; the thin ones need their own.
+   */
+  readonly angularDamping?: number
+  /**
+   * Scales the knee/elbow BUCKLE — the fold that is driven into the limbs for the
+   * first moment after death so the body gives way instead of toppling like a
+   * plank. 0 disables it.
+   *
+   * A per-body number because the reflex drives BOTH knees to the same angle, and
+   * what that produces depends on what the legs were doing. Measured on the imp:
+   * killed standing it comes to rest in four runs out of four, killed mid-stride
+   * in two — the asymmetric pose plus a symmetric fold puts it on one knee, where
+   * it keeps micro-moving. In this game that is the common case, because an imp
+   * is killed running at you.
+   */
+  readonly buckle?: number
+  /**
+   * Extra hip EXTENSION, in radians — how far the thigh may swing back past the
+   * authored stop.
+   *
+   * The authored range is a human's: `[-75°, +15°]`, because a live person flexes
+   * the hip far more than they extend it. A corpse dropped by a symmetric buckle
+   * then ends with its knees tucked under its pelvis and stays that way, because
+   * fifteen degrees is all the room it has to open out again. Whether that is
+   * right depends on the creature: this one is digitigrade and already stands
+   * with its hips open.
+   *
+   * MEASURED AND NOT USED. It was prescribed as the fix for a corpse that lands
+   * with its knees under it, and it makes that corpse worse: at 0.9 rad of extra
+   * extension the imp came to rest in one run out of four, against six out of six
+   * without it, and the spread of how it lands grew from 0.11 to 0.17 m. More
+   * freedom in the hip is more room to keep moving. Kept as an option because the
+   * next creature may need it; left at zero because this one does not.
+   */
+  readonly hipExtension?: number
+}
+
+export function buildRagdollSpec(root: Object3D, options: RagdollFitOptions = {}): RagdollSpec | null {
   root.updateWorldMatrix(true, true)
   const rig = indexRig(root)
   if (!rig.bones.has('hips') || !rig.bones.has('leftarm')) return null
@@ -330,7 +633,7 @@ export function buildRagdollSpec(root: Object3D): RagdollSpec | null {
   // the bodies still start exactly where the body is standing.
   const restore = poseToBind(root)
   try {
-    return measureSpec(rig)
+    return measureSpec(rig, options)
   } finally {
     restore()
   }
@@ -358,6 +661,44 @@ function poseToBind(root: Object3D): () => void {
     scale: bone.scale.clone(),
   }))
   ;(skeleton as Skeleton).pose()
+
+  /**
+   * A bind pose is a POSE, not a resize — so the skeleton is measured at the size
+   * the body actually lives at, whatever size its bind matrices are expressed in.
+   *
+   * `Skeleton.pose()` rebuilds every bone from `boneInverses`, and those matrices
+   * do not have to be in the same space as the live rig. A model built with
+   * `?meshopt` is exactly that case: the optimizer's quantization step rescales
+   * and re-centres the vertex positions and compensates by changing the inverse
+   * bind matrices, so the drawn body is identical while the recovered bind pose
+   * comes back at a different scale entirely. Measured on the imp: an inverse-bind
+   * scale of 0.4998 against the source asset's 1.0000, so `pose()` handed back a
+   * skeleton at TWICE size. Every capsule was then measured twice as thick, and
+   * every `bind` below carried that factor into `syncToSkeleton`, which decomposes
+   * it straight onto `bone.scale` — the body visibly doubled the instant it died.
+   *
+   * Only the scale has to come out. The bind pose's absolute POSITION never
+   * escapes this function: `bind` is a transform relative to the body's own
+   * centre and waking applies `bone.matrixWorld · bind⁻¹`, so a bind pose that
+   * sits a metre from where the body stands cancels itself out. A scale does not.
+   *
+   * Only bones with no bone parent are touched, and that is the whole of it:
+   * `pose()` derives every other bone's local from its parent's world, which has
+   * already absorbed the factor, so the rest come back unit-scaled on their own.
+   */
+  for (const entry of held) {
+    if ((entry.bone.parent as Bone | null)?.isBone) continue
+    if (entry.bone.scale.equals(entry.scale)) continue
+    const { x, y, z } = entry.bone.scale
+    if (import.meta.env.DEV && (Math.abs(x - y) > 1e-3 || Math.abs(x - z) > 1e-3)) {
+      console.error(
+        `Ragdoll: the bind pose of "${entry.bone.name}" is a NON-uniform resize of the live rig ` +
+        `(${x.toFixed(3)}, ${y.toFixed(3)}, ${z.toFixed(3)}) — its capsules cannot be measured from it.`,
+      )
+    }
+    entry.bone.scale.copy(entry.scale)
+  }
+
   root.updateWorldMatrix(true, true)
 
   return () => {
@@ -370,7 +711,71 @@ function poseToBind(root: Object3D): () => void {
   }
 }
 
-function measureSpec({ bones, nodes }: RigIndex): RagdollSpec | null {
+
+/**
+ * How long a MISSING tail node is, as a multiple of the link that arrived at the
+ * bone it belongs to. Measured on this project's own reference rig
+ * (`ragdoll/assets/models/default-humanoid.fbx`), not estimated: on it the skull
+ * — `Head` to `HeadTop_End` — is 0.1963 m against a `Neck`-to-`Head` link of
+ * 0.1079 m. Anything not listed continues its link at its own length.
+ */
+const GUESSED_TAIL_FACTOR: Readonly<Record<string, number>> = { head: 1.82 }
+
+/**
+ * Where a segment's tail is when the rig simply has no node for it.
+ *
+ * Mixamo's leaf ends (`HeadTop_End`, the finger tips) are export-time extras, and
+ * a character rigged elsewhere to Mixamo bone NAMES — a generated mesh, say —
+ * routinely has none of them. The head is the segment that notices: its bone runs
+ * from the base of the skull to the crown, and with no crown node its capsule has
+ * nothing to span.
+ *
+ * So the guess CONTINUES the link that arrived at the bone: same direction, and a
+ * length that is a measured proportion of it. That makes it a proportion of the
+ * rig rather than a number — it used to be `head + (0, -0.2, 0)`, a fifth of a
+ * metre straight DOWN in world space regardless of which way the bone pointed or
+ * how big the body was.
+ *
+ * It is still a guess, and the DEV error at the call site still says so.
+ */
+function guessTail(bone: Bone, head: Vector3, id: string): Vector3 {
+  const parent = bone.parent
+  const link = parent
+    ? head.clone().sub(parent.getWorldPosition(new Vector3()))
+    // No parent at all: nothing to continue, so fall back to the bone's own up.
+    : new Vector3(0, 1, 0).applyQuaternion(bone.getWorldQuaternion(new Quaternion())).multiplyScalar(0.1)
+  const length = Math.max(link.length(), 0.02) * (GUESSED_TAIL_FACTOR[id] ?? 1)
+  return head.clone().addScaledVector(link.normalize(), length)
+}
+
+const scratchBoneInverse = new Matrix4()
+
+/** DEV: what the mesh said versus what the table said, per segment. */
+const measuredLog: string[] = []
+
+function measureSpec({ bones, nodes, skinned }: RigIndex, options: RagdollFitOptions): RagdollSpec | null {
+  // One pass over the mesh, at build time, shared by every segment below.
+  // Walked when the body ASKED for mesh-fitted capsules, and additionally in DEV
+  // so the comparison can be read off `__ragdollRadii` on any body. A full pass
+  // over twenty thousand vertices is not something a shipped build pays for
+  // unless it is using the answer.
+  /*
+   * Walked when the body ASKED for mesh-fitted capsules — and no longer "also in
+   * DEV".
+   *
+   * The DEV arm meant every mob paid a full vertex walk on mount whether or not
+   * anything read the answer, and the build being profiled is the DEV build, so
+   * the frame-cost work was measuring a cost the shipped game does not have. The
+   * comparison it fed is still reachable: ask for it explicitly with
+   * `capsulesFromMesh`, or read `__ragdollRadii` on a body that does.
+   */
+  const wantsMesh = options.capsulesFromMesh === true
+  const cloud = skinned && wantsMesh ? vertexCloud(skinned) : new Map<Bone, Vector3[]>()
+  if (import.meta.env.DEV) {
+    measuredLog.length = 0
+    ;(globalThis as Record<string, unknown>).__ragdollRadii = measuredLog
+    measuredLog.push(`mesh=${skinned ? 'yes' : 'NO MESH'} bonesWithVertices=${cloud.size}`)
+  }
 
   // Tails and joint anchors are POSITIONS, so they are read from the node index:
   // a Mixamo leaf end is not a bone in glTF, and looking it up among bones alone
@@ -378,6 +783,24 @@ function measureSpec({ bones, nodes }: RigIndex): RagdollSpec | null {
   const worldOf = (name: string): Vector3 | null => {
     const node = nodes.get(name)
     return node ? node.getWorldPosition(new Vector3()) : null
+  }
+
+  /**
+   * Where each segment's own limbs are attached, for the joints that keep their
+   * contacts. Those four — the two hips and the two shoulders — exist so a limb
+   * cannot pass through the trunk, which means the trunk's capsule must not
+   * swallow the anchor its limb hangs from: a parent and child overlapping AT
+   * their joint is a pair the solver pushes apart for the rest of the corpse's
+   * life, and it never comes to rest.
+   */
+  const contactAnchors = new Map<string, Vector3[]>()
+  for (const joint of JOINTS) {
+    if (joint.contacts !== true || options.selfCollision === 'off') continue
+    const anchor = worldOf(joint.anchor)
+    if (!anchor) continue
+    const existing = contactAnchors.get(joint.parent)
+    if (existing) existing.push(anchor)
+    else contactAnchors.set(joint.parent, [anchor])
   }
 
   const segments: RagdollSegment[] = []
@@ -397,7 +820,7 @@ function measureSpec({ bones, nodes }: RigIndex): RagdollSpec | null {
         'its capsule is being guessed and will not match the mesh.',
       )
     }
-    const tail = tailAt ?? head.clone().add(new Vector3(0, -0.2, 0))
+    const tail = tailAt ?? guessTail(bone, head, id)
     const direction = tail.clone().sub(head)
     const length = Math.max(direction.length(), 0.05)
     direction.normalize()
@@ -405,7 +828,43 @@ function measureSpec({ bones, nodes }: RigIndex): RagdollSpec | null {
     // long as it, radius a factor of it. `CAPSULE_FIT` overrides all three where
     // the bone is not the shape (the head).
     const fit = CAPSULE_FIT[id]
-    const radius = Math.max(0.03, (fit?.radius ?? radiusFactor) * length)
+    // Thickness comes from the MESH where the mesh can answer, and from the
+    // authored fraction only where it cannot. The two disagree by a lot on any
+    // body that is not shaped like the mannequin the fractions were fitted to.
+    const tailLocal = tail.clone().applyMatrix4(scratchBoneInverse.copy(bone.matrixWorld).invert())
+    const authored = (fit?.radius ?? radiusFactor) * length
+    const fromMesh = wantsMesh || import.meta.env.DEV ? measuredRadius(cloud, bone, tailLocal) : null
+    // NOTE, and it used to say the opposite: the measurement does NOT only
+    // shrink. There is no `Math.min` below, and on this rig the mesh INFLATES —
+    // measured live, the imp's pelvis goes 0.029 -> 0.137 and its thigh
+    // 0.132 -> 0.162, and the mannequin's pelvis would go 0.042 -> 0.162 if it
+    // asked. A shrink-only cap was tried and reverted (`wip/imp-anim/VERDICTS.md`
+    // row 3); the comment describing it outlived the code by several hours, which
+    // is exactly how a reader ends up trusting a guarantee nothing provides.
+    /**
+     * Which answer this body asked for. The authored fraction is the default and
+     * stays the default — see `RagdollFitOptions` for why one of them is not
+     * simply better than the other.
+     */
+    /**
+     * And never wider than the joint it carries. Measured on the imp when its
+     * capsules were still sized off a percentile that had counted its loincloth:
+     * pelvis 0.137 plus thigh 0.162 against a hip anchor 0.094 from the pelvis
+     * axis — an overlap of three to one, and a body that never settled. That
+     * arithmetic was once used to argue the clamp could not work; it was arguing
+     * about numbers the measurement no longer produces (thigh 0.055 now), which
+     * is exactly why a conclusion reached by reasoning has to be re-derived when
+     * its inputs move.
+     */
+    const anchors = contactAnchors.get(id)
+    let allowed = Infinity
+    for (const anchor of anchors ?? []) {
+      const along = anchor.clone().sub(head)
+      const projection = along.dot(direction)
+      allowed = Math.min(allowed, along.addScaledVector(direction, -projection).length())
+    }
+    const radius = Math.max(0.02, Math.min(allowed, (wantsMesh ? fromMesh : null) ?? authored))
+    if (import.meta.env.DEV) measuredLog.push(`${id} authored=${authored.toFixed(3)} mesh=${fromMesh === null ? 'null' : fromMesh.toFixed(3)}`)
     const halfLength = (fit?.halfLength ?? 0.5) * length
     // A fitted centre is given in the BONE's frame, because that is the frame the
     // mesh was measured in — so it is rotated by the bone, not added to the world.
@@ -424,19 +883,31 @@ function measureSpec({ bones, nodes }: RigIndex): RagdollSpec | null {
       halfHeight: Math.max(0.01, halfLength - radius),
       radius,
       massFraction,
-      angularDamping,
+      angularDamping: angularDamping * (options.angularDamping ?? 1),
     }
     segments.push(segment)
     segmentById.set(id, segment)
   }
 
   const joints: RagdollJoint[] = []
-  for (const { id, parent, child, anchor: anchorName, kind, limit, twist, swing, swingSide, contacts, damping, buckle, relaxable } of JOINTS) {
+  for (const { id, parent, child, anchor: anchorName, kind, limit, twist, swing: authoredSwing, swingSide, contacts, damping, buckle, relaxable } of JOINTS) {
+    // The hips take the body's own extension range: see `hipExtension`.
+    const swing = authoredSwing && options.hipExtension && (id === 'hipL' || id === 'hipR')
+      ? ([authoredSwing[0], authoredSwing[1] + options.hipExtension] as const)
+      : authoredSwing
     if (!segmentById.has(parent) || !segmentById.has(child)) continue
     const anchor = worldOf(anchorName)
     if (!anchor) continue
     const childDirection = directionOf(segmentById.get(child)!)
     const axis = kind === 'revolute' ? bendAxis(childDirection) : childDirection
+    if (import.meta.env.DEV && kind === 'revolute') {
+      const rest = signedBend(directionOf(segmentById.get(parent)!), childDirection, axis)
+      // The angle every limit on this hinge is written as an offset FROM. On a rig
+      // whose bind pose has straight limbs it is near zero; on one bound in a
+      // crouch it is not, and the whole authored range shifts with it — which is
+      // what a knee bending the wrong way looks like from the outside.
+      measuredLog.push(`joint ${id} rest=${(rest * 180 / Math.PI).toFixed(1)}deg axis=${axis.toArray().map((v) => v.toFixed(2)).join(',')}`)
+    }
     joints.push({
       id,
       parent,
@@ -458,14 +929,23 @@ function measureSpec({ bones, nodes }: RigIndex): RagdollSpec | null {
       twist,
       swing,
       swingSide,
-      contacts,
+      contacts: options.selfCollision === 'off' ? false : contacts,
       damping,
-      buckle,
+      // A scale of 0 means NO reflex, and it has to come out as `undefined`.
+      // Left as the number 0 it passes the `!== undefined` guard downstream and
+      // arms a position motor at target zero — which is not "no fold" but "hold
+      // this joint straight, stiffly", the opposite. Measured before the fix: a
+      // shin tore away from the body in half the deaths.
+      buckle: buckle === undefined || options.buckle === 0 ? undefined : buckle * (options.buckle ?? 1),
       relaxable,
     })
   }
 
-  return { segments, joints }
+  return {
+    collisionGroups: options.selfCollision === 'off' ? RAGDOLL_SELF_GROUP : undefined,
+    joints,
+    segments,
+  }
 }
 
 function directionOf(segment: RagdollSegment): Vector3 {

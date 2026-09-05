@@ -70,6 +70,8 @@ export interface PhysicsJoint {
   readonly handle: number
   readonly rawSet: RawJointSet
   setContactsEnabled: (enabled: boolean) => void
+  /** Moves the attachment point on the FIRST body, in that body's own frame. */
+  setAnchor1?: (anchor: { x: number; y: number; z: number }) => void
   /** Present on revolute joints (a `UnitImpulseJoint`), absent on generic ones. */
   configureMotorPosition?: (target: number, stiffness: number, damping: number) => void
   setLimits?: (min: number, max: number) => void
@@ -78,6 +80,12 @@ export interface PhysicsJoint {
 type Chainable<T> = { [K in keyof T]: T[K] }
 
 export interface PhysicsColliderDesc {
+  /**
+   * Optional because it is a filtering nicety rather than part of building a
+   * body: a physics build without it still produces a working ragdoll, one that
+   * simply collides with itself.
+   */
+  setCollisionGroups?: (groups: number) => Chainable<PhysicsColliderDesc>
   setFriction: (friction: number) => Chainable<PhysicsColliderDesc>
   setMass: (mass: number) => Chainable<PhysicsColliderDesc>
   setRestitution: (restitution: number) => Chainable<PhysicsColliderDesc>
@@ -197,6 +205,7 @@ const scratchTarget = new Matrix4()
 const scratchParentInverse = new Matrix4()
 const scratchPosition = new Vector3()
 const scratchQuaternion = new Quaternion()
+/** Somewhere for a decomposed scale to go and be forgotten. See `syncToSkeleton`. */
 const scratchScale = new Vector3()
 const scratchCentreOfMass = new Vector3()
 const scratchSupport = new Vector3()
@@ -215,6 +224,8 @@ export class RagdollBody {
   /** `body⁻¹ · bone` inverted once: waking needs `body = bone · bind⁻¹`. */
   readonly #bindInverse = new Map<string, Matrix4>()
   readonly #restMark = new Map<string, Vector3>()
+  /** Each joint's attachment point on its CHILD, in the child body's own frame. */
+  readonly #anchorChild = new Map<string, Vector3>()
 
   #active = false
   #disposed = false
@@ -225,6 +236,8 @@ export class RagdollBody {
   #settled = false
   #support: string[] = []
   #standingHeight = 0
+  /** DEV: where the pelvis and the lowest capsule were the instant it woke. */
+  #wokeAt: readonly number[] = []
   #pending: { readonly point: Vector3; readonly impulse: Vector3 } | null = null
 
   constructor(world: PhysicsWorld, rapier: PhysicsApi, spec: RagdollSpec) {
@@ -246,14 +259,17 @@ export class RagdollBody {
       body.setEnabled(false)
       // The body spawns unrotated and the COLLIDER carries the bone direction,
       // which is what makes every joint anchor a plain `world − center`.
-      world.createCollider(
-        rapier.ColliderDesc.capsule(segment.halfHeight, segment.radius)
-          .setRotation(segment.orientation)
-          .setMass(segment.massFraction * TOTAL_BODY_MASS)
-          .setRestitution(0)
-          .setFriction(0.9) as PhysicsColliderDesc,
-        body,
-      )
+      const collider = rapier.ColliderDesc.capsule(segment.halfHeight, segment.radius)
+        .setRotation(segment.orientation)
+        .setMass(segment.massFraction * TOTAL_BODY_MASS)
+        .setRestitution(0)
+        .setFriction(0.9) as PhysicsColliderDesc
+      // Filtering, when this body asked not to touch itself. Turning the four
+      // trunk joints' contacts off is not enough on its own: a pair that is not
+      // jointed at all was never filtered, and a wide trunk intersects limbs it
+      // is not jointed to. See `RagdollSpec.collisionGroups`.
+      if (spec.collisionGroups !== undefined) collider.setCollisionGroups?.(spec.collisionGroups)
+      world.createCollider(collider, body)
       this.#bodies.set(segment.id, body)
       this.#bindInverse.set(segment.id, new Matrix4().copy(segment.bind).invert())
     }
@@ -307,6 +323,7 @@ export class RagdollBody {
         }
       }
 
+      this.#anchorChild.set(joint.id, anchorChild)
       this.#joints.push({ spec: joint, joint: created, lastCollapseStep: -1, lastRelaxStep: -1 })
     }
   }
@@ -342,6 +359,25 @@ export class RagdollBody {
     for (const segment of this.#spec.segments) {
       const body = this.#bodies.get(segment.id)
       if (!body) continue
+      /*
+       * The bone's world matrix, RECOMPUTED, not the one left over from the
+       * last frame that was drawn.
+       *
+       * `wake` runs on the fixed tick and three updates world matrices during
+       * render, which happens after it. On the tick a body dies its placement
+       * has just changed - in this game a living enemy is drawn at its group's
+       * origin while the group carries the transform, and a dead one places
+       * itself while the group goes to identity - so `matrixWorld` here still
+       * describes the previous arrangement. Seeded from that, the corpse
+       * appears at rest wherever the stale matrix pointed, which the owner saw
+       * as a ragdoll standing at the origin, then either dropping from above or
+       * arriving inside the floor.
+       *
+       * `updateWorldMatrix(true, false)` walks the ancestors first, so this is
+       * the current placement rather than a frame-old one. It costs one matrix
+       * chain per segment, once, on the tick a body dies.
+       */
+      segment.bone.updateWorldMatrix(true, false)
       scratchTarget.multiplyMatrices(segment.bone.matrixWorld, this.#bindInverse.get(segment.id) ?? IDENTITY)
       scratchTarget.decompose(scratchPosition, scratchQuaternion, scratchScale)
       body.setEnabled(true)
@@ -356,7 +392,128 @@ export class RagdollBody {
       body.setAngvel({ x: 0, y: 0, z: 0 }, true)
     }
 
+    this.#reanchorJoints()
     this.#captureSupport()
+
+    if (import.meta.env.DEV) {
+      // WHERE THE CORPSE WAS SEEDED, kept on the body itself.
+      //
+      // Every reading taken later describes where the corpse ENDED UP, and a
+      // body that was planted under the floor is indistinguishable there from
+      // one that was planted correctly and then fell through it. Only this
+      // separates them, and it can only be taken on this one tick.
+      const pelvis = this.#bodies.get(this.#spec.segments[0]?.id ?? '')
+      let lowest = Infinity
+      for (const segment of this.#spec.segments) {
+        const body = this.#bodies.get(segment.id)
+        if (body) lowest = Math.min(lowest, body.translation().y - segment.radius)
+      }
+      const at = pelvis?.translation()
+      this.#wokeAt = at ? [at.x, at.y, at.z, lowest] : []
+    }
+  }
+
+  /** DEV: `[x, y, z, lowestCapsuleBottom]` at the tick this body woke. */
+  debugWokeAt(): readonly number[] {
+    return this.#wokeAt.map((value) => Number(value.toFixed(2)))
+  }
+
+  /**
+   * Keep the PARKED bodies under their bones, every tick the body is alive.
+   *
+   * `segment.center` is a world position measured ONCE, when the spec was built
+   * - and it is built on the frame the model mounts, before the mob has been
+   * placed and before a single frame of animation has run. On this project's
+   * assets that pose has its pivot in the MIDDLE of the body, so the whole
+   * capsule set stands 0.72 m below the creature it belongs to: measured in
+   * /labs/imp-lab, pelvis body at y = 0.217 against a pelvis bone at 0.945,
+   * shins at -0.481 against 0.565. The owner photographed exactly that with the
+   * COLLIDERS toggle on and a living imp standing over its own capsules.
+   *
+   * It was written off as harmless because `wake()` puts every body back under
+   * its bone before the first simulated step, and the corpse does land in the
+   * right place. What that argument misses is that the debug view is the ONLY
+   * way anyone can see whether the capsules fit the creature at all - a set that
+   * is never drawn on the body cannot be judged against it, and a fit measured
+   * off the wrong pose looks identical to a fit measured off the right one.
+   *
+   * So the parked bodies follow the skeleton. It is the same matrix `wake()`
+   * uses; a disabled body is not in the solver or the broad phase, so this
+   * writes a transform and nothing else.
+   */
+  park(): void {
+    if (this.#active || this.#disposed) return
+    for (const segment of this.#spec.segments) {
+      const body = this.#bodies.get(segment.id)
+      if (!body) continue
+      scratchTarget.multiplyMatrices(segment.bone.matrixWorld, this.#bindInverse.get(segment.id) ?? IDENTITY)
+      scratchTarget.decompose(scratchPosition, scratchQuaternion, scratchScale)
+      body.setTranslation({ x: scratchPosition.x, y: scratchPosition.y, z: scratchPosition.z }, false)
+      body.setRotation(
+        { x: scratchQuaternion.x, y: scratchQuaternion.y, z: scratchQuaternion.z, w: scratchQuaternion.w },
+        false,
+      )
+    }
+    // And the joints follow the pose too, so the COLLIDERS view shows the body
+    // the solver would actually inherit if this creature died on this frame -
+    // not a set of anchors describing the bind pose it has not been in since it
+    // mounted.
+    this.#reanchorJoints()
+  }
+
+  /**
+   * Put every joint back ON its joint, in the pose the body actually died in.
+   *
+   * A ragdoll segment does not drive every bone: the torso drives `Spine1` and
+   * the head drives `Head`, with `Spine2` and `Neck` between them, and the
+   * shoulder skips `Spine2` and `LeftShoulder`. Each body is seeded from its OWN
+   * bone, so the bones nobody drives carry their animated rotation into the gap —
+   * and the two ends of a joint no longer meet. The anchors were computed once,
+   * in the bind pose, where they did.
+   *
+   * Measured in /labs/imp-lab with the COLLIDERS view on and the idle playing:
+   * the shoulder and hip anchors stand up to a metre apart, drawn as the long
+   * white spokes running out of the imp's chest. The solver closes that gap on
+   * the first steps after death — which is a limb yanked a metre in a
+   * thirtieth of a second, and reads as the corpse spasming or being flung the
+   * instant it dies.
+   *
+   * The anchor on the CHILD needs no correction: its node sits on the child's own
+   * bone, so it is fixed in that body's frame whatever the pose. Only the
+   * parent's end moves, and it moves to wherever the child's end now is.
+   *
+   * Hinges (knee, elbow) are untouched in practice — their two segments drive
+   * bones that ARE parent and child, so there is no undriven bone to deviate,
+   * and their axes stay the ones the limits were authored about.
+   */
+  #reanchorJoints(): void {
+    if ((globalThis as Record<string, unknown>).__noReanchor) return
+    // One object for the life of the page, not one per tick: this runs 30 times
+    // a second for every living body in the level, and a fresh object each time
+    // is garbage the DEV build would collect forever.
+    for (const entry of this.#joints) {
+      const setAnchor1 = entry.joint.setAnchor1
+      if (!setAnchor1) continue
+      const parent = this.#bodies.get(entry.spec.parent)
+      const child = this.#bodies.get(entry.spec.child)
+      const anchorChild = this.#anchorChild.get(entry.spec.id)
+      if (!parent || !child || !anchorChild) continue
+      const childAt = child.translation()
+      const childSpin = child.rotation()
+      // Where the joint IS now: the child's own attachment point, in the world.
+      scratchPosition
+        .copy(anchorChild)
+        .applyQuaternion(scratchQuaternion.set(childSpin.x, childSpin.y, childSpin.z, childSpin.w))
+        .add(scratchCentreOfMass.set(childAt.x, childAt.y, childAt.z))
+      const parentAt = parent.translation()
+      const parentSpin = parent.rotation()
+      scratchPosition
+        .sub(scratchCentreOfMass.set(parentAt.x, parentAt.y, parentAt.z))
+        .applyQuaternion(
+          scratchQuaternion.set(parentSpin.x, parentSpin.y, parentSpin.z, parentSpin.w).invert(),
+        )
+      setAnchor1.call(entry.joint, { x: scratchPosition.x, y: scratchPosition.y, z: scratchPosition.z })
+    }
   }
 
   /** Wakes if needed and drives an impulse at a world point (a shot, a blow). */
@@ -416,7 +573,21 @@ export class RagdollBody {
         parent.updateWorldMatrix(true, false)
         scratchTarget.premultiply(scratchParentInverse.copy(parent.matrixWorld).invert())
       }
-      scratchTarget.decompose(segment.bone.position, segment.bone.quaternion, segment.bone.scale)
+      /**
+       * Position and rotation are written; SCALE is decomposed into a scratch and
+       * thrown away, and that is what lets a body be scaled at runtime.
+       *
+       * A ragdoll's rigid bodies live in world space and carry no scale. Under a
+       * model scaled by k the parent's world matrix carries k, so localising
+       * against it divides the position by k — which is exactly right, a local
+       * position under a scaled parent — and leaves 1/k in the linear part, which
+       * is exactly wrong: it would be written into the bone as a scale and
+       * inherited by every bone below it.
+       *
+       * Nothing here has any business resizing a skeleton. The bone keeps the
+       * scale it had, and a mob can be given its height as a number.
+       */
+      scratchTarget.decompose(segment.bone.position, segment.bone.quaternion, scratchScale)
     }
   }
 
@@ -439,6 +610,40 @@ export class RagdollBody {
       settled: this.#settled,
       spanY: Number.isFinite(high - low) ? high - low : 0,
     }
+  }
+
+  /**
+   * DEV: where every RIGID BODY of this corpse actually is, per segment.
+   *
+   * `telemetry()` reduces the whole set to a span and a farthest distance, and a
+   * body that has fallen out of the world reads the same there as one whose
+   * BONES were written wrong while the bodies rest on the floor. The two have
+   * different causes and only this tells them apart.
+   */
+  debugBodies(): Record<string, unknown>[] {
+    const out: Record<string, unknown>[] = []
+    for (const segment of this.#spec.segments) {
+      const body = this.#bodies.get(segment.id)
+      if (!body) continue
+      const at = body.translation()
+      const raw = body as unknown as {
+        numColliders?: () => number
+        collider?: (index: number) => { collisionGroups?: () => number; isSensor?: () => boolean; shape?: unknown }
+        isEnabled?: () => boolean
+        isSleeping?: () => boolean
+      }
+      const first = raw.collider?.(0)
+      out.push({
+        at: [Number(at.x.toFixed(2)), Number(at.y.toFixed(2)), Number(at.z.toFixed(2))],
+        colliders: raw.numColliders?.() ?? -1,
+        enabled: raw.isEnabled?.() ?? this.#active,
+        groups: first?.collisionGroups?.().toString(16) ?? 'none',
+        id: segment.id,
+        sensor: first?.isSensor?.() ?? null,
+        sleeping: body.isSleeping(),
+      })
+    }
+    return out
   }
 
   /** Removes every joint and body from the world. Idempotent. */
@@ -696,8 +901,24 @@ export class RagdollBody {
     if (!queued) return
     let nearestId: string | null = null
     let nearest = Infinity
+    /*
+     * Nearest to where the body IS, not to where it was MEASURED.
+     *
+     * `segment.center` is a world position frozen at build time, in a bind pose
+     * whose pivot sits in the middle of the model - so in the arena it is 0.72 m
+     * below the creature, and in the level it is a point beside the world origin
+     * while the creature stands 130 m away. Choosing by it does not pick the limb
+     * that was shot; it picks whichever bind-pose capsule happens to lie closest
+     * to a direction, which is the same limb for every shot from one side.
+     *
+     * This runs after `wake()`, so every body already stands under its own bone
+     * and `translation()` is the live answer.
+     */
     for (const segment of this.#spec.segments) {
-      const distance = segment.center.distanceToSquared(queued.point)
+      const body = this.#bodies.get(segment.id)
+      if (!body) continue
+      const at = body.translation()
+      const distance = scratchPosition.set(at.x, at.y, at.z).distanceToSquared(queued.point)
       if (distance < nearest) {
         nearest = distance
         nearestId = segment.id

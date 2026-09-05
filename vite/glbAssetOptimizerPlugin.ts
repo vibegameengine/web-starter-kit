@@ -4,7 +4,7 @@ import path from 'node:path'
 import { Logger, NodeIO } from '@gltf-transform/core'
 import type { Transform } from '@gltf-transform/core'
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions'
-import { dedup, flatten, meshopt, prune, textureCompress } from '@gltf-transform/functions'
+import { meshopt, textureCompress } from '@gltf-transform/functions'
 import { MeshoptEncoder } from 'meshoptimizer'
 import sharp from 'sharp'
 import type { Plugin, ResolvedConfig } from 'vite'
@@ -45,7 +45,7 @@ const GLB_OPT_OUT_QUERY = 'glb-optimize'
 const GLB_SERVE_PREFIX = '/@glb-optimizer/'
 const GLB_CACHE_NAMESPACE = 'glb-optimizer'
 // Bump when the optimization pipeline changes so stale cache entries are ignored.
-const GLB_CACHE_VERSION = 1
+const GLB_CACHE_VERSION = 2
 
 // Per-import overrides, e.g. `?texture=1024&texture-format=keep`.
 const TEXTURE_SIZE_QUERY = 'texture'
@@ -62,6 +62,12 @@ const MESHOPT_QUERY = 'meshopt'
 // types…`, `reorder: …`) — cosmetic noise on every processed model.
 const QUIET_LOGGER = new Logger(Logger.Verbosity.ERROR)
 
+/** Re-exported so the Vite plugins and the build scripts share one definition. */
+import { cleanupTransforms } from '../scripts/lib/gltfCleanup.mjs'
+
+/** Re-exported so the Vite plugins and the build scripts share one definition. */
+export { cleanupTransforms as CLEANUP_TRANSFORMS }
+
 const DEFAULT_MAX_TEXTURE_SIZE = 2048
 const DEFAULT_TEXTURE_FORMAT: TextureFormat = 'webp'
 const DEFAULT_TEXTURE_QUALITY = 80
@@ -72,7 +78,7 @@ const NORMAL_LIKE_SLOTS = ['normalTexture']
 
 /**
  * Repacks project `.glb` / `.gltf` models at build time. The default pipeline
- * cleans the document (`dedup` + `prune` + `flatten`) and shrinks every embedded
+ * cleans the document (`dedup` + `prune`, keeping leaf nodes) and shrinks every embedded
  * texture (resize to a max dimension, re-encode to WebP), then writes a single
  * self-contained `.glb`.
  *
@@ -319,9 +325,7 @@ async function optimizeModelAsset(
 
   const transforms = [
     ...(options.albedoOnly ? [stripToAlbedo()] : []),
-    dedup(),
-    flatten(),
-    prune(),
+    ...cleanupTransforms(),
     textureCompress({
       encoder: sharp,
       ...(options.textureFormat === 'keep' ? {} : { targetFormat: options.textureFormat }),

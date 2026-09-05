@@ -21,6 +21,7 @@ from divine_eye import (  # noqa: E402
     global_ssim,
     tonal_parity,
 )
+from diagnose_render import mask_is_inverted, silhouette_iou  # noqa: E402
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -102,11 +103,12 @@ class DivineEyeIntegrationTest(unittest.TestCase):
         self.assertTrue(r["hardGateFailures"])
 
     def test_shifted_same_shape_is_rescued_by_objectness(self):
-        # subject moved to a corner → low IoU hard gate, BUT it is the same (square)
-        # shape → objectness (bg/pose/scale-invariant) recognises it → reconstruction-mode
-        # rescue downgrades the confident reject to a probe (still not a pass).
+        # SAME-SIZE square translated to a corner (100x100 → 100x100, area & aspect identical) →
+        # only the IoU hard gate trips (scale/aspect pass), and objectness (bg/pose/scale-invariant)
+        # recognises the same shape → reconstruction-mode rescue. Soft fidelity is well below target
+        # (misaligned pixels tank ssim/edge), so it routes to probe, never an auto-pass.
         ren = self.dir / "shifted.png"
-        write_rgb_png(ren, 200, 200, block(0, 0, 60, 60))
+        write_rgb_png(ren, 200, 200, block(0, 0, 100, 100))
         r = evaluate(self.ref, ren)
         self.assertTrue(r["hardGateFailures"])          # IoU still trips
         self.assertTrue(r["reconstructionModeSuspected"])
@@ -135,6 +137,31 @@ class DivineEyeIntegrationTest(unittest.TestCase):
         r = evaluate(aref, aref)
         self.assertEqual(r["fidelity"], 1.0)
         self.assertEqual(r["verdict"], "pass")
+
+
+class DegenerateEvidenceTest(unittest.TestCase):
+    def setUp(self):
+        self.dir = Path(tempfile.mkdtemp())
+
+    def test_empty_union_is_not_a_perfect_match(self):
+        self.assertEqual(silhouette_iou([False] * 16, [False] * 16), 0.0)
+
+    def test_edge_overlap_no_edges_is_not_free_evidence(self):
+        self.assertEqual(edge_overlap([0.5] * 64, [0.5] * 64, 8), 0.0)
+
+    def test_tiny_disjoint_subjects_are_hard_rejected(self):
+        ref = self.dir / "corner-a.png"
+        render = self.dir / "corner-b.png"
+        write_rgb_png(ref, 200, 200, block(10, 10, 40, 40))
+        write_rgb_png(render, 200, 200, block(160, 160, 190, 190, fg=(30, 30, 220)))
+        result = evaluate(ref, render)
+        self.assertTrue(result["hardGateFailures"])
+        self.assertTrue(result["maskWarnings"])
+        self.assertNotEqual(result["verdict"], "pass")
+
+    def test_mask_inversion_warning_is_explicit(self):
+        self.assertTrue(mask_is_inverted(["foreground mask is tiny; material extraction is unreliable"]))
+        self.assertFalse(mask_is_inverted(["image is not clearly isolated from background"]))
 
 
 if __name__ == "__main__":

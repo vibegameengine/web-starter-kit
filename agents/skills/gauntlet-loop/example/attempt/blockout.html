@@ -1,0 +1,30 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>blockout</title>
+<style>
+  html,body{margin:0;background:#eaeef3;font:16px/1 system-ui}
+  #stage{position:absolute;left:90px;top:350px;width:550px;height:300px}
+  #card{position:absolute;left:10px;top:10px;width:530px;height:286px;background:#fff;border-radius:16px}
+  .box{position:absolute;background:#c9ced6}
+  /* all coords below are CARD-relative (stage measurement minus the card's 10,10) */
+  #hd  {left:32px; top:26px;  width:150px; height:26px}
+  #l1  {left:32px; top:76px;  width:200px; height:12px}
+  #l2  {left:32px; top:100px; width:200px; height:12px}
+  #l3  {left:32px; top:124px; width:170px; height:12px}
+  #l4  {left:32px; top:148px; width:200px; height:12px}
+  #l5  {left:32px; top:172px; width:60px;  height:12px}
+  #btn {left:32px; top:222px; width:122px; height:33px; background:#8e93a3;border-radius:17px}
+  /* right stack: inset 4px from the card on outer sides, 4px white gutter between */
+  #p1  {left:268px; top:4px;   width:258px; height:136px; background:#dfe5ec;border-radius:8px}
+  #p2  {left:268px; top:145px; width:258px; height:137px; background:#dfe5ec;border-radius:8px}
+</style>
+<div id="stage">
+  <div id="card">
+    <div class="box" id="hd"></div>
+    <div class="box" id="l1"></div><div class="box" id="l2"></div>
+    <div class="box" id="l3"></div><div class="box" id="l4"></div>
+    <div class="box" id="l5"></div>
+    <div class="box" id="btn"></div>
+    <div class="box" id="p1"></div><div class="box" id="p2"></div>
+  </div>
+</div>

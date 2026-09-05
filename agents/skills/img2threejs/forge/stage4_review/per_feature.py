@@ -59,6 +59,11 @@ def is_gating(target):
 def evaluate_features(feature_targets, feature_scores):
     """Evaluate every declared feature independently.
 
+    SCOPE: this function never opens an image. It gates on a scores dict somebody else produced, so
+    it is only as sharp as the measurement upstream -- and divine_eye.py measures on a 64x64 luma
+    grid, where a few-pixel feature does not exist. The tier machinery here is correct; feeding it
+    feature-scale numbers is the missing half. See grimoire/review/divine_eye_microscope.md.
+
     Returns a dict:
         {"passed": bool, "action": str,
          "features": [{"id","tier","score","threshold",

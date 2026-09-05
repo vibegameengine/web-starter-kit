@@ -6,8 +6,9 @@ description: Keep all gameplay logic independent from render FPS. Use for any wo
 # Fixed-tick gameplay
 
 Gameplay is never driven by the render-frame delta or by the selected FPS cap.
-Rendering is presentation only. The canonical project contract is
-`docs/system-design/TECHNICAL_ARCHITECTURE.md`, ADR-01.
+Rendering is presentation only. In this repository the contract is implemented
+by `src/shared/lib/simulation/` — `FixedTick`, `fixedStep`, `fixedTickBus` and
+`renderInterpolation`.
 
 ## Non-negotiable boundary
 
@@ -24,6 +25,53 @@ input commands → fixed simulation tick → state/snapshots → render interpol
 - Interpolate only continuous presentation fields between previous/current
   snapshots. Treat casts, deaths, teleports, target changes and event IDs as
   discrete boundaries.
+
+## How the tick reaches the renderer — a STORE, never state above the consumers
+
+The boundary above says what the tick may not read. This says how what it
+produces gets out, and it is the rule this project learned the expensive way: an
+arena whose frame times were "hellishly unstable" turned out to be one `useState`
+in the wrong place, and the same mistake had been made independently in three
+files.
+
+**A publish is a data hand-off, not a reconciliation.** `useState` invalidates the
+whole subtree beneath it, so publishing a tick into state held ABOVE the
+consumers makes the cost proportional to the TREE rather than to the number of
+things that read it. Measured in the game this kit was distilled from: the solved state was held at the top
+of the playable scene, and every publish re-rendered the sky, four lights, the VFX
+light pool, both shadow groups, the world geometry and the `<Physics>`
+provider — **none of which read a snapshot.**
+
+The rules:
+
+- **Publish through a store** — a value plus a subscriber set — and let each
+  consumer subscribe with `useSyncExternalStore`. A store hands the value to the
+  components that display it and to nothing else.
+- **Put the state where it is READ, not where it is convenient to write.** In an
+  ordinary app that is an ergonomics choice. Under a per-frame publisher it is a
+  frame-cost decision, and it must be made as one.
+- **If a value is only ever consumed inside `useFrame`, pass a REF, not state.**
+  Publishing it buys nothing: the consumer was going to read it in its own frame
+  callback anyway. This repo published in-flight blood droplets as state and
+  re-rendered the entire arena scene 120 times a second to move quads that the
+  receiving component moved itself.
+- **Fixing one publisher while another stands fixes nothing.** Three publishers
+  fed the same tick here — scene presentation, HUD snapshot, blood marks. Moving
+  the first one down was reported as done while the second kept re-creating the
+  whole scene from above on the same tick. Grep for every `useState` and
+  `setState` reachable from the tick before claiming a cascade is gone.
+- **Advance the accumulator by SUBTRACTING the interval, not by zeroing it.**
+  Zeroing discards the remainder, so the gate lands on a tick boundary instead of
+  the interval it names. At a 125 Hz tick a `1/30` threshold first fired on the
+  fifth tick — a real publish rate of 25 Hz, and every comment in the feature
+  saying "30 Hz" was wrong because of it.
+
+**A game object's identity is not a React key.** Entities are components here, so
+it is tempting to let reconciliation identity carry game identity. It does not: a
+body that changed key from `id` to `id-remains` when it died was, to React, one
+object leaving and a different one arriving — a fresh skinned-mesh clone, a fresh
+skeleton and a fresh set of ragdoll colliders, in the frame of the kill. One
+element per body, one stable key, with phase as a PROP.
 
 ## The physics solver is gameplay too — never step it with a frame delta
 
@@ -87,6 +135,9 @@ unit.
   independent `useFrame` gameplay loop.
 - Keep rendering hooks read-only over snapshots. VFX, audio, animation and camera
   may observe events but may not create hits, cooldowns, rewards or movement.
+- Never publish a tick into `useState` held above its consumers. Use a store and
+  `useSyncExternalStore`, or a ref where the consumer reads it in `useFrame`. See
+  the section on how the tick reaches the renderer.
 - Put pure clock, command, replay and interpolation rules in `systems/` with unit
   tests. Keep React/Three adapters in `components/` or `entities/`.
 - Do not make a long visual frame permanently disable input. If authority handoff
@@ -95,6 +146,23 @@ unit.
 
 ## Required verification
 
+- **Measure the interval the player waits, not the interval between renders.** A
+  frame time sampled end-of-render to end-of-render is, under vsync,
+  `period + (work[i] − work[i−1])` — a FIRST DIFFERENCE of the work signal. It
+  invented a defect that did not exist, and cost most of a day. The
+  signature: a mean of exactly one refresh period, lag-1 autocorrelation near
+  −0.5, frames shorter than a refresh interval, and a smooth distribution where a
+  real dropped-frame process is spiky at multiples of the refresh. A
+  `requestAnimationFrame` interval IS a presentation interval — use
+  a recorder installed from a page init script, which
+  shares no code with the app.
+- **Report the max and the share of clean intervals, not just p99.** One measured run
+  reported `p99 = 8.5 ms` while containing a 233 ms freeze: one frame in 1600 does
+  not move a 99th percentile.
+- **Run it twice and report both.** Tail statistics drifted 25–30% between runs
+  on the bench these rules come from — re-derive that spread on yours rather than
+  trusting the number; a single run is not evidence, and quoting the better of
+  two is how a report passes a bar the product does not.
 - Replay one command stream under 30, 45, 60, uncapped and jittered rendering;
   gameplay outcome must match.
 - Stall the frame loop for several seconds mid-simulation (block the main thread)

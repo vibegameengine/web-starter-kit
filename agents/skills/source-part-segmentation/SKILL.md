@@ -61,3 +61,14 @@ Allowed `mode` values: `polygon`, `bbox`, `non_background`, `dark_lines`, `brigh
 - OpenCV contours/hierarchy/moments are the base measurement layer.
 - OpenCV distance transform + marker watershed is the first automated split method for touching components.
 - Active contour refinement can improve a rough mask boundary after segmentation.
+
+## Edge treatment
+
+Chamfer every edge that is not deliberately sharp: a perfectly sharp arris is one
+pixel wide at every distance, so it aliases when the camera moves and disappears
+when it stops. The sizes, the exceptions, and the reason they are optical rather
+than decorative are in
+[`../_conventions/edge-treatment.md`](../_conventions/edge-treatment.md) — one
+copy, because a rule kept in seventeen places is a rule that is right in some of
+them. Treat its figures as a default for metre-scale work and set your own if
+your project's scale or look differs.

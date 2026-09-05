@@ -1,0 +1,14 @@
+/* No frame of its own: this part is always placed inside a ControlPanel (or the
+   pause menu's panel), and a second border around it would double the edge. */
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 2px;
+}

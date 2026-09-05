@@ -12,6 +12,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "_shared"))
 from feature_acceptance_policy import feature_gate_failures
+from status_banner import emit_status
 
 
 DEFAULT_PASS_ORDER = [
@@ -121,6 +122,24 @@ def current_pass(ids: list[str], completed: list[str]) -> str:
     return ids[len(completed)]
 
 
+def spec_has_hair(spec: dict[str, Any]) -> bool:
+    """Does this subject have hair the review path has to reason about?
+
+    Two signals, because either can occur alone: a `hairProfile` block, and any component whose role
+    is hair. A subject with neither gets no hair evidence demanded of it, which keeps the requirement
+    off every chair and knife the pipeline builds.
+    """
+    if isinstance(spec.get("hairProfile"), dict):
+        return True
+    components = spec.get("componentTree")
+    if not isinstance(components, list):
+        return False
+    return any(
+        isinstance(component, dict) and str(component.get("role") or "").lower() == "hair"
+        for component in components
+    )
+
+
 def next_required_evidence(spec: dict[str, Any], pass_id: str) -> list[str]:
     if pass_id == "complete":
         return []
@@ -129,6 +148,30 @@ def next_required_evidence(spec: dict[str, Any], pass_id: str) -> list[str]:
     if pass_id in VISUAL_PASS_IDS:
         evidence.append("browser render screenshot from your agent's browser/screenshot tool")
         evidence.append("side-by-side reference/render comparison sheet for AI vision review")
+        # Silhouette IoU is computed from the ~11% of figure cells on the outline. A model with its
+        # face deleted scored 0.8803 against the finished face's 0.8803 -- so an outline score is
+        # not evidence about anything inside the outline, and a loop optimising it will spend its
+        # whole budget without moving the interior. Read this per region, not as one number.
+        evidence.append(
+            "banded interior difference vs the reference baseline "
+            "(forge/stage4_review/interior_difference.py --from/--to per region)"
+        )
+        # Hair has its own failure mode that none of the signals above can see. A bald patch is
+        # interior, so silhouette IoU is blind to it; it is a luminance change, so interior
+        # difference cannot separate it from a colour shift; and it only appears in the render,
+        # which is after the loop has already spent a pass. `scalp_exposure.py` finds it
+        # geometrically, before anything is drawn. The failure is recorded: widening the hair masses
+        # took closure from 42.2% to 40.9%, worse on all six views, and the cause -- masses sliding
+        # off the skull -- was invisible to every gate that existed at the time.
+        if spec_has_hair(spec):
+            evidence.append(
+                "scalp exposure below the hard maximum, measured on geometry before rendering "
+                "(forge/stage4_review/scalp_exposure.py)"
+            )
+            evidence.append(
+                "hair gate comparing banded coverage, hairline offset and highlight-band position "
+                "against the reference (forge/stage4_review/hair_gate.py)"
+            )
         evidence.append("AI vision score at or above the visual acceptance threshold")
         evidence.append("all critical semantic feature scores from the shared image pair at or above their thresholds")
         evidence.append("self-correction review appended with action=continue before the next pass")
@@ -346,6 +389,23 @@ def material_pass_gaps(spec: dict[str, Any]) -> list[str]:
         gaps.append("no material defines roughness variation or normal/bump/displacement response")
     if not any(material_has_locality(item) for item in materials):
         gaps.append("no material defines local overrides, AO, dirt, wear, stains, moss, chips, or scratches")
+    material_pipeline = spec.get("materialPipeline")
+    if material_pipeline is not None:
+        if not isinstance(material_pipeline, dict) or material_pipeline.get("status") != "proceed":
+            gaps.append("materialPipeline must be wired and have status=proceed before material-pass")
+        else:
+            regions = material_pipeline.get("regions", [])
+            if not isinstance(regions, list) or not regions:
+                gaps.append("materialPipeline.regions must contain analyzed material regions")
+            else:
+                gaps.extend(
+                    f"material region {region.get('regionId')!r} is not accepted ({region.get('status')!r})"
+                    for region in regions
+                    if isinstance(region, dict) and region.get("status") != "proceed"
+                )
+            gate = spec.get("materialGate")
+            if gate is not None and (not isinstance(gate, dict) or gate.get("passed") is not True):
+                gaps.append("materialGate.passed must be true after crop/render comparison")
     if quality_first_enabled(spec):
         for material in materials:
             if material.get("qualityTier") == "utility":
@@ -443,6 +503,28 @@ def sync_pipeline(spec: dict[str, Any]) -> dict[str, Any]:
     return pipeline
 
 
+def ledger_disagreements(spec: dict[str, Any], completed: list[str]) -> list[str]:
+    credited = set(completed)
+    ids = pass_order(spec)
+    disagreements: list[str] = []
+    history = spec.get("reviewHistory", [])
+    if not isinstance(history, list):
+        return disagreements
+    for entry in history:
+        if not isinstance(entry, dict) or entry.get("action") != "continue":
+            continue
+        pass_id = entry.get("passId")
+        if not isinstance(pass_id, str) or pass_id in credited:
+            continue
+        if pass_id in ids:
+            index = ids.index(pass_id)
+            blocker = ids[index - 1] if index > 0 else pass_id
+            disagreements.append(f"{pass_id}: reviewed but not credited because {blocker} is incomplete or its evidence/gates failed")
+        else:
+            disagreements.append(f"{pass_id}: reviewed but is not in the declared pass order")
+    return disagreements
+
+
 def has_passing_tier1_result(spec: dict[str, Any], pass_id: str) -> bool:
     """Plan 1.3 Workstream D: Tier 2 (AI-vision) must never run against a render
     that has not passed Tier 1. Checked here rather than in append_review.py so
@@ -521,6 +603,7 @@ def main(argv: list[str]) -> int:
     args = parser.parse_args(argv)
     spec_path = args.spec.expanduser().resolve()
     spec = load_spec(spec_path)
+    emit_status(spec, next_command=f"forge/stage3_build/orchestrate_passes.py {args.command} {spec_path}", stream=sys.stderr if getattr(args, "json", False) else sys.stdout)
 
     if args.command == "status":
         payload = status_payload(spec)
@@ -544,6 +627,14 @@ def main(argv: list[str]) -> int:
         return 0 if ok else 1
 
     if args.command == "sync":
+        ids = pass_order(spec)
+        completed = completed_passes(spec, ids)
+        disagreements = ledger_disagreements(spec, completed)
+        if disagreements:
+            print("ledger disagreement: review history contains uncredited passes", file=sys.stderr)
+            for item in disagreements:
+                print(f"- {item}", file=sys.stderr)
+            return 1
         payload = status_payload(spec)
         output = spec_path if args.in_place else (args.out.expanduser().resolve() if args.out else None)
         if output:

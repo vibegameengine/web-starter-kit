@@ -89,7 +89,7 @@ If the mismatch is mostly color/texture/lighting, choose `refine-code` only when
 
 **Sample the CORRECT region per material.** Verify the crop is actually on the part you think — a "handle" crop taken from the blade region gave a navy-blue "grey" handle. Crop, *look at the crop*, then extract.
 
-**Aged / worn / faded materials — preserve mottling, don't flatten.** A uniform dark band looks crude ("thô"). Instead: keep the crop's real luminance variation (scratches, worn patches) but remap it into a **dark aged band** (e.g. luminance→charcoal 15–45), add micro-grain, and a **roughness map that varies** (worn high-spots slightly glossier, grooves matte). Keep the cast cool-neutral for gunmetal — a warm remap drifts to tan. Darken more than you think: a mid-grey albedo reads light under a strong key light.
+**Aged / worn / faded materials — preserve mottling, don't flatten.** A uniform dark band looks crude. Instead: keep the crop's real luminance variation (scratches, worn patches) but remap it into a **dark aged band** (e.g. luminance→charcoal 15–45), add micro-grain, and a **roughness map that varies** (worn high-spots slightly glossier, grooves matte). Keep the cast cool-neutral for gunmetal — a warm remap drifts to tan. Darken more than you think: a mid-grey albedo reads light under a strong key light.
 
 **Render-capture must wait for textures.** `TextureLoader` is async; a screenshot fired before maps load shows `color:white` + metalness = a false "chrome" render (and a Divine-Eye false-reject). Poll `material.map.image.complete` before capturing. The render host must serve the reference PBR maps (copy to `public/`) or they 404 → white.
 

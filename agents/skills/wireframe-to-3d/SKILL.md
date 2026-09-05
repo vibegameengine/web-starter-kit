@@ -302,3 +302,14 @@ For a "complete rendered and textured X" (e.g. Ray-Ban Aviator from a wireframe)
 See `text-to-blender/assets/v0.9.0-validation/03_aviator_wireframe_to_3d.webp` for what wireframe-to-3d produces alone (flat outline tracing) vs `04_aviator_chained_upgrade.webp` for what the chained orchestration produces (a Ray-Ban-style hero render).
 
 **The orchestrator (`text-to-blender`) should always plan for the chain** when the user asks for a "model of X" from a wireframe.
+
+## Edge treatment
+
+Chamfer every edge that is not deliberately sharp: a perfectly sharp arris is one
+pixel wide at every distance, so it aliases when the camera moves and disappears
+when it stops. The sizes, the exceptions, and the reason they are optical rather
+than decorative are in
+[`../_conventions/edge-treatment.md`](../_conventions/edge-treatment.md) — one
+copy, because a rule kept in seventeen places is a rule that is right in some of
+them. Treat its figures as a default for metre-scale work and set your own if
+your project's scale or look differs.

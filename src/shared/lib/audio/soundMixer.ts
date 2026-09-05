@@ -2,7 +2,7 @@ import { Howler } from 'howler'
 
 /**
  * The game's master sound mixer (framework-free "system"). A single master bus
- * over Howler plus a handful of named sub-channels (sfx, ambient, ui) each with
+ * over Howler plus a handful of named sub-channels (sfx, music, ambient, ui) each with
  * its own linear gain, so a sound's final volume is `sound_dB → gain × channel ×
  * master`. Individual sounds (footsteps, spells, …) own their own `Howl` and ask
  * the mixer for their channel's gain — the mixer never holds the clips, only the
@@ -13,10 +13,16 @@ import { Howler } from 'howler'
  * settings store to `setMuted` / `setChannelVolume` when one exists.
  */
 
-export type SoundChannel = 'sfx' | 'ambient' | 'ui'
+/**
+ * `music` is separate from `ambient` on purpose: a player who turns the score
+ * down is not asking for the room to go quiet too, and a score that ducks under
+ * combat must be able to move without dragging the world's ambience with it.
+ */
+export type SoundChannel = 'sfx' | 'music' | 'ambient' | 'ui'
 
 const channelGain: Record<SoundChannel, number> = {
   sfx: 1,
+  music: 1,
   ambient: 1,
   ui: 1,
 }
@@ -81,6 +87,7 @@ export function resetSoundMixerForTests(): void {
   isMuted = false
   masterGain = 1
   channelGain.sfx = 1
+  channelGain.music = 1
   channelGain.ambient = 1
   channelGain.ui = 1
   Howler.mute(false)

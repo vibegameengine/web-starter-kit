@@ -69,6 +69,31 @@ Known deviation: `character-debug-lab` keeps its own canvas instead of mounting
 how the demo character is lit, which is a visual decision rather than a mechanical
 one — see rule 2 of `agents/skills/dev-lab-authoring/`.
 
+## Second harvest — brought back from the game after it shipped
+
+The first pass took the pipeline. This one took what the game learned using it,
+and only where the technique is free of that game's domain.
+
+| Piece | Status | Notes |
+| --- | --- | --- |
+| Audio layer (`shared/lib/audio/`) | ✅ | `audioSettings` stores and persists what the mixer could always do and nobody called; `oneShotPool` never replays the same variant twice running; `playlistOrder` is a shuffle bag, not a random pick; `sampledVoice` and `musicPlayer` are the two players over them. The random source is an argument, so order and variation are testable. |
+| VFX light pool (`shared/lib/lights/`) | ✅ | A fixed set of lamps handed out by priority and apparent brightness. three.js compiles the scene's light COUNT into every material, so mounting one flash recompiled the whole scene; the pool never changes size. Opt-in per lab (`<LabStage vfxLights>`), because eight idle lamps are not free either. |
+| Frame probe (`shared/lib/graphics/FrameProbe.tsx`) | 🔧 | DEV seam that publishes per-pass frame cost from inside the renderer. The game's probe driver, graph and verdict scripts stayed with the game — this is the instrument, not the bench. |
+| Fixed-tick `alpha()` (`shared/lib/simulation/fixedTickBus.ts`) | ✅ | The clock computed the leftover accumulator and threw it away, so an interpolating renderer had to guess it from its frame delta — a guess that saturates at 1 whenever the display is slower than the simulation, silently disabling interpolation. |
+| Shadow fallback reason (`shared/lib/shadows/`) | ✅ | The DEV line said "fallback" and left the reader to guess between an unsupported renderer, an untagged scene and a second casting light. |
+| Skeletal animation maths (`shared/lib/animation/`) | ✅ | Two-bone IK, per-bone additive clip layers, aim damping, foot placement. Lifted out of the game's `features/mob/systems/`; imports `three` types and nothing else. |
+| Ragdoll bind pose (`features/ragdoll/systems/mixamoRig.ts`) | ✅ | `poseToBind` normalizes a bind pose that `?meshopt` requantised — without it a ragdoll measures giant capsules and the body doubles in size on death. The fix is in the consumer; the optimizer keeps running. |
+| Settings surface (`features/ui-kit/`) | ✅ | `ControlSlider`, `SettingsSection`, audio and video panels, `PauseMenu`, each with a gallery preview. |
+| Shared glTF cleanup (`scripts/lib/gltfCleanup.mjs`) | ✅ | `flatten()` plus a leaf-pruning `prune()` had been deleting sockets and Mixamo end bones from every model both Vite plugins touched. One definition now, imported by both, with each plugin's cache version bumped so nothing stale survives the change. |
+| Agent rules, git guard, optimization knowledge core | ✅ | `AGENTS.md` rules 0–8, an opt-in `PreToolUse` hook that refuses the git commands with no undo (and allows their safe forms; copy `.claude/settings.example.json` to enable it), and the measurement discipline behind the frame-cost work. |
+| Lesson documents (`docs/`) | 🔧 | Eight, kept only where the technique ships here. They cite the game's own instruments by path; see [`docs/README.md`](docs/README.md). |
+
+Left with the game on purpose: the arena and its Quake-style movement, the
+bestiary and its steering, blood and gib VFX, the gothic architecture kit and
+every asset. Portable pieces are buried in those — the movement solver imports
+nothing at all — but they arrive attached to a 60 × 60 m world singleton, and
+lifting them cleanly is its own task rather than a copy.
+
 ## Deliberately excluded — not part of the reusable Vite pipeline
 
 These are app/game-specific. Each note says where you'd reintroduce it.

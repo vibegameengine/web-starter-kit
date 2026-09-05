@@ -85,6 +85,11 @@ declare module '*.glb?texture=1024&albedo&meshopt' {
   export default url
 }
 
+declare module '*.glb?texture=1024&meshopt' {
+  const url: string
+  export default url
+}
+
 // three's WebGPU renderer + TSL node system ship no bundled .d.ts on these
 // subpaths, so declare the symbols we use as `any` (the node graph is dynamic).
 declare module 'three/webgpu' {

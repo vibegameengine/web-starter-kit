@@ -2,7 +2,7 @@ import { type FrameRateCap, type GraphicsQuality } from '../../../../shared/conf
 import { setFrameRateCap, setGraphicsQuality, useFrameRateCap, useGraphicsQuality, useGraphicsSettings } from '../../../../shared/lib/graphics'
 import styles from './StarterKitShowcase.module.css'
 
-const FRAME_CAPS: readonly FrameRateCap[] = [0, 60, 30]
+const FRAME_CAPS: readonly FrameRateCap[] = [0, 120, 60, 30]
 const GRAPHICS_QUALITIES: readonly GraphicsQuality[] = ['performance', 'economy']
 
 type StarterKitShowcaseProps = {

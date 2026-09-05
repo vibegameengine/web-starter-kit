@@ -12,7 +12,7 @@ import { DEFAULT_FRAME_RATE_CAP, type FrameRateCap } from '../../config/graphics
 const STORAGE_KEY = 'web-starter-kit:frame-cap:v1'
 
 function isFrameRateCap(value: number): value is FrameRateCap {
-  return value === 0 || value === 30 || value === 45 || value === 60
+  return value === 0 || value === 30 || value === 45 || value === 60 || value === 120
 }
 
 function readInitialCap(): FrameRateCap {
