@@ -132,7 +132,7 @@ folders. Its current feature mix includes:
 | Persisted audio settings + one-shot pool, shuffle-bag playlist, music player | [src/shared/lib/audio/](src/shared/lib/audio/audioSettings.ts) |
 | Settings surface — sliders, sections, audio/video panels, pause menu | [src/features/ui-kit/components/PauseMenu/](src/features/ui-kit/components/PauseMenu/PauseMenu.tsx) |
 | Skeletal animation maths — two-bone IK, per-bone additive layers, aim damping, foot placement | [src/shared/lib/animation/](src/shared/lib/animation/twoBoneIk.ts) |
-| Destructive-git guard — refuses checkout/restore/reset/clean/stash on a shared tree | [.claude/hooks/block-destructive-git.mjs](.claude/hooks/block-destructive-git.mjs) |
+| Destructive-git guard, opt-in — refuses the git commands with no undo, allows their safe forms | [.claude/hooks/block-destructive-git.mjs](.claude/hooks/block-destructive-git.mjs) |
 | Two-stage readiness gate | [src/features/bootstrap/](src/features/bootstrap/) |
 | Strict TS refs · flat ESLint · Vitest · Playwright · Knip · React Compiler | root configs |
 

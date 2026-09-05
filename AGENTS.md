@@ -47,13 +47,17 @@ imagined. The rules themselves apply here without exception.
    user's explicit permission.** Preserve work (keep in place or save to a
    branch) and ask first.
    - The same applies to asking git to throw work away. `git checkout -- <file>`
-     was run here once to undo a single change; it also discarded every other
+     was run once to undo a single change; it also discarded every other
      uncommitted edit in that file, and git keeps no record of a working-tree
-     file it overwrote. `.claude/hooks/block-destructive-git.mjs` refuses that
-     family of commands — `checkout` without `-b`, `restore`, `clean`, `stash`,
-     `reset --hard`, `switch --force`, `worktree remove` — and lets their
-     harmless forms through. Revert by writing the reverse edit, or by putting
-     the current state somewhere safe first.
+     file it overwrote. Revert by writing the reverse edit, or by putting the
+     current state somewhere safe first.
+   - **Optional guard, off by default.** `.claude/hooks/block-destructive-git.mjs`
+     refuses that family of commands — `checkout` without `-b`, `restore`,
+     `clean`, `stash`, `reset --hard`, `switch --force`, `worktree remove` — and
+     lets their harmless forms through. It is a policy, not a fact about your
+     project, so nothing here enables it: copy `.claude/settings.example.json`
+     to `.claude/settings.json` if you want it, and delete both files if you do
+     not.
 
 2a. **NEVER MEASURE A SYSTEM IN A PLAYABLE SCENE.** A playable scene is for
    measuring INTEGRATION — that these systems run together, in the real

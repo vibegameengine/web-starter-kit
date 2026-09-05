@@ -85,7 +85,7 @@ and only where the technique is free of that game's domain.
 | Ragdoll bind pose (`features/ragdoll/systems/mixamoRig.ts`) | ✅ | `poseToBind` normalizes a bind pose that `?meshopt` requantised — without it a ragdoll measures giant capsules and the body doubles in size on death. The fix is in the consumer; the optimizer keeps running. |
 | Settings surface (`features/ui-kit/`) | ✅ | `ControlSlider`, `SettingsSection`, audio and video panels, `PauseMenu`, each with a gallery preview. |
 | Shared glTF cleanup (`scripts/lib/gltfCleanup.mjs`) | ✅ | `flatten()` plus a leaf-pruning `prune()` had been deleting sockets and Mixamo end bones from every model both Vite plugins touched. One definition now, imported by both, with each plugin's cache version bumped so nothing stale survives the change. |
-| Agent rules, git guard, optimization knowledge core | ✅ | `AGENTS.md` rules 0–8, a `PreToolUse` hook that refuses the git commands with no undo (and allows their safe forms), and the measurement discipline behind the frame-cost work. |
+| Agent rules, git guard, optimization knowledge core | ✅ | `AGENTS.md` rules 0–8, an opt-in `PreToolUse` hook that refuses the git commands with no undo (and allows their safe forms; copy `.claude/settings.example.json` to enable it), and the measurement discipline behind the frame-cost work. |
 | Lesson documents (`docs/`) | 🔧 | Eight, kept only where the technique ships here. They cite the game's own instruments by path; see [`docs/README.md`](docs/README.md). |
 
 Left with the game on purpose: the arena and its Quake-style movement, the
