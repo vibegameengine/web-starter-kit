@@ -32,6 +32,8 @@ from extract_part_color_recipe import lab_distance, lab_kmeans_palette, srgb_to_
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "stage3_build"))
 from orchestrate_passes import DEFAULT_PASS_ORDER, load_spec  # noqa: E402
+from geometry_integrity import measure_geometry_integrity  # noqa: E402
+from status_banner import emit_status, load_optional_spec  # noqa: E402
 
 
 def color_is_gated(pass_id: str | None) -> bool:
@@ -61,17 +63,70 @@ COLOR_DELTA_E_THRESHOLD = 20.0  # generous vs. the JND (~2-3) to tolerate render
 MASK_GRID_SIZE = 224
 
 
-def load_mask(png_path: Path, size: int = MASK_GRID_SIZE) -> list[bool]:
-    """Returns a flat row-major boolean grid of length size*size (foreground=True)."""
+def mask_is_inverted(warnings: list[str]) -> bool:
+    """Return whether foreground extraction fell back to whole-frame coverage."""
+    return any("tiny" in str(warning).lower() for warning in warnings)
+
+
+def largest_component(mask: list[bool], size: int) -> tuple[list[bool], float]:
+    """Keep the largest 4-connected blob; return it and the fraction of cells discarded.
+
+    WHY. `bbox_of` is an EXTREMAL statistic: one stray foreground cell in a corner moves the
+    bounding box to the frame edge, and every proportion derived from it with it. Measured on a
+    real review plate, a subject filling 24% of the grid reported a bbox of the entire 224x224
+    grid, so `aspectRatioDelta` and `scaleDelta` were describing the render's background gradient
+    and did not move at all when the camera did.
+
+    The discarded fraction is returned rather than swallowed: a subject with genuinely separated
+    parts in projection -- a floating accessory, a detached prop -- would lose them here, and that
+    has to be visible instead of quietly improving the numbers.
+    """
+    seen = [False] * len(mask)
+    best: list[int] = []
+    total = sum(1 for value in mask if value)
+    for start in range(len(mask)):
+        if not mask[start] or seen[start]:
+            continue
+        stack = [start]
+        seen[start] = True
+        blob = []
+        while stack:
+            index = stack.pop()
+            blob.append(index)
+            y, x = divmod(index, size)
+            for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
+                if 0 <= nx < size and 0 <= ny < size:
+                    neighbour = ny * size + nx
+                    if mask[neighbour] and not seen[neighbour]:
+                        seen[neighbour] = True
+                        stack.append(neighbour)
+        if len(blob) > len(best):
+            best = blob
+    filtered = [False] * len(mask)
+    for index in best:
+        filtered[index] = True
+    discarded = (total - len(best)) / total if total else 0.0
+    return filtered, discarded
+
+
+def load_mask(png_path: Path, size: int = MASK_GRID_SIZE) -> tuple[list[bool], list[str]]:
+    """Return the resized foreground mask and extraction warnings."""
     width, height, pixels, _warnings = load_image(png_path)
-    mask, _diag, _warn = build_foreground_mask(width, height, pixels)
+    mask, _diag, mask_warnings = build_foreground_mask(width, height, pixels)
     resized: list[bool] = []
     for y in range(size):
         sy = min(height - 1, int(y * height / size))
         for x in range(size):
             sx = min(width - 1, int(x * width / size))
             resized.append(mask[sy * width + sx])
-    return resized
+    filtered, discarded = largest_component(resized, size)
+    if discarded > 0.02:
+        mask_warnings = list(mask_warnings) + [
+            f"{discarded:.1%} of foreground cells lie outside the largest connected blob and were "
+            "excluded from the bounding box; if the subject really has separated parts in this "
+            "projection, they are not being measured"
+        ]
+    return filtered, mask_warnings
 
 
 def silhouette_iou(reference_mask: list[bool], render_mask: list[bool]) -> float:
@@ -82,7 +137,7 @@ def silhouette_iou(reference_mask: list[bool], render_mask: list[bool]) -> float
             union += 1
             if ref and render:
                 intersection += 1
-    return intersection / union if union else 1.0
+    return intersection / union if union else 0.0
 
 
 def bbox_of(mask: list[bool], size: int = MASK_GRID_SIZE) -> tuple[int, int, int, int]:
@@ -158,14 +213,30 @@ def render_hash(render_path: Path) -> str:
     return hashlib.sha256(render_path.read_bytes()).hexdigest()[:16]
 
 
+def strip_material_maps(scene: object) -> object:
+    if isinstance(scene, list):
+        return [strip_material_maps(item) for item in scene]
+    if not isinstance(scene, dict):
+        return scene
+    result = {key: strip_material_maps(value) for key, value in scene.items()}
+    for key in ("map", "normalMap", "roughnessMap", "metalnessMap", "aoMap"):
+        if key in result:
+            result[key] = None
+    return result
+
+
 def run_tier1(
     reference_path: Path,
     render_path: Path,
     spec_path: Path | None = None,
     pass_id: str | None = None,
 ) -> dict[str, Any]:
-    reference_mask = load_mask(reference_path)
-    render_mask = load_mask(render_path)
+    reference_mask, reference_mask_warnings = load_mask(reference_path)
+    render_mask, render_mask_warnings = load_mask(render_path)
+    mask_warnings = (
+        [f"reference: {w}" for w in reference_mask_warnings]
+        + [f"render: {w}" for w in render_mask_warnings]
+    )
 
     iou = silhouette_iou(reference_mask, render_mask)
     reference_bbox = bbox_of(reference_mask)
@@ -180,6 +251,12 @@ def run_tier1(
         "bilateralSymmetryError": round(symmetry, 4),
     }
     failures: list[str] = []
+    if mask_is_inverted(reference_mask_warnings) or mask_is_inverted(render_mask_warnings):
+        failures.append(
+            "silhouette evidence is unusable: the foreground mask fell back to whole-frame "
+            "coverage (subject under 3.5% of the frame), so IoU and proportion are not "
+            "measuring the subject; re-capture with the subject filling more of the frame"
+        )
     if iou < SILHOUETTE_IOU_THRESHOLD:
         failures.append(f"silhouette IoU {iou:.3f} is below threshold {SILHOUETTE_IOU_THRESHOLD}")
     if proportions["aspect_ratio_delta"] > ASPECT_RATIO_DELTA_THRESHOLD:
@@ -206,11 +283,17 @@ def run_tier1(
                 f"max per-part color delta-E {color_report['maxDeltaE']} exceeds "
                 f"threshold {COLOR_DELTA_E_THRESHOLD}"
             )
+        geometry = spec.get("builtGeometry") or spec.get("geometry")
+        if isinstance(geometry, dict):
+            structural = measure_geometry_integrity(geometry)
+            checks["geometryIntegrity"] = structural
+            failures.extend(structural["failures"])
 
     return {
         "passed": not failures,
         "checks": checks,
         "failures": failures,
+        "maskWarnings": mask_warnings,
         "renderHash": render_hash(render_path),
         "passId": pass_id,
     }
@@ -233,10 +316,16 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--pass-id")
     parser.add_argument("--in-place", action="store_true", help="Record the result into --spec")
     parser.add_argument("--out-spec", type=Path, help="Write the spec with the recorded result to this path")
+    parser.add_argument("--map-stripped-scene", type=Path, help="Write a scene JSON with material maps disabled")
+    parser.add_argument("--map-stripped-render", type=Path, help="Existing unlit/map-stripped render evidence")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
 
     try:
+        emit_status(load_optional_spec(args.spec), next_command="diagnose_render.py", stream=sys.stderr if args.json else sys.stdout)
+        if args.map_stripped_scene:
+            scene = json.loads(args.map_stripped_scene.read_text(encoding="utf-8"))
+            args.map_stripped_scene.write_text(json.dumps(strip_material_maps(scene), indent=2) + "\n", encoding="utf-8")
         spec_path = args.spec.expanduser().resolve() if args.spec else None
         result = run_tier1(
             args.reference.expanduser().resolve(),
@@ -244,6 +333,12 @@ def main(argv: list[str]) -> int:
             spec_path,
             args.pass_id,
         )
+        if args.pass_id == "blockout":
+            if not args.map_stripped_render:
+                result.setdefault("failures", []).append("blockout requires --map-stripped-render evidence")
+                result["passed"] = False
+            else:
+                result["mapStrippedRender"] = str(args.map_stripped_render)
         if spec_path and (args.in_place or args.out_spec):
             spec = json.loads(spec_path.read_text(encoding="utf-8"))
             record_tier1_result(spec, result)

@@ -15,160 +15,215 @@ from __future__ import annotations
 
 import argparse
 import json
-import struct
+import math
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
+
+if __package__:
+    from . import camera_fitting_math as _math
+    from . import camera_fitting_solver as _solver
+    from . import camera_fitting_types as _types
+    from . import camera_image_helpers as _images
+else:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from forge.stage1_intake import camera_fitting_math as _math
+    from forge.stage1_intake import camera_fitting_solver as _solver
+    from forge.stage1_intake import camera_fitting_types as _types
+    from forge.stage1_intake import camera_image_helpers as _images
+
+CONVERGED_RMS_PIXELS = _types.CONVERGED_RMS_PIXELS
+DEFAULT_MAXIMUM_DAMPING_RETRIES = _types.DEFAULT_MAXIMUM_DAMPING_RETRIES
+DEFAULT_MAXIMUM_ITERATIONS = _types.DEFAULT_MAXIMUM_ITERATIONS
+FINITE_DIFFERENCE_STEPS = _types.FINITE_DIFFERENCE_STEPS
+INITIAL_DAMPING = _types.INITIAL_DAMPING
+MAXIMUM_DAMPING = _types.MAXIMUM_DAMPING
+MAXIMUM_FOV_DEGREES = _types.MAXIMUM_FOV_DEGREES
+MINIMUM_CAMERA_DEPTH = _types.MINIMUM_CAMERA_DEPTH
+MINIMUM_CORRESPONDENCES = _types.MINIMUM_CORRESPONDENCES
+MINIMUM_FOV_DEGREES = _types.MINIMUM_FOV_DEGREES
+CameraFitDescriptor = _types.CameraFitDescriptor
+CameraInitialization = _types.CameraInitialization
+CameraParameters = _types.CameraParameters
+DegenerateCorrespondencesError = _types.DegenerateCorrespondencesError
+FitCameraParameters = _types.FitCameraParameters
+InsufficientCorrespondencesError = _types.InsufficientCorrespondencesError
+InvalidCameraDimensionsError = _types.InvalidCameraDimensionsError
+InvalidInitialCameraError = _types.InvalidInitialCameraError
+LandmarkCorrespondence = _types.LandmarkCorrespondence
+NonFiniteCameraInputError = _types.NonFiniteCameraInputError
+NormalizedCorrespondence = _types.NormalizedCorrespondence
+ResidualDiagnostic = _types.ResidualDiagnostic
+ScalarField = _types.ScalarField
+SolverLimits = _types.SolverLimits
+bmp_size = _images.bmp_size
+build_camera = _images.build_camera
+clamp = _images.clamp
+detect_size = _images.detect_size
+estimate_fov = _images.estimate_fov
+gif_size = _images.gif_size
+jpeg_size = _images.jpeg_size
+png_size = _images.png_size
+webp_size = _images.webp_size
+
+# Mutable public seams retained for deterministic test callers.
+MAXIMUM_ITERATIONS = DEFAULT_MAXIMUM_ITERATIONS
+MAXIMUM_DAMPING_RETRIES = DEFAULT_MAXIMUM_DAMPING_RETRIES
+
+__all__ = [
+    "CONVERGED_RMS_PIXELS",
+    "FINITE_DIFFERENCE_STEPS",
+    "INITIAL_DAMPING",
+    "MAXIMUM_DAMPING",
+    "MAXIMUM_DAMPING_RETRIES",
+    "MAXIMUM_FOV_DEGREES",
+    "MAXIMUM_ITERATIONS",
+    "MINIMUM_CAMERA_DEPTH",
+    "MINIMUM_CORRESPONDENCES",
+    "MINIMUM_FOV_DEGREES",
+    "CameraFitDescriptor",
+    "CameraInitialization",
+    "DegenerateCorrespondencesError",
+    "InsufficientCorrespondencesError",
+    "InvalidCameraDimensionsError",
+    "InvalidInitialCameraError",
+    "LandmarkCorrespondence",
+    "NonFiniteCameraInputError",
+    "bmp_size",
+    "build_camera",
+    "clamp",
+    "detect_size",
+    "estimate_fov",
+    "fit_camera_to_correspondences",
+    "gif_size",
+    "jpeg_size",
+    "main",
+    "png_size",
+    "webp_size",
+]
 
 
-def png_size(data: bytes) -> tuple[int, int] | None:
-    if data.startswith(b"\x89PNG\r\n\x1a\n") and len(data) >= 24:
-        return struct.unpack(">II", data[16:24])
-    return None
-
-
-def gif_size(data: bytes) -> tuple[int, int] | None:
-    if data[:6] in {b"GIF87a", b"GIF89a"} and len(data) >= 10:
-        return struct.unpack("<HH", data[6:10])
-    return None
-
-
-def jpeg_size(data: bytes) -> tuple[int, int] | None:
-    if not data.startswith(b"\xff\xd8"):
-        return None
-    index = 2
-    while index + 9 < len(data):
-        if data[index] != 0xFF:
-            index += 1
-            continue
-        marker = data[index + 1]
-        index += 2
-        if marker in {0xD8, 0xD9}:
-            continue
-        if index + 2 > len(data):
-            return None
-        length = struct.unpack(">H", data[index : index + 2])[0]
-        if length < 2 or index + length > len(data):
-            return None
-        if marker in {0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF}:
-            if length >= 7:
-                height, width = struct.unpack(">HH", data[index + 3 : index + 7])
-                return width, height
-        index += length
-    return None
-
-
-def webp_size(data: bytes) -> tuple[int, int] | None:
-    if len(data) < 30 or data[:4] != b"RIFF" or data[8:12] != b"WEBP":
-        return None
-    chunk = data[12:16]
-    if chunk == b"VP8X" and len(data) >= 30:
-        width = 1 + int.from_bytes(data[24:27], "little")
-        height = 1 + int.from_bytes(data[27:30], "little")
-        return width, height
-    if chunk == b"VP8 " and len(data) >= 30:
-        start = data.find(b"\x9d\x01\x2a")
-        if start != -1 and start + 7 <= len(data):
-            width, height = struct.unpack("<HH", data[start + 3 : start + 7])
-            return width & 0x3FFF, height & 0x3FFF
-    return None
-
-
-def bmp_size(data: bytes) -> tuple[int, int] | None:
-    if len(data) >= 26 and data[:2] == b"BM":
-        width = struct.unpack("<I", data[18:22])[0]
-        height = abs(struct.unpack("<i", data[22:26])[0])
-        return width, height
-    return None
-
-
-def detect_size(data: bytes) -> tuple[int, int] | None:
-    return png_size(data) or jpeg_size(data) or gif_size(data) or webp_size(data) or bmp_size(data)
-
-
-def clamp(value: float, minimum: float, maximum: float) -> float:
-    return max(minimum, min(maximum, value))
-
-
-def estimate_fov(aspect: float | None) -> tuple[float, str]:
-    """Return a default vertical FOV guess plus the rationale.
-
-    Most product/character reference photos are shot on a phone or a short
-    telephoto lens at a comfortable working distance, which lands roughly in
-    the 30-45 degree vertical FOV band. There is no way to recover the true
-    lens from pixels alone, so this is a fixed default, not a measurement.
-    """
-    if aspect is not None and aspect < 0.75:
-        return 38.0, "default guess for a portrait-oriented photo (typical phone/short-tele framing)"
-    return 35.0, "default guess for a landscape/square photo (typical phone/short-tele framing)"
-
-
-def build_camera(image: Path, args: argparse.Namespace) -> dict[str, Any]:
-    data = image.read_bytes()
-    size = detect_size(data)
-    warnings: list[str] = []
-    if size is None:
-        warnings.append("could not read image dimensions; aspect defaults to 1.0")
-        width = height = None
-        aspect = 1.0
-    else:
-        width, height = size
-        aspect = round(width / height, 4) if height else 1.0
-
-    default_fov, fov_rationale = estimate_fov(aspect)
-    fov_degrees = args.fov_degrees if args.fov_degrees is not None else default_fov
-    fov_source = "user-supplied" if args.fov_degrees is not None else "default-guess"
-
-    distance = args.distance if args.distance is not None else 2.5
-    distance_source = "user-supplied" if args.distance is not None else "placeholder"
-
-    camera: dict[str, Any] = {
+def fit_camera_to_correspondences(
+    correspondences: Sequence[LandmarkCorrespondence],
+    *,
+    initial_camera: CameraInitialization,
+) -> CameraFitDescriptor:
+    """Fit the seven-DOF camera model after parsing all public numerical input."""
+    normalized = _types.normalize_fit_input(correspondences, initial_camera)
+    if _math.has_degenerate_world_geometry(normalized.correspondences):
+        raise DegenerateCorrespondencesError(correspondence_count=len(normalized.correspondences))
+    initial_residuals = _math.residual_components(normalized.correspondences, normalized.initial_camera)
+    if initial_residuals is None:
+        raise _invalid_initial_camera_error(normalized.correspondences, normalized.initial_camera)
+    initial_error = _math.rms_reprojection_error(initial_residuals)
+    fit_state = _solver.fit_parameters(normalized.correspondences, normalized.initial_camera, _solver_limits())
+    fitted_camera = _camera_parameters_payload(fit_state.parameters)
+    residuals = _residual_diagnostics(normalized.correspondences, fit_state.parameters)
+    final_error = math.sqrt(sum(item["errorPixels"] * item["errorPixels"] for item in residuals) / len(residuals))
+    return {
         "version": "1.0",
-        "sourceImage": str(image),
+        "sourceImage": "landmark-correspondences",
         "solver": "stage1_intake/solve_camera_pose.py",
-        "method": (
-            "heuristic default-guess camera, not solved from image content; image dimensions give an "
-            "exact aspect ratio, everything else is a starting point for agent refinement"
-        ),
-        "imageWidth": width,
-        "imageHeight": height,
+        "method": "numerical-landmark-fit",
+        "imageWidth": fit_state.parameters.image_width,
+        "imageHeight": fit_state.parameters.image_height,
         "fovDegrees": {
-            "value": round(fov_degrees, 2),
-            "source": fov_source,
-            "agentFill": fov_source == "default-guess",
-            "rationale": fov_rationale,
+            "value": fitted_camera["fovDegrees"],
+            "source": "numerical-landmark-fit",
+            "agentFill": False,
+            "rationale": "fitted from ordered 3D-to-2D landmark correspondences",
         },
         "aspect": {
-            "value": aspect,
-            "source": "image-dimensions" if size else "fallback-default",
-            "agentFill": size is None,
+            "value": fit_state.parameters.image_width / fit_state.parameters.image_height,
+            "source": "initial-camera-image-dimensions",
+            "agentFill": False,
         },
         "orientation": {
-            "yawDegrees": {"value": args.yaw, "source": "placeholder", "agentFill": True},
-            "pitchDegrees": {"value": args.pitch, "source": "placeholder", "agentFill": True},
-            "rollDegrees": {"value": args.roll, "source": "placeholder", "agentFill": True},
-            "note": "0/0/0 assumes a straight-on, level shot; adjust by eye against the reference image.",
+            "yawDegrees": _fitted_scalar(fitted_camera["yawDegrees"]),
+            "pitchDegrees": _fitted_scalar(fitted_camera["pitchDegrees"]),
+            "rollDegrees": _fitted_scalar(fitted_camera["rollDegrees"]),
+            "note": "Fitted using pitch, yaw, then roll rotations matching the stage-1 projection convention.",
         },
         "position": {
-            "hint": [0.0, args.height_offset, distance],
-            "distance": {"value": distance, "source": distance_source, "agentFill": distance_source == "placeholder"},
-            "note": "Position hint assumes the subject is centered at the origin and the camera looks down -Z.",
+            "hint": fitted_camera["position"],
+            "distance": _fitted_scalar(fitted_camera["position"][2]),
+            "note": "Fitted camera position in the existing scene-coordinate convention.",
         },
-        "confidence": 0.35 if size else 0.15,
+        "confidence": 0.95 if fit_state.status == "converged" else 0.5,
         "limitations": [
-            "no true camera calibration is performed; focal length/FOV/orientation are not recovered from pixels",
-            "fovDegrees is a genre default, not a measurement; wrong FOV distorts perceived proportions under overlay",
-            "orientation and position are placeholders and will almost always need manual/agent adjustment",
-            "this script cannot detect lens distortion, perspective foreshortening, or non-zero roll",
-        ]
-        + warnings,
-        "note": (
-            "Final camera match must be confirmed by overlay review: render the fitted mesh from this "
-            "camera, place it beside or over the reference image, and adjust fovDegrees/orientation/"
-            "position until silhouette and landmark alignment match before trusting projected texture bakes."
-        ),
+            "The fit holds image dimensions and principal point fixed from the initialization.",
+            "The fit does not estimate lens distortion, sensor size, or a multi-view reconstruction.",
+        ],
+        "note": "Residuals are recomputed from the emitted cameraParameters descriptor in correspondence input order.",
+        "fit": {
+            "method": "central-difference-damped-least-squares",
+            "cameraParameters": fitted_camera,
+            "initialReprojectionError": initial_error,
+            "finalReprojectionError": final_error,
+            "residuals": residuals,
+            "convergence": {
+                "status": fit_state.status,
+                "iterations": fit_state.iterations,
+                "acceptedSteps": fit_state.accepted_steps,
+                "rejectedSteps": fit_state.rejected_steps,
+                "damping": fit_state.damping,
+            },
+        },
     }
-    return camera
+
+
+def _solver_limits() -> SolverLimits:
+    return SolverLimits(
+        maximum_iterations=MAXIMUM_ITERATIONS,
+        maximum_damping_retries=MAXIMUM_DAMPING_RETRIES,
+        initial_damping=INITIAL_DAMPING,
+        maximum_damping=MAXIMUM_DAMPING,
+        converged_rms_pixels=CONVERGED_RMS_PIXELS,
+        finite_difference_steps=FINITE_DIFFERENCE_STEPS,
+    )
+
+
+def _invalid_initial_camera_error(
+    correspondences: Sequence[NormalizedCorrespondence], camera: CameraParameters
+) -> InvalidInitialCameraError:
+    for correspondence in correspondences:
+        if _math.project_landmark(correspondence.world, camera) is None:
+            return InvalidInitialCameraError(correspondence_name=correspondence.name)
+    return InvalidInitialCameraError(correspondence_name=correspondences[0].name)
+
+
+def _camera_parameters_payload(camera: CameraParameters) -> FitCameraParameters:
+    return {
+        "fovDegrees": camera.fov_degrees,
+        "yawDegrees": camera.yaw_degrees,
+        "pitchDegrees": camera.pitch_degrees,
+        "rollDegrees": camera.roll_degrees,
+        "position": [camera.position[0], camera.position[1], camera.position[2]],
+    }
+
+
+def _fitted_scalar(value: float) -> ScalarField:
+    return {"value": value, "source": "numerical-landmark-fit", "agentFill": False}
+
+
+def _residual_diagnostics(
+    correspondences: Sequence[NormalizedCorrespondence], camera: CameraParameters
+) -> list[ResidualDiagnostic]:
+    diagnostics: list[ResidualDiagnostic] = []
+    for correspondence in correspondences:
+        projected = _math.project_landmark(correspondence.world, camera)
+        if projected is None:
+            raise _invalid_initial_camera_error(correspondences, camera)
+        diagnostics.append(
+            {
+                "name": correspondence.name,
+                "errorPixels": math.hypot(
+                    projected[0] - correspondence.observed[0],
+                    projected[1] - correspondence.observed[1],
+                ),
+            }
+        )
+    return diagnostics
 
 
 def main(argv: list[str]) -> int:
@@ -182,14 +237,11 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--height-offset", type=float, default=0.0, help="Camera Y offset hint, scene units")
     parser.add_argument("--out", type=Path, help="Write the referenceCamera JSON block to this path")
     args = parser.parse_args(argv)
-
     image = args.image.expanduser().resolve()
     if not image.exists():
         parser.error(f"{image} does not exist")
-
     camera = build_camera(image, args)
-    payload = {"referenceCamera": camera}
-    text = json.dumps(payload, indent=2, ensure_ascii=False)
+    text = json.dumps({"referenceCamera": camera}, indent=2, ensure_ascii=False)
     if args.out:
         out_path = args.out.expanduser().resolve()
         out_path.parent.mkdir(parents=True, exist_ok=True)
