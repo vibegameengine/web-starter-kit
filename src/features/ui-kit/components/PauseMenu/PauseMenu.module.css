@@ -1,0 +1,65 @@
+/* A full-screen backdrop inside whatever overlay root the screen already owns —
+   `position: fixed; inset: 0`, never a portal to <body>. Portalling out is how a
+   menu escapes the screen's scaler and starts sizing itself differently from
+   every other piece of UI around it.
+
+   There is deliberately no panel frame here: the panel is `ControlPanel`, whose
+   own doc says it is the kit's one glass surface at every size. This file styles
+   only what a menu adds on top of it — the dimming, the list, the action row. */
+.backdrop {
+  position: fixed;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgb(2 8 14 / 62%);
+  backdrop-filter: blur(3px);
+  inset: 0;
+}
+
+/* A menu is read from further away than a HUD corner, so the shared panel is
+   scaled up bodily rather than restyled — one visual language, two distances. */
+.frame {
+  width: min(340px, 100%);
+  box-shadow: 0 18px 46px rgb(1 12 23 / 52%);
+  font-size: 1.35em;
+}
+
+.hint {
+  margin: 0 0 10px;
+  color: rgb(224 245 255 / 52%);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+}
+
+/* Full-width entries stacked: a menu list, not a row of chips. The stretch is
+   the list's business, so ControlButton stays the same small control it is
+   everywhere else and gains no menu-only variant. */
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.list > * {
+  width: 100%;
+  min-height: 30px;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* A genuine hairline divider — `border` used for what it is, not to fake art. */
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgb(168 222 255 / 16%);
+}
+

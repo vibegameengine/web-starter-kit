@@ -1,0 +1,98 @@
+/* The kit's continuous control, in the same cool glass as ControlButton and
+   ControlPanel: hairline blue border, lit fill for the part that is "on". The
+   track is a real element rather than a `border-image` fake, and the thumb is a
+   native range thumb restyled — a divider and a focus ring, which is what
+   `border` and `outline` are actually for. */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Trebuchet MS', system-ui, sans-serif;
+}
+
+.label {
+  flex: 0 0 auto;
+  min-width: 58px;
+  color: rgb(224 245 255 / 72%);
+  font: 800 9px/1 'Trebuchet MS', system-ui, sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.input {
+  flex: 1 1 auto;
+  min-width: 90px;
+  height: 18px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.input:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.input:focus-visible {
+  outline: 2px solid white;
+  outline-offset: 2px;
+}
+
+/* The filled part is painted with a gradient stop driven by `--fill`, so the
+   track lights up to the thumb without a second element to keep in sync. */
+.input::-webkit-slider-runnable-track {
+  height: 4px;
+  border: 1px solid rgb(161 221 255 / 22%);
+  border-radius: 3px;
+  background:
+    linear-gradient(
+      to right,
+      rgb(94 200 255 / 62%) 0 var(--fill, 0%),
+      rgb(120 199 239 / 7%) var(--fill, 0%) 100%
+    );
+}
+
+.input::-moz-range-track {
+  height: 4px;
+  border: 1px solid rgb(161 221 255 / 22%);
+  border-radius: 3px;
+  background:
+    linear-gradient(
+      to right,
+      rgb(94 200 255 / 62%) 0 var(--fill, 0%),
+      rgb(120 199 239 / 7%) var(--fill, 0%) 100%
+    );
+}
+
+.input::-webkit-slider-thumb {
+  width: 12px;
+  height: 12px;
+  margin-top: -5px;
+  border: 1px solid #91dcff;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #d8f3ff, #57b6e6);
+  box-shadow: 0 0 9px rgb(94 200 255 / 45%);
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.input::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 1px solid #91dcff;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #d8f3ff, #57b6e6);
+  box-shadow: 0 0 9px rgb(94 200 255 / 45%);
+}
+
+/* Tabular figures so the number does not shuffle the row as it changes. */
+.value {
+  flex: 0 0 auto;
+  min-width: 30px;
+  color: rgb(238 250 255 / 72%);
+  font: 800 9px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}

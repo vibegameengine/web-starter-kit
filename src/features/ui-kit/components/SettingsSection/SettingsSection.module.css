@@ -1,0 +1,29 @@
+/* Sections are separated by space and a hairline, not by a frame each: nesting a
+   panel per category inside the settings panel doubles every edge and makes the
+   screen read as a stack of dialogs rather than one screen. */
+.section + .section {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgb(168 222 255 / 16%);
+}
+
+.heading {
+  margin: 0 0 6px;
+  color: #9adcfb;
+  font: 900 9px/1 'Trebuchet MS', system-ui, sans-serif;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.note {
+  margin: 0 0 8px;
+  color: rgb(224 245 255 / 45%);
+  font: 500 8px/1.4 'Trebuchet MS', system-ui, sans-serif;
+  letter-spacing: 0.04em;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
