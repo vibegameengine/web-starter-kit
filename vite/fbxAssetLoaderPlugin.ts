@@ -5,12 +5,13 @@ import path from 'node:path'
 
 import { Logger, NodeIO } from '@gltf-transform/core'
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions'
-import { dedup, meshopt, prune } from '@gltf-transform/functions'
+import { meshopt } from '@gltf-transform/functions'
 import { MeshoptEncoder } from 'meshoptimizer'
 import convertFbxToGltf from 'fbx2gltf'
 import type { Plugin, ResolvedConfig } from 'vite'
 import { normalizePath } from 'vite'
 
+import { CLEANUP_TRANSFORMS } from './glbAssetOptimizerPlugin'
 import { createAssetOptimizerCache } from './assetOptimizerCache'
 import type { AssetOptimizerCache } from './assetOptimizerCache'
 
@@ -235,7 +236,9 @@ async function convertFbxAsset(moduleId: string, diskCache: AssetOptimizerCache)
       for (const node of root.listNodes()) node.setMesh(null)
       for (const mesh of root.listMeshes()) mesh.dispose()
       for (const skin of root.listSkins()) skin.dispose()
-      await document.transform(dedup(), prune(), meshopt({ encoder: MeshoptEncoder, level: 'high' }))
+      // Shared with the GLB optimizer: a bare `prune()` here deletes empty leaf
+      // nodes, and an FBX rig's end bones and sockets are exactly that.
+      await document.transform(...CLEANUP_TRANSFORMS(), meshopt({ encoder: MeshoptEncoder, level: 'high' }))
     }
 
     const bytes = await io.writeBinary(document)
