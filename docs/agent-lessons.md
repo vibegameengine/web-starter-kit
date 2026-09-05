@@ -1,8 +1,13 @@
-# Lessons from working on this codebase
+# Lessons from working on a codebase like this one
 
-Written by an agent, from mistakes it actually made here, each one with the
-evidence that exposed it. Not general advice — every entry is a thing that went
-wrong in this repository, and the rule that would have caught it.
+Written by an agent, from mistakes it actually made, each one with the evidence
+that exposed it. Not general advice — every entry is a thing that went wrong on
+a real project, and the rule that would have caught it.
+
+That project is the game this kit was distilled from, so scripts and components
+named below live there rather than here; see [`README.md`](README.md). What
+transfers is the mistake and the rule, both of which are about how work is done
+rather than about that game.
 
 Kept in `docs/` and not in `wip/`, because `wip/` is gitignored and a lesson
 nobody can read tomorrow is not a lesson.
@@ -200,12 +205,14 @@ you between runs.
 
 One was started on another port to build a pre-change baseline. The user noticed
 and was rightly annoyed. It was also unnecessary three times over: the previous
-component was still in the tree, `git stash` would have served, and the baseline
-wanted was a number rather than a picture.
+component was still in the tree, a copy of the file aside would have served, and
+the baseline wanted was a number rather than a picture.
 
 **The rule.** Reuse the running server. When a baseline is needed, ask in order:
-is the old code still in the tree? Will `git stash` do? Is the baseline a number
-rather than an image? Only then consider a second process.
+is the old code still in the tree? Will a copy of the current state, or a commit
+on a branch, do? Is the baseline a number rather than an image? Only then
+consider a second process. (Parking work by asking git to take it out of the
+tree is what rule 2 of `AGENTS.md` refuses — copy or commit instead.)
 
 ## 15. Say plainly when a claim of yours was wrong
 

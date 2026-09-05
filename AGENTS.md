@@ -12,11 +12,11 @@ imagined. The rules themselves apply here without exception.
    asked.** Not at the end of the task, not when the whole feature is finished,
    not "once it is proven": the moment a piece compiles and does something, it
    goes into git.
-   - **Even if somebody else is working in the tree. Especially then** — and this
-     repository is built to be driven by several agents, so assume they are.
-     Uncommitted work has no history, no diff and no way back: `git log --
-     <file>` on an untracked file prints nothing, so when it breaks nobody can
-     tell what changed or who changed it.
+   - **If anyone else works in this tree — another person, another agent session
+     — then especially.** Uncommitted work has no history, no diff and no way
+     back: `git log -- <file>` on an untracked file prints nothing, so when it
+     breaks nobody can tell what changed or who changed it. Alone in a tree the
+     rule costs you nothing and still gives you the diff.
    - Measured: a whole navigation system - six files - sat untracked for three
      hours while another session edited one of those files underneath it. For
      twenty of those minutes the tree did not compile, and the question "what
@@ -38,10 +38,13 @@ imagined. The rules themselves apply here without exception.
      but they are NOT visual verification — never claim something "looks right"
      from a typecheck/build alone; look at a headed frame.
    - **For normal hot-reload work, do not run `tsc`, `npm run build`, lint,
-     tests, or Knip as a routine check.** Reuse the already-running dev server,
-     let HMR apply the scoped change, and confirm the affected surface in a
-     headed browser. Run a static check only when the user explicitly asks for
-     it or when diagnosing a concrete compile/runtime failure.
+     tests, or Knip as a routine check.** Keep one dev server running and reuse
+     it, let HMR apply the scoped change, and confirm the affected surface in a
+     headed browser. Run a static check when the user asks for it, when
+     diagnosing a concrete compile or runtime failure, and once before final
+     delivery — that last pass is the validation set in
+     [agents/AGENTS.md](./agents/AGENTS.md), and it is the end of the work rather
+     than a step inside it.
 
 2. **NEVER delete files, remove code wholesale, or `npm uninstall` without the
    user's explicit permission.** Preserve work (keep in place or save to a
@@ -62,9 +65,9 @@ imagined. The rules themselves apply here without exception.
 2a. **NEVER MEASURE A SYSTEM IN A PLAYABLE SCENE.** A playable scene is for
    measuring INTEGRATION — that these systems run together, in the real
    renderer, without the frame falling apart — and for nothing else. Any claim
-   about how a system BEHAVES is measured in its own DEV lab, built with
-   `/dev-lab-authoring`: chosen geometry, a fixed cast, the same numbers on every
-   run.
+   about how a system BEHAVES is measured in its own DEV lab, built with the
+   `dev-lab-authoring` skill: chosen geometry, a fixed cast, the same numbers on
+   every run.
 
    Why, in numbers from the day this was written. A wave was measured on the
    combat arena to decide whether recast was steering it. Twice in a row the run
@@ -182,7 +185,7 @@ imagined. The rules themselves apply here without exception.
      optimizer, a headed test bench), which belongs in this repository's `docs/`
      and travels to everything started from it. Label a portable lesson as
      portable when you write it: one nobody labelled never gets lifted, and the
-     eight documents in `docs/` are what the labelling produced.
+     lesson documents in `docs/` are what the labelling produced.
    - Write the FALSIFIED ones too, with the number that falsified them. A
      recorded dead end is worth more than a recorded success: the success gets
      re-derived from the code, the dead end gets retried by every agent after
@@ -194,7 +197,7 @@ imagined. The rules themselves apply here without exception.
    - **The bench is not evidence.** Captures belong in the git-ignored
      `wip/<task>/`; the SCRIPT that produced them belongs in `scripts/`. The
      test: if losing it would make a number you wrote down unrepeatable, it is a
-     tool, and tools are committed. A whole task's instrument sat in `wip/` here
+     tool, and tools are committed. A whole task's instrument once sat in `wip/`
      while the document quoting it was committed — one `git clean` from turning
      every measurement into an unverifiable claim.
    - This is not documentation-for-its-own-sake, and it does not replace doing
@@ -230,8 +233,8 @@ imagined. The rules themselves apply here without exception.
      descriptions, what an agent reports back, agent-to-agent handoffs. Nobody
      reads this but machines: drop articles, filler (`just`, `really`,
      `basically`), pleasantries, hedging and narration of tool calls. Fragments
-     are fine. It is output tokens either way, and output is 5× the price of
-     input.
+     are fine. It is output tokens either way, and output tokens cost several times
+     what input tokens do.
    - **The user's channel — normal prose.** Every reply a person reads.
      Compressing that one buys a few tokens and costs comprehension.
    - **Never compress what must survive verbatim:** code, file paths, exact

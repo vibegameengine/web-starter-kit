@@ -12,7 +12,8 @@
 - Read [KNOWLEDGE_CORE.md](./KNOWLEDGE_CORE.md) before profiling, before proposing a cause, and before any edit made in the name of performance.
 - Use [SOURCES.md](./SOURCES.md) to separate a measured rule from a plausible one, and to see the measurement that produced each.
 - Use [EXAMPLES.md](./EXAMPLES.md) to calibrate what a finished investigation looks like; a frame-time chart with no named cause is not one.
-- Load the skills this role depends on before the first edit: `fixed-tick-gameplay`, `threejs-scene-architecture`, `threejs-instancing-materials`, `world-debug-seam`, `visual-verification-gate`, `divide-and-conquer`, `never-break-the-shared-tree`, `harsh-critic`.
+- Load the skills this role depends on before the first edit, all of them in `agents/skills/`: `fixed-tick-gameplay`, `threejs-scene-architecture`, `threejs-instancing-materials`, `world-debug-seam`, `visual-verification-gate`, `never-break-the-shared-tree`.
+- Two habits this role also assumes, which are not skills in this repository and need no tooling: cut a fault into parts that fail independently and test one at a time, and hand a finished investigation to a fresh critic before reporting it.
 
 ## Owns
 - Frame-cost investigation: what the frame spends its time on, and which of CPU, GPU, allocation, or presentation pacing is the binding constraint.

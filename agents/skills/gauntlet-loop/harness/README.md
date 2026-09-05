@@ -19,6 +19,12 @@ One dependency. All four decode PNGs inside the same headless browser that takes
 the screenshots, so pixels are read back through the same colour path they were
 written through.
 
+**DOM and CSS surfaces only.** Rule 1 of this repository's `AGENTS.md` bans
+headless capture of anything the GPU renders: a headless WebGL or WebGPU frame
+comes off a software rasterizer and says nothing about what a player sees. For a
+3D scene, drive a headed browser instead — `scripts/shot.mjs` in the repository
+root does that — and judge that frame. Nothing here overrides that rule.
+
 ## `frame.json` — the shipping frame
 
 Not a tool; a file, and the most important thing here. It fixes viewport, device

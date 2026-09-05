@@ -137,7 +137,7 @@ const reason = [
   `BLOCKED: ${hit.name} is not available here.`,
   '',
   `${hit.why}. Whatever it removes cannot be recovered, and you cannot see`,
-  'beforehand what you are removing - in a tree several sessions edit at once,',
+  'beforehand what you are removing - and if anyone else is editing this tree,',
   'some of it will not be yours.',
   '',
   'To undo a change you made: write the reverse edit yourself, with Edit or a',

@@ -21,8 +21,7 @@ The definition is short and it is the whole discipline:
 > goes and then keeps out.
 
 The owner's words, after watching a dancer stand buried to the chin in a floor:
-*«каждый раз пересчитываешь положение всего, что переносишь»* — you recompute
-the placement of every single thing you move.
+*"every single time, you recompute the placement of everything you move."*
 
 That was exactly what the code did. One yard, four independent derivations of
 where it stood:
@@ -76,8 +75,9 @@ export function intoWorld(local, placement) {
 }
 ```
 
-The owner's instruction, verbatim: *«тебе надо ставить точки спавна, а
-спрашивать их уже в мире, с новой системой координат — но тем же самым кодом»*.
+The owner's instruction, verbatim: *"you place the spawn points, and then you
+ask for them in the world, in the new coordinate system — but with the very same
+code."*
 
 **Never write your own rotation.** The one written by hand here was the INVERSE
 of the layout's own `rotateLocal`: `turned(·, 1)` equalled `rotateLocal(·, 3)`.
@@ -100,8 +100,8 @@ was one line that had been there all along — the dungeon's blockout component
 already mounted the yard's mesh for every arena on the floor, at the right
 position, height and quarter.
 
-The owner found it by reading, in about a second: *«не может ниоткуда взяться
-2 геометрии… где ты создаёшь копию и зачем»*.
+The owner found it by reading, in about a second: *"two geometries cannot come
+out of nowhere — where are you creating the copy, and what for?"*
 
 ```bash
 grep -rn "<GeneratedCathedralArena" src
@@ -178,7 +178,8 @@ do with the yard. Every one of these was found by a player, not by a test:
 | the sun's shadow camera | `shadow-camera-left/right/top/bottom = ±20` — the frame covers the origin, the fight is 154 m away, so **the level had no shadows at all** |
 
 The owner's description of the blood one is the best diagnostic sentence in this
-document: *«двояко — одновременно ощущение, что сдвинуто и что масштаб не тот»*.
+document: *"it reads two ways at once — it feels shifted, and it feels like the
+scale is wrong."*
 A shift **and** a scale together is an affine mismatch, and it points straight at
 a hand-written world-to-texture map.
 
@@ -188,9 +189,9 @@ a hand-written world-to-texture map.
 
 ## 7. Do not compute these constants by hand at all — measure the geometry
 
-The instruction that finally settled the blood layer: *«это вообще никак не
-должно считаться руками, эти постоянные должны автоматом строиться буквально из
-геометрии»*.
+The instruction that finally settled it: *"none of this should be worked out by
+hand at all — these constants should be built automatically, literally out of
+the geometry."*
 
 An intermediate version asked the collision grid for its half extent. Closer,
 and still wrong: the grid is square and centred on the origin, a floor is
@@ -284,7 +285,7 @@ empty sky.
 **Measure BEHAVIOUR in the system's own lab; a scene proves INTEGRATION and its
 evidence is a frame.** Planning to judge a 0.47 m wall offset by eye, in a
 screenshot, in a scene with a live fight in it, earned the correct response:
-*«как ты себе это вообще представляешь?»*
+*"how exactly do you picture that working?"*
 
 **Sweep the seeds.** Every measurement in this work came from generated floor
 seed 1 — one of only two of the first eight whose start yard has quarter 0, and

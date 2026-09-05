@@ -48,12 +48,12 @@ and went unused.
     is the more likely of the two, because inventing a plausible stone is easier
     than matching a specific one.
 
-    Written down because it was got wrong on this project and cost several
-    rounds: the reference path was in the prompt, buried below the brief, with
-    no sampling demand and no "inspired by" prohibition. Codex returned four
-    perfectly competent PBR stone sets that looked nothing like the building
-    they were for, and the user's question was the right one — *where else would
-    you take the textures from?*
+    Written down because it was got wrong once and cost several rounds: the
+    reference path was in the prompt, buried below the brief, with no sampling
+    demand and no "inspired by" prohibition. Codex returned four perfectly
+    competent PBR stone sets that looked nothing like the asset they were for,
+    and the user's question was the right one — *where else would you take the
+    textures from?*
 
 0. **Say WHAT the asset is and WHAT IT IS FOR, in that order, before anything
    else.** "The button plates, isolated, as a source sheet I will cut into a

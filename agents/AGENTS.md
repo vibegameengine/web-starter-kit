@@ -37,9 +37,9 @@
 
 ## Programmer Role Gate
 - Before choosing `programmer` as the leading role, explicitly answer all three questions:
-  1. **Есть ли дизайн?**
-  2. **Решены ли все вопросы реализации?**
-  3. **Продуманы ли все UX- и UI-кейсы, включая крайние случаи?**
+  1. **Is there a design?**
+  2. **Is every implementation question settled?**
+  3. **Has every UX and UI case been thought through, edge cases included?**
 - The `programmer` role is allowed only when every answer is an evidence-backed **yes**.
 - If any answer is **no**, uncertain, assumed, or unsupported, the leading role must be one of the relevant design/project roles (`manager`, `system-design`, `product-design`, `game-design`, `narrative-design`, or `motion-design`). Resolve the missing decisions in that role before switching to `programmer`.
 - A user request to “implement”, “build”, or “write code” does not bypass this gate when design, realization, UX, or UI decisions are still open.
@@ -88,5 +88,7 @@
 - Role-specific memory lives in `agents/<role>/memory.md`.
 - Memory stores durable decisions, constraints, user preferences, source-of-truth changes, and cross-role conflicts.
 - Do not duplicate canonical rules from `AGENTS.md` into memory.
-# Geometry invariant: final scene assets never ship as bare primitives. Use only
-# intentional faceted/compound silhouettes with readable cuts and notches.
+
+## Geometry Invariant
+- Final scene assets never ship as bare primitives. Use intentional faceted or
+  compound silhouettes with readable cuts and notches.

@@ -23,13 +23,13 @@ Two things, and they're the whole point.
 
 ### 🧠 A ton of skills & roles
 
-The repo is built to be **driven by coding agents**. It ships **8 specialist
-roles** and **30+ composable skills** — pick a role, load the skills the task
+The repo is built to be **driven by coding agents**. It ships **10 specialist
+roles** and **70 composable skills** — pick a role, load the skills the task
 needs, ship.
 
-- **8 roles** ([`agents/`](agents/AGENTS.md)) — game-design · system-design ·
+- **10 roles** ([`agents/`](agents/AGENTS.md)) — game-design · system-design ·
   product-design · narrative-design · motion-design · programmer ·
-  platform-publishing · manager.
+  optimization · platform-publishing · smm · manager.
 - **This kit's own skills** — `asset-optimization-pipeline` (the web build
   pipeline below), plus project skills for Three.js scene authoring, instancing,
   frame-cost architecture and the FSD/ECS layout.
@@ -110,7 +110,7 @@ folders. Its current feature mix includes:
 
 | Capability | Where |
 | --- | --- |
-| 70 agent skills + 8 roles | [agents/](agents/AGENTS.md) · [agents/skills/](agents/skills/) |
+| 70 agent skills + 10 roles | [agents/](agents/AGENTS.md) · [agents/skills/](agents/skills/) |
 | GLB/glTF optimizer — textures, Meshopt, albedo-only, per-import flags | [vite/glbAssetOptimizerPlugin.ts](vite/glbAssetOptimizerPlugin.ts) |
 | FBX → GLB converter — animation-only by default, `?fbx=raw` for full assets | [vite/fbxAssetLoaderPlugin.ts](vite/fbxAssetLoaderPlugin.ts) |
 | Direct Mixamo workflow — one With-Skin GLB plus untouched animation FBXs | [agents/skills/tripo-to-mixamo/](agents/skills/tripo-to-mixamo/) |

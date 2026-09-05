@@ -6,8 +6,9 @@ description: Keep all gameplay logic independent from render FPS. Use for any wo
 # Fixed-tick gameplay
 
 Gameplay is never driven by the render-frame delta or by the selected FPS cap.
-Rendering is presentation only. The canonical project contract is
-`docs/system-design/TECHNICAL_ARCHITECTURE.md`, ADR-01.
+Rendering is presentation only. In this repository the contract is implemented
+by `src/shared/lib/simulation/` — `FixedTick`, `fixedStep`, `fixedTickBus` and
+`renderInterpolation`.
 
 ## Non-negotiable boundary
 
@@ -36,9 +37,9 @@ files.
 **A publish is a data hand-off, not a reconciliation.** `useState` invalidates the
 whole subtree beneath it, so publishing a tick into state held ABOVE the
 consumers makes the cost proportional to the TREE rather than to the number of
-things that read it. Measured in this repo: the solved state was held at the top
-of the arena scene, and every publish re-rendered the sky, four lights, the VFX
-light pool, both shadow groups, the cathedral geometry and the `<Physics>`
+things that read it. Measured in the game this kit was distilled from: the solved state was held at the top
+of the playable scene, and every publish re-rendered the sky, four lights, the VFX
+light pool, both shadow groups, the world geometry and the `<Physics>`
 provider — **none of which read a snapshot.**
 
 The rules:
@@ -148,19 +149,20 @@ unit.
 - **Measure the interval the player waits, not the interval between renders.** A
   frame time sampled end-of-render to end-of-render is, under vsync,
   `period + (work[i] − work[i−1])` — a FIRST DIFFERENCE of the work signal. It
-  invented a defect that did not exist in this repo for most of a day. The
+  invented a defect that did not exist, and cost most of a day. The
   signature: a mean of exactly one refresh period, lag-1 autocorrelation near
   −0.5, frames shorter than a refresh interval, and a smooth distribution where a
   real dropped-frame process is spiky at multiples of the refresh. A
   `requestAnimationFrame` interval IS a presentation interval — use
-  `scripts/arena-frames-external.mjs`, which records one from an init script and
+  a recorder installed from a page init script, which
   shares no code with the app.
-- **Report the max and the share of clean intervals, not just p99.** A wave here
+- **Report the max and the share of clean intervals, not just p99.** One measured run
   reported `p99 = 8.5 ms` while containing a 233 ms freeze: one frame in 1600 does
   not move a 99th percentile.
-- **Run it twice and report both.** Tail statistics on this bench drift 25–30%
-  between runs; a single run is not evidence, and quoting the better of two is how
-  a report passes a bar the product does not.
+- **Run it twice and report both.** Tail statistics drifted 25–30% between runs
+  on the bench these rules come from — re-derive that spread on yours rather than
+  trusting the number; a single run is not evidence, and quoting the better of
+  two is how a report passes a bar the product does not.
 - Replay one command stream under 30, 45, 60, uncapped and jittered rendering;
   gameplay outcome must match.
 - Stall the frame loop for several seconds mid-simulation (block the main thread)
