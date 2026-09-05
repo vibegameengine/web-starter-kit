@@ -23,8 +23,26 @@
 export type FixedTickListener = (deltaSeconds: number) => void
 
 export type FixedTickBus = {
+  /**
+   * How far into the NEXT step the current frame falls, 0..1.
+   *
+   * The clock already computes this — it is the accumulator left over once whole
+   * steps have been taken — and until now it threw it away. Without it a renderer
+   * that wants to draw between two ticks has to guess the value from its own
+   * frame delta, and that guess is wrong in the most damaging possible way: the
+   * frame delta is LARGER than a step whenever the display is slower than the
+   * simulation, so the guess saturates at 1 and the interpolation silently
+   * becomes no interpolation at all. Measured on this project: 125 Hz against
+   * 120 fps gives 1.04 every single frame.
+   *
+   * Read at render time, written by the clock. Not a parameter of `emit`,
+   * because it is a property of the FRAME rather than of the step.
+   */
+  readonly alpha: () => number
   /** Runs every listener once, with the simulation's own step. */
   readonly emit: (deltaSeconds: number) => void
+  /** Called by the clock once per frame, after it has taken its steps. */
+  readonly setAlpha: (value: number) => void
   /** Attaches a listener; call the returned function to detach it. */
   readonly subscribe: (listener: FixedTickListener) => () => void
   /** How many listeners are attached. For tests and DEV readouts only. */
@@ -38,6 +56,7 @@ export function createFixedTickBus(): FixedTickBus {
   const listeners: FixedTickListener[] = []
   let emitting = false
   let removed = false
+  let alpha = 0
 
   const compact = () => {
     removed = false
@@ -47,6 +66,10 @@ export function createFixedTickBus(): FixedTickBus {
   }
 
   return {
+    alpha: () => alpha,
+    setAlpha: (value: number) => {
+      alpha = value
+    },
     emit: (deltaSeconds: number) => {
       // Iterated by index over the live array rather than over a copy: this runs
       // thirty times a second for the whole session, and a per-tick allocation
