@@ -12,15 +12,16 @@ imagined. The rules themselves apply here without exception.
    asked.** Not at the end of the task, not when the whole feature is finished,
    not "once it is proven": the moment a piece compiles and does something, it
    goes into git.
-   - **Even if somebody else is working in the tree. Especially then.** Several
-     agents share this working copy. Uncommitted work has no history, no diff and
-     no way back: `git log -- <file>` on an untracked file prints nothing, so
-     when it breaks nobody can tell what changed or who changed it.
-   - Measured on this project: a whole navigation system - six files - sat
-     untracked for three hours while another session edited one of those files
-     underneath it. For twenty of those minutes the tree did not compile, and the
-     question "what broke it" had no answer to give, because there was no
-     baseline to diff against.
+   - **Even if somebody else is working in the tree. Especially then** — and this
+     repository is built to be driven by several agents, so assume they are.
+     Uncommitted work has no history, no diff and no way back: `git log --
+     <file>` on an untracked file prints nothing, so when it breaks nobody can
+     tell what changed or who changed it.
+   - Measured: a whole navigation system - six files - sat untracked for three
+     hours while another session edited one of those files underneath it. For
+     twenty of those minutes the tree did not compile, and the question "what
+     broke it" had no answer to give, because there was no baseline to diff
+     against.
    - Asking permission to commit is not caution, it is the delay itself. This
      rule is the permission. Commit on a branch, never straight to `main`.
 
@@ -44,7 +45,15 @@ imagined. The rules themselves apply here without exception.
 
 2. **NEVER delete files, remove code wholesale, or `npm uninstall` without the
    user's explicit permission.** Preserve work (keep in place or save to a
-   branch) and ask first. See memory `never-delete-without-permission`.
+   branch) and ask first.
+   - The same applies to asking git to throw work away. `git checkout -- <file>`
+     was run here once to undo a single change; it also discarded every other
+     uncommitted edit in that file, and git keeps no record of a working-tree
+     file it overwrote. `.claude/hooks/block-destructive-git.mjs` refuses that
+     family of commands — `checkout` without `-b`, `restore`, `clean`, `stash`,
+     `reset --hard`, `switch --force`, `worktree remove` — and lets their
+     harmless forms through. Revert by writing the reverse edit, or by putting
+     the current state somewhere safe first.
 
 2a. **NEVER MEASURE A SYSTEM IN A PLAYABLE SCENE.** A playable scene is for
    measuring INTEGRATION — that these systems run together, in the real
@@ -96,11 +105,12 @@ imagined. The rules themselves apply here without exception.
    is portable is the shape of the fault, two rasters describing one wall.
    Instead of reading them the agent planned to shoot at walls in a headed
    browser and look — proposing to judge a 47 cm discrepancy by eye, in a
-   screenshot, in a scene with a live fight in it. The owner: *"твой расчёт, что ты каким-то чудом
-   сможешь понять это кадром — как ты себе это вообще представляешь?"*
+   screenshot, in a scene with a live fight in it. The owner's answer: *"your
+   plan is that some miracle will let you see this in a frame — how exactly do
+   you picture that?"*
 
-   The same session had already lost an hour to the same reflex: the yard was
-   drawn twice, and `grep -rn "<GeneratedCathedralArena" src` — one line, one
+   The same session had already lost an hour to the same reflex: a courtyard was
+   drawn twice, and one `grep -rn` for the component's name — one line, one
    second — was run after a hundred tool calls of probes and captures.
 
 2c. **WHAT THE USER SAYS IS A FACT UNTIL PROVEN OTHERWISE. Do not re-measure it.**
@@ -128,8 +138,9 @@ imagined. The rules themselves apply here without exception.
 
 4. **NEVER stop to ask a question you could answer yourself.** You were given a
    goal. Not knowing something is not a reason to hand the decision back — it is
-   the work. Run `/harsh-critic` with the question and let a fresh agent answer
-   it, then act on the answer and say what you decided and why.
+   the work. Hand the question to a fresh sub-agent — one that has not been
+   reading your reasoning — take its answer, act on it, and say what you decided
+   and why.
    - This includes decisions that feel like they belong to the user: which of two
      designs to take, whether a stale test encodes a feature or a mistake,
      whether to commit, what a roster of enemies should be. Decide, state the
@@ -161,11 +172,13 @@ imagined. The rules themselves apply here without exception.
    at the end, not "if there is time" — while the finding is still fresh, in a
    markdown file, in the same change that produced it.
    - Two destinations, and say which one a lesson belongs to:
-     **project** — how THIS game's systems behave, into `docs/…md`;
-     **kit** — a lesson that would hold in any project with the same technique
-     (a ragdoll, a skinned rig, a build-time optimizer, a headed test bench).
-     Mark those explicitly so they can be lifted into the shared kit later. A
-     lesson nobody labelled as portable never gets ported.
+     **product** — how the systems of the thing you are building behave, into
+     that project's own `docs/`; **kit** — a lesson that would hold in any
+     project with the same technique (a ragdoll, a skinned rig, a build-time
+     optimizer, a headed test bench), which belongs in this repository's `docs/`
+     and travels to everything started from it. Label a portable lesson as
+     portable when you write it: one nobody labelled never gets lifted, and the
+     eight documents in `docs/` are what the labelling produced.
    - Write the FALSIFIED ones too, with the number that falsified them. A
      recorded dead end is worth more than a recorded success: the success gets
      re-derived from the code, the dead end gets retried by every agent after
@@ -204,17 +217,19 @@ imagined. The rules themselves apply here without exception.
    the payload is a paragraph. If you are about to paste more than a few lines
    of prose into a shell, you are about to pay for it twice.
 
-8. **ALWAYS think and talk to other agents in English, compressed caveman-style.
-   ALWAYS answer the user in Russian.** The two channels are separate and the
-   rule is about the audience, not about the language you happen to be in.
-   - **Internal traffic — English, caveman.** Reasoning, subagent briefs, task
+8. **COMPRESS THE CHANNEL NOBODY READS; NEVER COMPRESS THE ONE THE USER READS.**
+   Two audiences, and the rule is about the audience rather than about the
+   language you happen to be in. Answer the user in the language they wrote in;
+   keep internal traffic in English, which is the language this codebase, its
+   error strings and its dependencies are in.
+   - **Internal traffic — compressed.** Reasoning, sub-agent briefs, task
      descriptions, what an agent reports back, agent-to-agent handoffs. Nobody
      reads this but machines: drop articles, filler (`just`, `really`,
      `basically`), pleasantries, hedging and narration of tool calls. Fragments
      are fine. It is output tokens either way, and output is 5× the price of
      input.
-   - **The user's channel — Russian, normal prose.** Every reply the owner
-     reads. Compressing that one buys a few tokens and costs comprehension.
+   - **The user's channel — normal prose.** Every reply a person reads.
+     Compressing that one buys a few tokens and costs comprehension.
    - **Never compress what must survive verbatim:** code, file paths, exact
      error strings, API and CLI names, numbers, units, and the words
      `not`/`never`/`only`/`except`. Flipping a negation is worse than any token
@@ -229,17 +244,17 @@ imagined. The rules themselves apply here without exception.
 
 ## Roles
 
-## Local WIP (mandatory)
-
-Before starting work, **always read `wip/README.md`**. `wip/` is a local,
-Git-ignored workspace for verification screenshots, temporary renders, debug
-probes and active handoff notes. Put those artifacts there — never in `docs/`,
-source directories or commits. If it is missing, create `wip/README.md` before
-producing WIP artifacts and keep its current task notes accurate.
-
 All agent roles and workflow rules live in [agents/AGENTS.md](./agents/AGENTS.md).
 
 Start there, then open the selected role under `agents/<role>/AGENTS.md`.
+
+## Local WIP (mandatory)
+
+`wip/` is a local, Git-ignored workspace for verification screenshots, temporary
+renders, debug probes and active handoff notes. Put those artifacts there —
+never in `docs/`, source directories or commits. A fresh clone has no `wip/`:
+create `wip/README.md` before producing the first WIP artifact, read it before
+work once it exists, and keep its task notes accurate.
 
 **After selecting your role and before starting any work, determine the list of
 skills the task needs and load them up front.** Match the request against the
