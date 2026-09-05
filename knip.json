@@ -48,7 +48,14 @@
     "src/shared/net/state/localStateSource.ts",
     "src/shared/net/state/netState.ts",
     "src/shared/net/state/transportStateSource.ts",
-    "src/shared/net/transport.ts"
+    "src/shared/net/transport.ts",
+    "src/shared/lib/animation/boneAim.ts",
+    "src/shared/lib/animation/headAim.ts",
+    "src/shared/lib/animation/legStepping.ts",
+    "src/shared/lib/audio/musicPlayer.ts",
+    "src/shared/lib/audio/sampledVoice.ts",
+    "src/shared/net/photon-realtime.d.ts",
+    "vite/fbx2gltf.d.ts"
   ],
   "ignoreIssues": {
     "src/features/ui-kit/index.ts": ["exports"],
@@ -57,6 +64,8 @@
     "src/features/ui-kit/systems/pixelDiff.ts": ["exports"],
     "src/shared/config/graphicsPresets.ts": ["exports"],
     "src/shared/lib/navigation/navigationSurface.ts": ["exports"],
-    "src/shared/lib/ui-scale/useResponsiveTargetWidth.ts": ["exports"]
+    "src/shared/lib/ui-scale/useResponsiveTargetWidth.ts": ["exports"],
+    "src/shared/lib/audio/audioSettings.ts": ["exports"],
+    "src/shared/lib/lights/VfxLights.tsx": ["exports"]
   }
 }
