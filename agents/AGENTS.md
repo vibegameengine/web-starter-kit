@@ -14,6 +14,7 @@
 - Narrative designer: [narrative-design/AGENTS.md](./narrative-design/AGENTS.md)
 - Motion designer: [motion-design/AGENTS.md](./motion-design/AGENTS.md)
 - Platform publishing: [platform-publishing/AGENTS.md](./platform-publishing/AGENTS.md)
+- Optimization engineer: [optimization/AGENTS.md](./optimization/AGENTS.md)
 - SMM strategist: [smm/AGENTS.md](./smm/AGENTS.md)
 
 ## Start Here
@@ -31,6 +32,7 @@
 - Choose `narrative-design` for story, characters, tone of voice, naming, dialogue, lore, onboarding text, and narrative framing.
 - Choose `motion-design` for animation intent, timing, easing, feedback, transitions, ceremony, and reduced-motion strategy.
 - Choose `platform-publishing` for release readiness, metadata, platform compliance, package requirements, submission, and store blockers.
+- Choose `optimization` for frame cost, stutter, dropped frames, memory growth, draw calls, profiling, performance regressions, and any claim that something is slow. The role owns the measurement and the cause; it hands the code change to `programmer` when the fix is larger than the localization.
 - Choose `smm` for social-media strategy, audience research, content systems, hooks, attention retention, media publication rules, community loops, and social performance experiments.
 
 ## Programmer Role Gate
