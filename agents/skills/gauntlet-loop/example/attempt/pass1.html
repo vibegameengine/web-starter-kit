@@ -1,0 +1,41 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>recreation pass 1</title>
+<style>
+  html,body{margin:0;background:#eaeef3;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+  #stage{position:absolute;left:90px;top:350px;width:550px;height:300px}
+  #card{position:absolute;left:10px;top:10px;width:530px;height:286px;
+    background:#fff;border-radius:16px;display:flex;box-shadow:0 4px 12px rgba(0,0,0,.08)}
+  #left{width:268px;padding:26px 32px;box-sizing:border-box}
+  h2{margin:0 0 14px;font-size:24px;color:#0A2540}
+  p{margin:0 0 22px;font-size:14px;line-height:1.6;color:#425466}
+  #cta{display:inline-block;background:#635BFF;color:#fff;font-size:14px;font-weight:600;
+    padding:8px 18px;border-radius:17px;text-decoration:none}
+  #right{flex:1;display:flex;flex-direction:column;gap:4px;padding:4px 4px 4px 0;box-sizing:border-box}
+  .panel{flex:1;background:#F6F9FC;border-radius:8px;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;padding:12px;box-sizing:border-box}
+  .rate{font-size:24px;font-weight:600;color:#0A2540;margin-bottom:8px}
+  .for{font-size:14px;color:#425466;text-align:center;line-height:1.5}
+  .for a{color:#635BFF;text-decoration:none}
+</style>
+<div id="stage">
+  <div id="card">
+    <div id="left">
+      <h2>Standard</h2>
+      <p>Access a complete payments platform with simple, pay-as-you-go pricing.
+         No setup fees, monthly fees, or hidden fees.</p>
+      <a id="cta" href="#">Get started &rsaquo;</a>
+    </div>
+    <div id="right">
+      <div class="panel">
+        <div class="rate">1.5% + &euro;0.25</div>
+        <div class="for">for <a href="#">standard European Economic Area cards</a></div>
+      </div>
+      <div class="panel">
+        <div class="rate">2.5% + &euro;0.25</div>
+        <div class="for">for UK cards</div>
+      </div>
+    </div>
+  </div>
+</div>

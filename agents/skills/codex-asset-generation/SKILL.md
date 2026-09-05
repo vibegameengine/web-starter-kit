@@ -26,6 +26,35 @@ and went unused.
 
 ## Non-negotiable rules
 
+00. **IF A REFERENCE EXISTS IN ANY FORM, THE ASSET IS BUILT FROM IT — and the
+    prompt must say so before it says anything else.**
+
+    A reference "exists in any form" whenever the user has pointed at a picture,
+    a render, a screenshot, a concept, a model or another asset — whether they
+    attached it, named it, or merely said "like that one". There is no separate
+    mode where a reference is present and the asset is designed independently of
+    it. If a reference exists, it is not inspiration, it is the SOURCE.
+
+    So the prompt opens by naming the reference's absolute path, ordering codex
+    to open it and sample real pixel values out of it, and stating the test:
+
+    > The only passing description of your output is "that is the same surface,
+    > drawn flat and straight on". "Inspired by it", "in the same genre" and "in
+    > the spirit of" are all failures.
+
+    And it demands evidence the file was actually opened: **make codex report
+    which pixel colours it sampled and where from.** Without that line, a run
+    that never opened the file is indistinguishable from one that did — and it
+    is the more likely of the two, because inventing a plausible stone is easier
+    than matching a specific one.
+
+    Written down because it was got wrong on this project and cost several
+    rounds: the reference path was in the prompt, buried below the brief, with
+    no sampling demand and no "inspired by" prohibition. Codex returned four
+    perfectly competent PBR stone sets that looked nothing like the building
+    they were for, and the user's question was the right one — *where else would
+    you take the textures from?*
+
 0. **Say WHAT the asset is and WHAT IT IS FOR, in that order, before anything
    else.** "The button plates, isolated, as a source sheet I will cut into a
    nine-patch and stretch in the engine" produces a usable asset; "a weathered
@@ -284,6 +313,11 @@ Base colour is sRGB; roughness, normal and every other data map are Non-Color.
 
 ## Checklist
 
+- [ ] A reference exists? Then the prompt's FIRST instruction is to open it and
+      sample it, and it states that "inspired by" is a failure (rule 00).
+- [ ] Codex was made to REPORT the pixel values it sampled, and that report is
+      present in its reply. No report means treat the run as if the file was
+      never opened.
 - [ ] The prompt opens with what the asset is FOR, in pipeline terms.
 - [ ] The prompt demands the SAME asset as the reference and forbids "inspired by".
 - [ ] Exactly one subject per request, with everything else named and excluded.

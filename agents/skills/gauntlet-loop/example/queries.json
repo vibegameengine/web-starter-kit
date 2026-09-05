@@ -1,0 +1,9 @@
+[
+  { "name": "heading \"Standard\" ink", "rgb": [10, 37, 64],    "tol": 30, "region": [0, 0, 550, 160] },
+  { "name": "body copy block",         "rgb": [66, 84, 102],   "tol": 35, "region": [0, 160, 550, 460] },
+  { "name": "CTA button",              "rgb": [99, 91, 255],   "tol": 40, "region": [0, 300, 550, 600] },
+  { "name": "right panel fill",        "rgb": [246, 249, 252], "tol": 2,  "region": [540, 0, 1100, 600] },
+  { "name": "link ink, top panel",     "rgb": [99, 91, 255],   "tol": 40, "region": [540, 0, 1100, 300] },
+  { "name": "rate ink, top panel",     "rgb": [10, 37, 64],    "tol": 30, "region": [540, 0, 1100, 160] },
+  { "name": "rate ink, bottom panel",  "rgb": [10, 37, 64],    "tol": 30, "region": [540, 340, 1100, 500] }
+]

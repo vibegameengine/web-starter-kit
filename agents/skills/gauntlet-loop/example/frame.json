@@ -1,0 +1,8 @@
+{
+  "_comment": "The shipping frame for this run. Every render and every reference crop uses it, which is the only reason any two numbers in the critiques are comparable. The clip matches the rect the reference PNG was cut from stripe-pricing.png.",
+  "viewport": { "width": 1280, "height": 900 },
+  "deviceScaleFactor": 2,
+  "clip": { "x": 90, "y": 350, "width": 550, "height": 300 },
+  "selector": "#card",
+  "waitMs": 400
+}

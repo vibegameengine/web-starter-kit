@@ -1,0 +1,48 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>recreation pass 2</title>
+<style>
+  html,body{margin:0;background:#f6f9fc;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+  #stage{position:absolute;left:90px;top:350px;width:550px;height:300px}
+  #card{position:absolute;left:10px;top:10px;width:530px;height:286px;
+    background:#fff;border-radius:16px;display:flex;
+    box-shadow:0 15px 35px rgba(50,50,93,.1),0 5px 15px rgba(0,0,0,.07)}
+  #left{width:258px;padding:41px 32px 31px;box-sizing:border-box;
+    display:flex;flex-direction:column;align-items:flex-start}
+  h2{margin:0 0 14px;font-size:25px;font-weight:600;letter-spacing:-.2px;color:#0A2540}
+  p{margin:0;font-size:14px;line-height:1.5;color:#425466}
+  #cta{margin-top:auto;display:inline-flex;align-items:center;background:#635BFF;color:#fff;
+    font-size:14px;font-weight:600;padding:8px 18px;border-radius:17px;text-decoration:none}
+  #cta svg{margin-left:6px}
+  #cta:hover{background:#7a73ff}
+  #cta:focus-visible{outline:2px solid #0A2540;outline-offset:2px}
+  #right{flex:1;display:flex;flex-direction:column;gap:4px;padding:4px 4px 4px 0;box-sizing:border-box}
+  .panel{flex:1;background:#F6F9FC;border-radius:12px;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;padding:12px 34px;box-sizing:border-box}
+  .rate{font-size:27px;font-weight:600;color:#0A2540;margin-bottom:8px}
+  .for{font-size:14px;color:#425466;text-align:center;line-height:1.5}
+  .for a{color:#635BFF;text-decoration:none}
+</style>
+<div id="stage">
+  <div id="card">
+    <div id="left">
+      <h2>Standard</h2>
+      <p>Access a complete payments platform with simple, pay-as-you-go pricing.
+         No setup fees, monthly fees, or hidden fees.</p>
+      <a id="cta" href="#">Get started<svg width="12" height="12" viewBox="0 0 12 12"
+        fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+        stroke-linejoin="round"><path d="M4 2l4 4-4 4"/></svg></a>
+    </div>
+    <div id="right">
+      <div class="panel">
+        <div class="rate">1.5% + &euro;0.25</div>
+        <div class="for">for <a href="#">standard European Economic Area cards</a></div>
+      </div>
+      <div class="panel">
+        <div class="rate">2.5% + &euro;0.25</div>
+        <div class="for">for UK cards</div>
+      </div>
+    </div>
+  </div>
+</div>
