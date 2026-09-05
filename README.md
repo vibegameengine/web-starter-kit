@@ -110,7 +110,7 @@ folders. Its current feature mix includes:
 
 | Capability | Where |
 | --- | --- |
-| 65+ agent skills + 8 roles | [agents/](agents/AGENTS.md) · [agents/skills/](agents/skills/) |
+| 70 agent skills + 8 roles | [agents/](agents/AGENTS.md) · [agents/skills/](agents/skills/) |
 | GLB/glTF optimizer — textures, Meshopt, albedo-only, per-import flags | [vite/glbAssetOptimizerPlugin.ts](vite/glbAssetOptimizerPlugin.ts) |
 | FBX → GLB converter — animation-only by default, `?fbx=raw` for full assets | [vite/fbxAssetLoaderPlugin.ts](vite/fbxAssetLoaderPlugin.ts) |
 | Direct Mixamo workflow — one With-Skin GLB plus untouched animation FBXs | [agents/skills/tripo-to-mixamo/](agents/skills/tripo-to-mixamo/) |
@@ -126,7 +126,13 @@ folders. Its current feature mix includes:
 | DEV lab library — one route per system, registry-generated, preview-card index | [src/app/labs/](src/app/labs/labRegistry.ts) · [/labs](src/app/ui/labs/LabsScreen.tsx) |
 | Shared lab stage — one canvas, sun, shadow rig, post chain and orbit rig for every lab | [src/scenes/lab-stage/LabStage.tsx](src/scenes/lab-stage/LabStage.tsx) |
 | Physics ragdoll for any Mixamo humanoid — capsule per limb, limited joints, two clocks | [src/features/ragdoll/](src/features/ragdoll/systems/ragdollBody.ts) |
-| Fixed-tick simulation bus — gameplay off the render frame | [src/shared/lib/simulation/](src/shared/lib/simulation/FixedTick.tsx) |
+| Fixed-tick simulation bus — gameplay off the render frame, with the interpolation alpha the frame needs | [src/shared/lib/simulation/](src/shared/lib/simulation/FixedTick.tsx) |
+| VFX light pool — a fixed set of lamps handed out by priority and screen brightness, so a flash never recompiles the scene | [src/shared/lib/lights/](src/shared/lib/lights/VfxLights.tsx) |
+| DEV frame probe — per-pass frame cost published from inside the renderer | [src/shared/lib/graphics/FrameProbe.tsx](src/shared/lib/graphics/FrameProbe.tsx) |
+| Persisted audio settings + one-shot pool, shuffle-bag playlist, music player | [src/shared/lib/audio/](src/shared/lib/audio/audioSettings.ts) |
+| Settings surface — sliders, sections, audio/video panels, pause menu | [src/features/ui-kit/components/PauseMenu/](src/features/ui-kit/components/PauseMenu/PauseMenu.tsx) |
+| Skeletal animation maths — two-bone IK, per-bone additive layers, aim damping, foot placement | [src/shared/lib/animation/](src/shared/lib/animation/twoBoneIk.ts) |
+| Destructive-git guard — refuses checkout/restore/reset/clean/stash on a shared tree | [.claude/hooks/block-destructive-git.mjs](.claude/hooks/block-destructive-git.mjs) |
 | Two-stage readiness gate | [src/features/bootstrap/](src/features/bootstrap/) |
 | Strict TS refs · flat ESLint · Vitest · Playwright · Knip · React Compiler | root configs |
 
