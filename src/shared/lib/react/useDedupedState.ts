@@ -17,6 +17,7 @@ import { structurallyEqual } from './structurallyEqual'
  * memoised child without defeating the memo.
  */
 export function useDedupedState<T>(initial: T | (() => T)): readonly [T, (next: T) => void] {
+  // eslint-disable-next-line no-restricted-syntax -- this hook IS the guarded wrapper the rule sends callers to: the state exists so a republished object carrying unchanged values never reaches a render.
   const [value, setValue] = useState<T>(initial)
   // The setter is the only writer, so this mirror is always the committed value
   // without having to re-create the callback whenever it changes.

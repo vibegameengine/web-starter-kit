@@ -30,10 +30,15 @@ export function GameScreen() {
   // build actually routes them. Same flag as the router, read the same raw way —
   // a link to a route this build does not contain is worse than no link.
   const labsHref = useHref('/labs')
+  /* eslint-disable no-restricted-syntax -- four latches, not readings. Each one
+     is written by a click or by a clip ending, and between them they decide
+     WHICH animation the character plays; that decision has to reach the tree. A
+     clip's progress never touches them. */
   const [isDancing, setIsDancing] = useState(false)
   const [isGreetingRequested, setIsGreetingRequested] = useState(false)
   const [greetingAnimationFinished, setGreetingAnimationFinished] = useState(false)
   const [greetingVoiceFinished, setGreetingVoiceFinished] = useState(false)
+  /* eslint-enable no-restricted-syntax */
   const danceMusic = useMemo(() => new Howl({ loop: true, src: [danceMusicUrl], volume: 0 }), [])
   const isGreetingPlaying = isGreetingRequested && !(greetingAnimationFinished && greetingVoiceFinished)
   const tanyAnimation: TanyAnimation = isGreetingPlaying ? 'greeting' : isDancing ? 'dance' : 'idle'

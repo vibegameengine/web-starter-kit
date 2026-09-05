@@ -38,6 +38,7 @@ export function UiKitGallery() {
 
   // --- Zoom & pan of the preview viewport --------------------------------
   const selectedPreviewId = selectedPreview?.id ?? ''
+  // eslint-disable-next-line no-restricted-syntax -- zoom and pan of the gallery viewport. It is written per pointer-move while Space is held, and the subtree below is one preview on a documentation page with no frame budget to spend.
   const [view, setView] = useState({ previewId: selectedPreviewId, ...DEFAULT_VIEW })
   const activeView = view.previewId === selectedPreviewId ? view : DEFAULT_VIEW
   const selectedPreviewIdRef = useRef(selectedPreviewId)
@@ -46,6 +47,7 @@ export function UiKitGallery() {
   }, [selectedPreviewId])
   // Pan only while Space is held so dragging never conflicts with clicking the
   // preview's own controls (Figma-style).
+  // eslint-disable-next-line no-restricted-syntax -- the cursor and the drag affordance change with it, so the chrome has to re-render; the drag itself is tracked in refs beside this.
   const [spaceHeld, setSpaceHeld] = useState(false)
   const spaceRef = useRef(false)
   const dragging = useRef(false)

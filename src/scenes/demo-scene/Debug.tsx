@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
  * Visible by default in dev; toggle any time with the "P" key.
  */
 export function Debug() {
+  // eslint-disable-next-line no-restricted-syntax -- the perf panel is mounted or it is not, toggled by a key; nothing here is written per frame.
   const [show, setShow] = useState(import.meta.env.DEV)
 
   useEffect(() => {

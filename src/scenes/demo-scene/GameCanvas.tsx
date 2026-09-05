@@ -52,6 +52,7 @@ export function GameCanvas({
   tanyAnimation,
 }: GameCanvasProps) {
   const requestId = useBootstrapRenderRequestId()
+  // eslint-disable-next-line no-restricted-syntax -- one transition for the life of the canvas: false until shader warmup finishes, true after. The scene below it has to render at that moment.
   const [warmed, setWarmed] = useState(false)
   const graphics = useGraphicsSettings()
   const frameRateCap = useFrameRateCap()

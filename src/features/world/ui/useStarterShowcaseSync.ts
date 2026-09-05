@@ -6,12 +6,24 @@ import { LoopbackTransport } from '../../../shared/net'
 const SHOWCASE_PULSE_EVENT = 71
 const SHOWCASE_ROOM = 'starter-showcase'
 
-/** Real two-tab loopback showcase. Gameplay remains unaware of this DEV/demo aid. */
+/**
+ * Real two-tab loopback showcase. Gameplay remains unaware of this DEV/demo aid.
+ *
+ * The tick is handed back as a REF, not as state. It advances sixty times a
+ * second, and a `useState` for it would re-render every consumer of this hook at
+ * 60 Hz to move one number — the exact cost `docs/frame-cost.md` is about. Read
+ * it from a `useFrame`, or write it straight to a DOM node; do not put it back
+ * into React state on the way to the screen.
+ */
 export function useStarterShowcaseSync() {
   const transportRef = useRef<LoopbackTransport | null>(null)
+  /* eslint-disable no-restricted-syntax -- both are events, not readings: a peer
+     joining or leaving, and a pulse arriving from the other tab. Each one has to
+     reach the screen, and neither is written per frame. */
   const [peerCount, setPeerCount] = useState(0)
   const [pulseId, setPulseId] = useState(0)
-  const [fixedTick, setFixedTick] = useState(0)
+  /* eslint-enable no-restricted-syntax */
+  const fixedTickRef = useRef(0)
 
   useEffect(() => {
     const transport = new LoopbackTransport(SHOWCASE_ROOM)
@@ -38,7 +50,7 @@ export function useStarterShowcaseSync() {
       const next = advanceFixedStep(state, time - previousTime, { stepHz: 60 })
       state = next.state
       previousTime = time
-      if (next.steps > 0) setFixedTick((value) => (value + next.steps) % 60)
+      if (next.steps > 0) fixedTickRef.current = (fixedTickRef.current + next.steps) % 60
       frame = requestAnimationFrame(advance)
     }
 
@@ -56,5 +68,5 @@ export function useStarterShowcaseSync() {
     transportRef.current?.raiseEvent(SHOWCASE_PULSE_EVENT, null, 'all')
   }, [])
 
-  return { fixedTick, openMirror, peerCount, pulseId, sendPulse }
+  return { fixedTickRef, openMirror, peerCount, pulseId, sendPulse }
 }

@@ -13,6 +13,7 @@ import styles from './CharacterDebugScreen.module.css'
 export function CharacterDebugScreen() {
   useReportInitialRenderReady()
 
+  // eslint-disable-next-line no-restricted-syntax -- which clip the character plays, chosen with a button. The scene has to be told.
   const [animation, setAnimation] = useState<TanyAnimation>('bind')
 
   return (

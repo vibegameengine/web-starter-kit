@@ -18,6 +18,7 @@ export function ReadyGate() {
   const camera = useThree((state) => state.camera)
   const requestId = useBootstrapRenderRequestId()
 
+  // eslint-disable-next-line no-restricted-syntax -- one transition per gate: false until the WebGPU pipeline is warm, true after.
   const [warmed, setWarmed] = useState(false)
   const reported = useRef(false)
 
