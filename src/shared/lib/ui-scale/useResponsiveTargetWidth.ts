@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useSyncExternalStore } from 'react'
 
 export type ResponsiveTargetWidthOptions = {
   /** Logical design width used on desktop / wide viewports. */
@@ -35,23 +35,20 @@ export function computeResponsiveTargetWidth({
  * Reactive `computeResponsiveTargetWidth`: recomputes on resize and orientation
  * change so rotating the device or resizing the window re-targets the scaler.
  */
+function subscribeToViewport(onChange: () => void): () => void {
+  window.addEventListener('resize', onChange)
+  window.addEventListener('orientationchange', onChange)
+  return () => {
+    window.removeEventListener('resize', onChange)
+    window.removeEventListener('orientationchange', onChange)
+  }
+}
+
 export function useResponsiveTargetWidth(options: ResponsiveTargetWidthOptions): number {
   const { desktop, mobilePortrait, phoneMaxWidth } = options
-  const [targetWidth, setTargetWidth] = useState(() =>
-    computeResponsiveTargetWidth({ desktop, mobilePortrait, phoneMaxWidth }),
+  const read = useCallback(
+    () => computeResponsiveTargetWidth({ desktop, mobilePortrait, phoneMaxWidth }),
+    [desktop, mobilePortrait, phoneMaxWidth],
   )
-
-  useEffect(() => {
-    const update = () =>
-      setTargetWidth(computeResponsiveTargetWidth({ desktop, mobilePortrait, phoneMaxWidth }))
-    update()
-    window.addEventListener('resize', update)
-    window.addEventListener('orientationchange', update)
-    return () => {
-      window.removeEventListener('resize', update)
-      window.removeEventListener('orientationchange', update)
-    }
-  }, [desktop, mobilePortrait, phoneMaxWidth])
-
-  return targetWidth
+  return useSyncExternalStore(subscribeToViewport, read, () => desktop)
 }

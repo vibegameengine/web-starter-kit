@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useSyncExternalStore } from 'react'
 
 const COARSE_QUERY = '(pointer: coarse)'
 
@@ -38,17 +38,17 @@ export function isCoarsePointerDevice(): boolean {
  * query flips — e.g. a 2-in-1 detaching its keyboard, or a desktop devtools device
  * emulation toggling — so the scheme follows the live device without a reload.
  */
+function subscribeToPointerScheme(onChange: () => void): () => void {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return () => {}
+  const media = window.matchMedia(COARSE_QUERY)
+  media.addEventListener('change', onChange)
+  return () => media.removeEventListener('change', onChange)
+}
+
+function readPointerScheme(): boolean {
+  return touchSchemeOverride() ?? isCoarsePointerDevice()
+}
+
 export function useCoarsePointer(): boolean {
-  const [coarse, setCoarse] = useState<boolean>(() => touchSchemeOverride() ?? isCoarsePointerDevice())
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
-    const media = window.matchMedia(COARSE_QUERY)
-    const update = () => setCoarse(touchSchemeOverride() ?? isCoarsePointerDevice())
-    update()
-    media.addEventListener('change', update)
-    return () => media.removeEventListener('change', update)
-  }, [])
-
-  return coarse
+  return useSyncExternalStore(subscribeToPointerScheme, readPointerScheme, () => false)
 }

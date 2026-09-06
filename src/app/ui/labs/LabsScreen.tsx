@@ -23,6 +23,7 @@ export function LabsScreen() {
   // concatenation — `useHref` is a hook and cards are a list.
   const labsHref = useHref('/labs')
 
+  // eslint-disable-next-line no-restricted-syntax -- the filter box. Every keystroke is meant to re-render the list, which is the only thing below it.
   const [query, setQuery] = useState('')
 
   const groups = useMemo(() => {

@@ -80,6 +80,7 @@ export function ThrownShapes({ actionsRef, apiRef, runId, shapeId }: ThrownShape
    * boxes still in it and then re-rendering, so the run is compared during render
    * instead: a stale batch is simply never read.
    */
+  // eslint-disable-next-line no-restricted-syntax -- one entry per throw, written by a pointer or a key press; mounting the new body is what the render is for. Their per-frame motion is physics, not state.
   const [batch, setBatch] = useState<{ readonly items: readonly Projectile[]; readonly runId: number }>({
     items: [],
     runId,

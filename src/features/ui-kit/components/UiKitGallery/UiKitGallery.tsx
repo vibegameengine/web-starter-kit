@@ -38,6 +38,7 @@ export function UiKitGallery() {
 
   // --- Zoom & pan of the preview viewport --------------------------------
   const selectedPreviewId = selectedPreview?.id ?? ''
+  // eslint-disable-next-line no-restricted-syntax -- zoom and pan of the gallery viewport. It is written per pointer-move while Space is held, and the subtree below is one preview on a documentation page with no frame budget to spend.
   const [view, setView] = useState({ previewId: selectedPreviewId, ...DEFAULT_VIEW })
   const activeView = view.previewId === selectedPreviewId ? view : DEFAULT_VIEW
   const selectedPreviewIdRef = useRef(selectedPreviewId)
@@ -46,6 +47,7 @@ export function UiKitGallery() {
   }, [selectedPreviewId])
   // Pan only while Space is held so dragging never conflicts with clicking the
   // preview's own controls (Figma-style).
+  // eslint-disable-next-line no-restricted-syntax -- the cursor and the drag affordance change with it, so the chrome has to re-render; the drag itself is tracked in refs beside this.
   const [spaceHeld, setSpaceHeld] = useState(false)
   const spaceRef = useRef(false)
   const dragging = useRef(false)
@@ -95,8 +97,25 @@ export function UiKitGallery() {
     zoomBy(Math.exp(-event.deltaY * 0.0016), event.clientX - rect.left - rect.width / 2, event.clientY - rect.top - rect.height / 2)
   }, [zoomBy])
 
-  const onPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+  /**
+   * Claims the gesture in the CAPTURE phase, and only while Space is held.
+   *
+   * On the bubble phase the control under the cursor has already had the event:
+   * measured, a Space-drag begun over the master fader moved it from 0.85 to
+   * 0.1 and panned the view at the same time, because a native
+   * `<input type="range">` jumps to the pressed position on `pointerdown` and
+   * `setPointerCapture` afterwards only redirects what comes NEXT. Suppressing
+   * the following `click` cannot undo a value that was already committed.
+   *
+   * `stopPropagation` in the capture phase is what keeps the event away from the
+   * control; `preventDefault` cancels the browser's own default for it. Removing
+   * both puts the fault back — `npm run verify:ui-kit-gallery` then reports
+   * `0.85 -> 0.1`, which is how this was proved rather than assumed.
+   */
+  const onPointerDownCapture = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     if (!spaceRef.current) return // pan only while Space is held
+    event.preventDefault()
+    event.stopPropagation()
     dragging.current = true
     moved.current = false
     last.current = { x: event.clientX, y: event.clientY }
@@ -165,7 +184,7 @@ export function UiKitGallery() {
           <div
             className={`${styles.viewport} ${spaceHeld ? styles.viewportPan : ''}`}
             onWheel={onWheel}
-            onPointerDown={onPointerDown}
+            onPointerDownCapture={onPointerDownCapture}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
             onPointerCancel={onPointerUp}

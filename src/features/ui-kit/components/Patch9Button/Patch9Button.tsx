@@ -40,9 +40,16 @@ const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : us
 function usePatch9Image(patch9: Patch9Config): Patch9ImageState {
   const elementRef = useRef<HTMLElement | null>(null)
   const renderedImageRef = useRef<Patch9RenderedImage | null>(null)
+  /* eslint-disable no-restricted-syntax -- the nine-slice is rasterized to a
+     data URL and handed to CSS, so the finished image HAS to reach the DOM
+     through a render. Each of the three changes only when its input does: the
+     source when the sheet loads, the size when the element is actually
+     resized, the image when one of those two moved. The element itself and the
+     last raster are kept in refs beside them. */
   const [source, setSource] = useState<Patch9ImageSource | null>(null)
   const [elementSize, setElementSize] = useState<{ height: number; width: number } | null>(null)
   const [renderedImage, setRenderedImage] = useState<string | null>(null)
+  /* eslint-enable no-restricted-syntax */
 
   useIsomorphicLayoutEffect(() => {
     const image = new Image()

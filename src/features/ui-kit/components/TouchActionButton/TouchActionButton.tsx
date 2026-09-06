@@ -17,6 +17,7 @@ type TouchActionButtonProps = {
 
 /** Low-latency mobile action control with pointer capture and a cooldown wipe. */
 export function TouchActionButton({ accent = '#6faed8', children, className, cooldownFraction = 0, disabled = false, label, onPress, style }: TouchActionButtonProps) {
+  // eslint-disable-next-line no-restricted-syntax -- the pressed look is a render by definition; the pointer id it pairs with is kept in a ref precisely so the tracking is not.
   const [pressed, setPressed] = useState(false)
   const pointerId = useRef<number | null>(null)
   const reset = () => { pointerId.current = null; setPressed(false) }

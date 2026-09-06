@@ -20,9 +20,13 @@ export interface PixelDiffInspectorProps {
  * pixels with the prepared reference; matching pixels remain transparent.
  */
 export function PixelDiffInspector({ reference, target }: PixelDiffInspectorProps) {
+  /* eslint-disable no-restricted-syntax -- a DEV inspector driven by three
+     buttons: the mode, the produced difference image and the failure message are
+     exactly what it puts on screen, and each is written once per comparison. */
   const [mode, setMode] = useState<'capture' | 'difference' | 'overlay'>()
   const [difference, setDifference] = useState<string>()
   const [error, setError] = useState<string>()
+  /* eslint-enable no-restricted-syntax */
 
   async function compare() {
     if (!target) return

@@ -68,6 +68,7 @@ export function Ragdoll({ model, apiRef, active: activeProp }: RagdollProps) {
   const { rapier, world } = useRapier()
   const spec = useMemo(() => buildRagdollSpec(model), [model])
   const ragdoll = useRef<RagdollBody | null>(null)
+  // eslint-disable-next-line no-restricted-syntax -- flips at most once per body, when a hit takes the skeleton over; going from animated to simulated IS a render.
   const [selfActive, setSelfActive] = useState(false)
   const active = activeProp ?? selfActive
   /** Queued while the body is still being built, applied as soon as it exists. */

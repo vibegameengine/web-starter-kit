@@ -77,8 +77,10 @@ export function BootstrapGate({
   onReady,
   renderOverlay,
 }: BootstrapGateProps) {
+  // eslint-disable-next-line no-restricted-syntax -- the overlay is either over the app or gone; that is a render either way, and it happens twice in a session.
   const [isOverlayVisible, setIsOverlayVisible] = useState(true)
   const hasNotifiedReadyRef = useRef(false)
+  // eslint-disable-next-line no-restricted-syntax -- the loading screen IS this view model: phase, progress and error are what it draws, so a change with no render would be a change nobody sees.
   const [viewModel, setViewModel] = useState<BootstrapViewModel>({
     detail: null,
     error: null,

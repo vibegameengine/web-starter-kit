@@ -29,6 +29,11 @@ type GravityId = (typeof GRAVITY_OPTIONS)[number]['id']
 
 /** DEV-only lab for the physics ragdoll: a body, and every way to abuse it. */
 export function RagdollLabScreen() {
+  /* eslint-disable no-restricted-syntax -- each of these is a choice a person
+     makes with a button, and each one is meant to rebuild the scene below it: a
+     different pose, floor, projectile or gravity, colliders on, the panel out of
+     the frame, the run restarted. Nothing here is written per frame — the body's
+     motion is physics, and never passes through React. */
   const [poseId, setPoseId] = useState(START_POSES[0].id)
   const [surfaceId, setSurfaceId] = useState<string>(ragdollSurfaceSamples[0].id)
   const [shapeId, setShapeId] = useState<ProjectileShapeId>(PROJECTILE_SHAPES[0].id)
@@ -39,6 +44,7 @@ export function RagdollLabScreen() {
   // want to judge one, the controls are the only thing in the way.
   const [panelVisible, setPanelVisible] = useState(true)
   const [runId, setRunId] = useState(0)
+  /* eslint-enable no-restricted-syntax */
 
   const pose = START_POSES.find((candidate) => candidate.id === poseId) ?? START_POSES[0]
   const gravity = GRAVITY_OPTIONS.find((candidate) => candidate.id === gravityId) ?? GRAVITY_OPTIONS[0]

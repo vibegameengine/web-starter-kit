@@ -8,7 +8,7 @@
     "dev": "vite",
     "postinstall": "node scripts/link-agent-skills.ts",
     "build": "tsc -b && vite build",
-    "build:gh-pages": "VITE_BASE_PATH=/web-starter-kit/ VITE_ENABLE_SHOWCASE=true npm run build",
+    "build:gh-pages": "node scripts/build-gh-pages.mjs",
     "preview": "vite preview",
     "lint": "eslint .",
     "knip": "knip --include files,exports",
@@ -20,7 +20,9 @@
     "version:major": "node scripts/bump-version.ts major",
     "version:minor": "node scripts/bump-version.ts minor",
     "version:patch": "node scripts/bump-version.ts patch",
-    "labs:previews": "node scripts/shot-lab-previews.mjs"
+    "labs:previews": "node scripts/shot-lab-previews.mjs",
+    "verify:ui-kit-gallery": "node scripts/verify-ui-kit-gallery.mjs",
+    "verify:ui-scaler": "node scripts/verify-ui-scaler.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",
