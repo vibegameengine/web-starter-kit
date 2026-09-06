@@ -209,18 +209,18 @@ imagined. The rules themselves apply here without exception.
      the work. It is the difference between a session that leaves a system and a
      session that leaves a system plus the reasons it is shaped that way.
 
-6a. **NEVER EXPLAIN THE CODE IN A COMMENT. Rule 6 says where the explanation
-   goes, and it is not beside the line.** What this forbids is prose that says
-   what the code already says. What the code CANNOT say — a measurement, a
-   source, a dead end — is the third fate below, and it is not an explanation.
-   This rule and the one above are one idea: write the lesson down, and write it
-   where it gets read on purpose rather than by accident.
+6a. **NEVER EXPLAIN THE CODE IN A COMMENT — Rule 6 says where the explanation
+   goes, and it is not beside the line. EXCEPT what the code cannot say.** Prose
+   restating the code is what this forbids. A measurement, a source, a dead end
+   is the third fate below: not an explanation, and never deleted. This rule and
+   the one above are one idea — write the lesson down, and write it where it gets
+   read on purpose rather than by accident.
 
    Measured here the day this was written, by `scripts/lib/cleanCode.mjs` over
-   the 223 tracked source files: **4 331 of 18 507 non-blank lines were comment
-   — 23%**, and the longest file was 980 lines at 43% prose. Nobody chose that.
-   It arrived one reasonable-looking paragraph at a time, and every paragraph
-   made the file it sat in harder to read.
+   the 229 tracked source files: **4 276 of 18 819 non-blank lines were comment
+   — 23%**, and the longest file was 980 lines, 45.8% of its non-blank lines
+   comment. Nobody chose that. It arrived one reasonable-looking paragraph at a
+   time, and every paragraph made the file it sat in harder to read.
 
    Every comment gets one of three fates, and only one of them is "leave it".
 
@@ -239,11 +239,14 @@ imagined. The rules themselves apply here without exception.
    A name is the cheapest comment. Before writing one, try extracting the code
    into a function whose name says what the comment was going to say.
 
-   The thresholds are mechanical, in `agents/skills/clean-code`; the opt-in guard
-   that measures them is `.claude/hooks/clean-code-guard.mjs`, wired by the
+   The thresholds are in `agents/skills/clean-code`; the opt-in guard that
+   measures them is `.claude/hooks/clean-code-guard.mjs`, wired by the
    `PostToolUse` block of `.claude/settings.example.json`. It is a ratchet: it
-   blocks a file that gets worse than `.claude/clean-code-baseline.json` records,
-   never the debt already there.
+   reports a file that got worse than `.claude/clean-code-baseline.json` records,
+   never the debt already there. Length is what it blocks on; comment volume it
+   can only warn about, because no machine can tell the paragraph that must go
+   from the measurement that must stay. And it runs AFTER the write, so a block
+   is a reason handed back, not an undo — this rule is still yours to keep.
 
 7. **NEVER write a Markdown file through a shell script.** No heredoc, no
    `cat >`, no `echo`, no Python that assembles prose. Use the Write tool, once.

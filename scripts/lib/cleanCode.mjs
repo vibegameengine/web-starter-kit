@@ -1,9 +1,6 @@
-// The clean-code measurement, in one place.
-//
-// Two callers need identical numbers: the guard hook that judges one file after
-// it is written, and the baseline script that records the whole repository. If
-// they measured separately they would drift, and a drifting baseline blocks
-// edits that changed nothing.
+// The clean-code measurement, in one place: the guard hook that judges one file
+// after it is written and the baseline script that records the repository both
+// call it, so their numbers cannot drift apart.
 //
 // Thresholds and their justification: agents/skills/clean-code.
 
@@ -15,6 +12,24 @@ export const LIMITS = {
   functionLinesHard: 80,
   nesting: 4,
   parameters: 4,
+}
+
+/** The extensions these rules apply to. The guard and the baseline share them. */
+const SOURCE_EXTENSIONS = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs)$/i
+
+/** Dependencies, build output, and the skills, whose examples are meant to be bad. */
+const EXCLUDED = /(^|[\\/])(node_modules|dist|coverage|vendor|agents)([\\/]|$)/i
+
+/**
+ * Whether a path is one this measurement applies to.
+ *
+ * The guard and the baseline MUST agree here. When they did not, the guard
+ * measured `vite.config.ts` while the baseline could not record it — so a
+ * 92-line function in the kit's own config was hard-blocked on day one with no
+ * way to grant it, which is the exact failure the ratchet exists to prevent.
+ */
+export function isSource(path) {
+  return SOURCE_EXTENSIONS.test(path) && !EXCLUDED.test(path)
 }
 
 const isFunctionLike = (ts, node) =>
@@ -56,25 +71,49 @@ function nameOf(ts, source, node) {
   return named && parent.name ? parent.name.getText(source) : '(anonymous)'
 }
 
-/**
- * Comment lines from the SCANNER, not from what a line starts with.
- *
- * A prefix test calls every `// two` inside a template literal or a JSX text node
- * a comment. This repository has GLSL in template literals, so that mattered:
- * shader lines were counted as prose, function length came out short and the
- * comment share came out high.
- */
-function commentLines(ts, text, lineOf) {
-  const flagged = new Set()
+/** Every comment token's span, from the scanner rather than from line prefixes. */
+function commentSpans(ts, text) {
+  const spans = []
   const scanner = ts.createScanner(ts.ScriptTarget.Latest, false, ts.LanguageVariant.JSX, text)
   let token = scanner.scan()
   while (token !== ts.SyntaxKind.EndOfFileToken) {
     if (token === ts.SyntaxKind.SingleLineCommentTrivia || token === ts.SyntaxKind.MultiLineCommentTrivia) {
-      const from = lineOf(scanner.getTokenStart())
-      const to = lineOf(scanner.getTokenEnd())
-      for (let line = from; line <= to; line += 1) flagged.add(line)
+      spans.push([scanner.getTokenStart(), scanner.getTokenEnd()])
     }
     token = scanner.scan()
+  }
+  return spans
+}
+
+/**
+ * Lines that are comment: the line's FIRST non-blank character is inside one.
+ *
+ * Two failures this shape avoids. A prefix test on the raw text calls every
+ * `// two` inside a template literal a comment, and this repository has GLSL in
+ * template literals — so shader lines counted as prose and function length came
+ * out short. And flagging every line a comment token merely touches lets a
+ * TRAILING comment erase the code it sits on: measured, a 104-line function fell
+ * to 64 and stopped being blocked once 40 `// step n` comments were appended to
+ * its lines. A gate against writing comments must not be payable in comments.
+ */
+function commentLineSet(ts, text) {
+  const spans = commentSpans(ts, text)
+  const flagged = new Set()
+  let span = 0
+  let line = 1
+  let start = 0
+
+  while (start <= text.length) {
+    let end = text.indexOf('\n', start)
+    if (end < 0) end = text.length
+    const lead = text.slice(start, end).search(/\S/)
+    if (lead >= 0) {
+      const at = start + lead
+      while (span < spans.length && spans[span][1] <= at) span += 1
+      if (span < spans.length && at >= spans[span][0]) flagged.add(line)
+    }
+    start = end + 1
+    line += 1
   }
   return flagged
 }
@@ -115,7 +154,8 @@ function longestCommentRun(flagged, totalLines) {
   return { at, longest }
 }
 
-function collectFunctions(ts, source, lineOf, flagged, rawLines) {
+function collectFunctions(ts, source, context) {
+  const { flagged, lineOf, rawLines } = context
   const functions = []
 
   /** Lines in the range that are code: not comment, not markup, not blank. */
@@ -169,12 +209,12 @@ export function measureFile(ts, path, text) {
   const source = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true, kind)
   const lineOf = (position) => source.getLineAndCharacterOfPosition(position).line + 1
 
-  const flagged = commentLines(ts, text, lineOf)
+  const flagged = commentLineSet(ts, text)
   const blank = lines.filter((line) => line.trim() === '').length
   const commentCount = flagged.size
   const codeCount = Math.max(0, lines.length - blank - commentCount)
   const run = longestCommentRun(flagged, lines.length)
-  const functions = collectFunctions(ts, source, lineOf, flagged, lines)
+  const functions = collectFunctions(ts, source, { flagged, lineOf, rawLines: lines })
 
   return {
     commentLines: commentCount,
@@ -188,9 +228,27 @@ export function measureFile(ts, path, text) {
   }
 }
 
+/**
+ * Whether a file earns an entry: it is past at least one threshold.
+ *
+ * Comment volume counts here even though it never blocks. A file recorded only
+ * for its length used to be the only file whose prose was forgiven, so the three
+ * most prose-heavy files in the repository went quiet while two dozen ordinary
+ * ones repeated the same warning on every edit forever.
+ */
+export function isOverLimits(measurement) {
+  return (
+    measurement.fileLines > LIMITS.fileLines ||
+    measurement.worstFunction > LIMITS.functionLinesHard ||
+    measurement.commentRun > LIMITS.commentBlock ||
+    (measurement.commentShare > LIMITS.commentShare && measurement.commentLines > 20)
+  )
+}
+
 /** What a baseline remembers about a file: the numbers a ratchet compares. */
 export function baselineOf(measurement) {
   return {
+    commentRun: measurement.commentRun,
     commentShare: Math.round(measurement.commentShare * 100) / 100,
     fileLines: measurement.fileLines,
     functionsOverLimit: measurement.functionsOverLimit,
@@ -198,13 +256,21 @@ export function baselineOf(measurement) {
   }
 }
 
+const plural = (count, one, many) => `${count} ${count === 1 ? one : many}`
+
 /**
  * Blockers are regressions against the baseline, never the state it recorded: a
  * gate the repository already fails is a gate everyone learns to switch off.
  *
  * The COUNT of oversized functions is compared as well as the worst one. With
  * only the worst, a file baselined at one 203-line function could be rewritten
- * into two of 200 and pass — measured, and it is what this check exists for.
+ * into two of 200 and pass — measured, and it is what that check exists for.
+ *
+ * Comment volume WARNS and never blocks, and that is a decision rather than
+ * timidity. No machine can tell the paragraph that must go from the measurement
+ * that must stay unshortened, so a gate that blocked on prose would sooner or
+ * later block the one comment the rule exists to protect. Length is mechanical;
+ * prose is judged by a reader.
  */
 export function judge(measurement, baseline) {
   const blockers = []
@@ -212,6 +278,7 @@ export function judge(measurement, baseline) {
   const allowedFile = Math.max(LIMITS.fileLines, baseline?.fileLines ?? 0)
   const allowedFunction = Math.max(LIMITS.functionLinesHard, baseline?.worstFunction ?? 0)
   const allowedCount = Math.max(0, baseline?.functionsOverLimit ?? 0)
+  const allowedRun = Math.max(LIMITS.commentBlock, baseline?.commentRun ?? 0)
   const allowedShare = Math.max(LIMITS.commentShare, baseline?.commentShare ?? 0)
 
   if (measurement.fileLines > allowedFile) {
@@ -224,13 +291,13 @@ export function judge(measurement, baseline) {
 
   if (measurement.functionsOverLimit > allowedCount) {
     blockers.push(
-      `${measurement.functionsOverLimit} functions are over ${LIMITS.functionLinesHard} lines, against ${allowedCount} recorded. A new oversized function is a new one to read.`,
+      `${plural(measurement.functionsOverLimit, 'function is', 'functions are')} over ${LIMITS.functionLinesHard} lines, against ${allowedCount} recorded. A new oversized function is a new one to read.`,
     )
   }
 
   for (const fn of measurement.functions) {
     if (fn.lines > allowedFunction) {
-      blockers.push(`${fn.name}() is ${fn.lines} lines of code (limit ${LIMITS.functionLinesHard}, target ${LIMITS.functionLines}) at line ${fn.line}.`)
+      blockers.push(`${fn.name}() is ${fn.lines} lines of code (limit ${LIMITS.functionLinesHard}, target ${LIMITS.functionLines}) at line ${fn.line}. Extract the part that has a name of its own.`)
     } else if (fn.lines > LIMITS.functionLines) {
       warnings.push(`${fn.name}() is ${fn.lines} lines at line ${fn.line}.`)
     }
@@ -242,7 +309,7 @@ export function judge(measurement, baseline) {
     }
   }
 
-  if (measurement.commentRun > LIMITS.commentBlock) {
+  if (measurement.commentRun > allowedRun) {
     warnings.push(`a ${measurement.commentRun}-line comment starts at line ${measurement.commentRunAt}. A paragraph belongs in docs/ or in a name — unless it records a measurement, which stays.`)
   }
   // Rounded on both sides because the baseline stores two decimals, and an
@@ -256,11 +323,8 @@ export function judge(measurement, baseline) {
 
 /** The files these rules apply to, from git, with no pathspec surprises. */
 export function trackedSources(execSync) {
-  const listed = execSync('git ls-files', { encoding: 'utf8' }).split('\n').filter(Boolean)
-  return listed.filter(
-    (file) =>
-      /\.(ts|tsx|mts|cts|mjs)$/i.test(file) &&
-      (file.startsWith('src/') || file.startsWith('vite/') || file.startsWith('scripts/') || file.startsWith('.claude/hooks/')) &&
-      !file.startsWith('agents/'),
-  )
+  return execSync('git ls-files', { encoding: 'utf8', maxBuffer: 64e6 })
+    .split('\n')
+    .filter(Boolean)
+    .filter(isSource)
 }

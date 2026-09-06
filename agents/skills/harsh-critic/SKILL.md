@@ -15,6 +15,14 @@ review: a fresh context is exactly why you were called. Nothing stops you from
 dispatching helpers of your own, and for checking individual claims that is often
 the right move.
 
+That paragraph exists because without it the rule read as unconditional and every
+caller cut the exception out by hand. Measured on the project this skill came
+from, across 227 briefs: **25 of them (11%) forbade the critic to dispatch
+anyone**, in twenty-three different wordings — thirteen "EXCEPT the dispatch
+rule, you ARE the sub-agent", ten "do the review yourself", and two that cut
+wider than they meant to and landed on a flat "do not dispatch sub-agents". A
+rule everyone routes around by hand is eventually routed around wrongly.
+
 Why this is not a formality: the author of a change is a poor critic of it. They
 remember what they MEANT and read the code through that intent, so they see the
 plan instead of the text and miss whole classes of defect — false guarantees and

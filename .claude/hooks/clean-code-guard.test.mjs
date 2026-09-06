@@ -10,7 +10,7 @@
  * 0 with no output, so "measured, clean" and "never ran" were the same bytes.
  */
 import { spawnSync } from 'node:child_process'
-import { copyFileSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import ts from 'typescript'
@@ -39,16 +39,26 @@ const write = (dir, relative, body) => {
   return full
 }
 
-const run = (filePath, root = ROOT, guard = GUARD) => {
+// The exit code and stderr are asserted on every call, not inspected when a
+// test feels like it. Without that, a guard replaced by `throw` on its second
+// line kept 7 of these 13 tests green: every "expect nothing" case reads a
+// crash as a pass, which is the same confusion between "clean" and "never ran"
+// that the guard itself was fixed for.
+const send = (input, root = ROOT, guard = GUARD) => {
   const result = spawnSync(process.execPath, [guard], {
     cwd: root,
     encoding: 'utf8',
     env: { ...process.env, CLAUDE_PROJECT_DIR: root },
-    input: JSON.stringify({ tool_input: { file_path: filePath } }),
+    input,
   })
+  expect(result.stderr ?? '').toBe('')
+  expect(result.status).toBe(0)
   const out = (result.stdout ?? '').trim()
   return out ? JSON.parse(out) : {}
 }
+
+const run = (filePath, root = ROOT, guard = GUARD) =>
+  send(JSON.stringify({ tool_input: { file_path: filePath } }), root, guard)
 
 const oversized = `export function big() {\n${'  const x = 1\n'.repeat(120)}}\n`
 
@@ -59,6 +69,21 @@ describe('what the guard looks at', () => {
 
   it('ignores its own skill directory, where the examples are deliberately bad', () => {
     expect(run(join(ROOT, 'agents/skills/clean-code/example.ts'))).toEqual({})
+  })
+})
+
+describe('the scope the guard judges', () => {
+  // The guard used to measure any source file anywhere while the baseline only
+  // recorded four directories, so vite.config.ts was hard-blocked on day one
+  // with no way to record it. Both now ask the same predicate.
+  it('measures a config file at the repository root, which the baseline can record', () => {
+    const verdict = run(join(ROOT, 'vite.config.ts'))
+    expect(verdict.decision).toBeUndefined()
+  })
+
+  it('judges every file it measures against an entry the baseline could hold', () => {
+    const recorded = JSON.parse(readFileSync(join(ROOT, '.claude/clean-code-baseline.json'), 'utf8')).files
+    expect(Object.keys(recorded)).toContain('vite.config.ts')
   })
 })
 
@@ -123,6 +148,21 @@ describe('the baseline', () => {
 })
 
 describe('a gate that cannot measure says so', () => {
+  it('does not stay silent when stdin is not JSON', () => {
+    expect(send('{ not json').systemMessage).toContain('not measured')
+  })
+
+  it('does not stay silent when the payload carries no path', () => {
+    expect(send('{}').systemMessage).toContain('not measured')
+  })
+
+  // The payload shape belongs to Claude Code, not to this repository. If a
+  // future version renames the field, the gate must say it stopped measuring
+  // rather than pass everything for the rest of the project's life.
+  it('does not stay silent when the payload names the path differently', () => {
+    expect(send(JSON.stringify({ tool_input: { path: 'src/a.ts' } })).systemMessage).toContain('not measured')
+  })
+
   it('does not stay silent when the file is gone', () => {
     expect(run(join(ROOT, 'src/this-file-does-not-exist.ts')).systemMessage).toContain('not measured')
   })

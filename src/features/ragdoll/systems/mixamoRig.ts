@@ -706,7 +706,7 @@ function measureSpec({ bones, nodes, skinned }: RigIndex, options: RagdollFitOpt
     // The measurement does NOT only shrink, and this comment once said it did:
     // there is no `Math.min` below, and the mesh INFLATES on some rigs — measured
     // live, a pelvis goes 0.029 -> 0.137 and a thigh 0.132 -> 0.162. A shrink-only
-    // cap was tried and reverted (`wip/imp-anim/VERDICTS.md` row 3); the comment
+    // cap was tried and reverted, and the verdict was recorded; the comment
     // describing it outlived the code by hours, which is how a reader ends up
     // trusting a guarantee nothing provides. A mannequin pelvis would go
     // 0.042 -> 0.162 the same way if it asked.

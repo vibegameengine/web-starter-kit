@@ -24,7 +24,7 @@ Two things, and they're the whole point.
 ### 🧠 A ton of skills & roles
 
 The repo is built to be **driven by coding agents**. It ships **10 specialist
-roles** and **70 composable skills** — pick a role, load the skills the task
+roles** and **72 composable skills** — pick a role, load the skills the task
 needs, ship.
 
 - **10 roles** ([`agents/`](agents/AGENTS.md)) — game-design · system-design ·

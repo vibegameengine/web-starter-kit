@@ -8,10 +8,12 @@
  * function to a length of -25. None of those throw. They just report a number
  * that is wrong in the direction of "looks fine".
  */
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
-import { LIMITS, baselineOf, judge, measureFile } from './cleanCode.mjs'
+import { LIMITS, baselineOf, isSource, judge, measureFile } from './cleanCode.mjs'
 
 const measure = (name, source) => measureFile(ts, name, source)
 
@@ -49,6 +51,27 @@ describe('length measures code', () => {
   it('never reports a negative length, having once reported -25', () => {
     const source = `function C() {\n  return (\n    <div>\n      {/* a */}\n      {/* b */}\n    </div>\n  )\n}\n`
     expect(measure('a.tsx', source).functions[0].lines).toBeGreaterThanOrEqual(0)
+  })
+})
+
+describe('a comment cannot buy length', () => {
+  const body = Array.from({ length: 102 }, (_, i) => `  const x${i} = ${i}`)
+
+  // Measured: flagging every line a comment token touched let 40 trailing
+  // `// step n` comments take a 104-line function down to 64 and out of the
+  // block. The gate against writing comments was payable in comments.
+  const wrap = (rows) => ['function big() {', ...rows, '}', ''].join('\n')
+
+  it('does not shrink a function when its lines get trailing comments', () => {
+    const plain = measure('big.ts', wrap(body))
+    const commented = measure('big.ts', wrap(body.map((line, i) => (i < 40 ? `${line} // step ${i}` : line))))
+    expect(commented.functions[0].lines).toBe(plain.functions[0].lines)
+    expect(judge(commented, undefined).blockers.length).toBeGreaterThan(0)
+  })
+
+  it('still does not count a comment that owns its whole line', () => {
+    const spaced = measure('big.ts', wrap(body.flatMap((line, i) => (i < 40 ? [`  // step ${i}`, line] : [line]))))
+    expect(spaced.functions[0].lines).toBe(measure('big.ts', wrap(body)).functions[0].lines)
   })
 })
 
@@ -121,10 +144,47 @@ describe('the recorded comment share is read, not just written', () => {
   })
 })
 
+describe('the guard and the baseline judge the same files', () => {
+  it('takes a config file at the repository root', () => {
+    expect(isSource('vite.config.ts')).toBe(true)
+  })
+
+  it('leaves dependencies, build output and the skills alone', () => {
+    expect(isSource('node_modules/three/build/three.js')).toBe(false)
+    expect(isSource('dist/assets/index.js')).toBe(false)
+    expect(isSource('agents/skills/clean-code/example.ts')).toBe(false)
+  })
+
+  it('answers the same for a Windows path as for a POSIX one', () => {
+    expect(isSource('vite\\plugins\\a.ts')).toBe(true)
+    expect(isSource('a\\node_modules\\b.ts')).toBe(false)
+  })
+})
+
 describe('the limits are the ones the skill documents', () => {
-  it('keeps file and function thresholds where agents/skills/clean-code says', () => {
-    expect(LIMITS.fileLines).toBe(500)
-    expect(LIMITS.functionLinesHard).toBe(80)
-    expect(LIMITS.functionLines).toBe(40)
+  // Reading the numbers out of the document rather than restating them: the
+  // previous version of this test compared a constant with a constant under a
+  // name that promised otherwise, which is how the skill's figures drifted from
+  // the repository in the first place.
+  const skill = readFileSync(resolve(import.meta.dirname, '../../agents/skills/clean-code/SKILL.md'), 'utf8')
+  const row = (label) => skill.split(/\r?\n/).find((line) => line.startsWith(`| ${label} `)) ?? ''
+  const numbers = (label) => (row(label).match(/\*\*([\d.]+)/g) ?? []).map((hit) => Number(hit.slice(2)))
+
+  it('states the file limit the code enforces', () => {
+    expect(numbers('File')).toEqual([LIMITS.fileLines])
+  })
+
+  it('states both function limits the code enforces', () => {
+    expect(numbers('Function')).toEqual([LIMITS.functionLines, LIMITS.functionLinesHard])
+  })
+
+  it('states the parameter, nesting and comment-run limits', () => {
+    expect(numbers('Parameters')).toEqual([LIMITS.parameters])
+    expect(numbers('Nesting')).toEqual([LIMITS.nesting])
+    expect(numbers('Comment run')).toEqual([LIMITS.commentBlock])
+  })
+
+  it('states the comment share as the percentage the code compares', () => {
+    expect(numbers('Comment share')).toEqual([LIMITS.commentShare * 100])
   })
 })

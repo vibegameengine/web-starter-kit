@@ -23,6 +23,11 @@ import { assignVfxLightSlots, type VfxLightSample } from './vfxLightRanking'
  * position, colour, intensity, distance and decay are plain uniforms, which cost
  * nothing to write and compile nothing.
  *
+ * ```tsx
+ * <VfxLightPool />                                            // scene root, once
+ * <VfxLight color="#ff541c" distance={4} intensity={2.5} />   // inside the VFX
+ * ```
+ *
  * `priority` is the one prop `pointLight` lacks: raise it for a light the shot is
  * made of, so it cannot lose its lamp on a busy frame. The rig cannot cast
  * shadows — a shadowing light is another define and another sampler, which is the

@@ -1,90 +1,651 @@
 {
   "files": {
+    ".claude/hooks/block-destructive-git.mjs": {
+      "commentRun": 29,
+      "commentShare": 0.37,
+      "fileLines": 159,
+      "functionsOverLimit": 0,
+      "worstFunction": 4
+    },
+    ".claude/hooks/block-destructive-git.test.mjs": {
+      "commentRun": 22,
+      "commentShare": 0.29,
+      "fileLines": 84,
+      "functionsOverLimit": 0,
+      "worstFunction": 7
+    },
+    ".claude/hooks/clean-code-guard.test.mjs": {
+      "commentRun": 11,
+      "commentShare": 0.1,
+      "fileLines": 196,
+      "functionsOverLimit": 0,
+      "worstFunction": 40
+    },
+    "eslint.config.js": {
+      "commentRun": 10,
+      "commentShare": 0.24,
+      "fileLines": 76,
+      "functionsOverLimit": 0,
+      "worstFunction": 0
+    },
+    "playwright.config.ts": {
+      "commentRun": 10,
+      "commentShare": 0.28,
+      "fileLines": 39,
+      "functionsOverLimit": 0,
+      "worstFunction": 0
+    },
+    "scripts/build-gh-pages.mjs": {
+      "commentRun": 10,
+      "commentShare": 0.48,
+      "fileLines": 24,
+      "functionsOverLimit": 0,
+      "worstFunction": 0
+    },
+    "scripts/glb-origin-to-feet.mjs": {
+      "commentRun": 10,
+      "commentShare": 0.29,
+      "fileLines": 42,
+      "functionsOverLimit": 0,
+      "worstFunction": 1
+    },
+    "scripts/lib/cleanCode.mjs": {
+      "commentRun": 11,
+      "commentShare": 0.16,
+      "fileLines": 331,
+      "functionsOverLimit": 0,
+      "worstFunction": 43
+    },
+    "scripts/lib/cleanCode.test.mjs": {
+      "commentRun": 10,
+      "commentShare": 0.07,
+      "fileLines": 191,
+      "functionsOverLimit": 0,
+      "worstFunction": 23
+    },
+    "scripts/lib/gltfCleanup.mjs": {
+      "commentRun": 18,
+      "commentShare": 0.9,
+      "fileLines": 22,
+      "functionsOverLimit": 0,
+      "worstFunction": 1
+    },
     "scripts/rig-audit.mjs": {
+      "commentRun": 30,
       "commentShare": 0.11,
       "fileLines": 474,
       "functionsOverLimit": 1,
       "worstFunction": 145
     },
+    "scripts/shot-lab-previews.mjs": {
+      "commentRun": 12,
+      "commentShare": 0.09,
+      "fileLines": 180,
+      "functionsOverLimit": 0,
+      "worstFunction": 18
+    },
+    "scripts/shot-ragdoll-lab.mjs": {
+      "commentRun": 16,
+      "commentShare": 0.07,
+      "fileLines": 270,
+      "functionsOverLimit": 0,
+      "worstFunction": 32
+    },
+    "scripts/shot.mjs": {
+      "commentRun": 16,
+      "commentShare": 0.42,
+      "fileLines": 59,
+      "functionsOverLimit": 0,
+      "worstFunction": 3
+    },
+    "scripts/split-glb-parts.mjs": {
+      "commentRun": 22,
+      "commentShare": 0.11,
+      "fileLines": 244,
+      "functionsOverLimit": 0,
+      "worstFunction": 12
+    },
+    "scripts/verify-ui-kit-gallery.mjs": {
+      "commentRun": 15,
+      "commentShare": 0.2,
+      "fileLines": 88,
+      "functionsOverLimit": 0,
+      "worstFunction": 8
+    },
+    "scripts/verify-ui-scaler.mjs": {
+      "commentRun": 23,
+      "commentShare": 0.33,
+      "fileLines": 90,
+      "functionsOverLimit": 0,
+      "worstFunction": 10
+    },
+    "src/app/labs/DevLabRouter.tsx": {
+      "commentRun": 10,
+      "commentShare": 0.37,
+      "fileLines": 39,
+      "functionsOverLimit": 0,
+      "worstFunction": 9
+    },
+    "src/app/labs/labRegistry.ts": {
+      "commentRun": 12,
+      "commentShare": 0.33,
+      "fileLines": 76,
+      "functionsOverLimit": 0,
+      "worstFunction": 17
+    },
+    "src/app/router/AppRouter.tsx": {
+      "commentRun": 14,
+      "commentShare": 0.26,
+      "fileLines": 67,
+      "functionsOverLimit": 0,
+      "worstFunction": 6
+    },
     "src/features/bootstrap/ui/BootstrapGate.tsx": {
+      "commentRun": 4,
       "commentShare": 0.05,
       "fileLines": 318,
       "functionsOverLimit": 1,
       "worstFunction": 150
     },
     "src/features/character/entities/Tany/SwordBack.tsx": {
+      "commentRun": 4,
       "commentShare": 0.03,
       "fileLines": 144,
       "functionsOverLimit": 1,
       "worstFunction": 108
     },
     "src/features/character/entities/Tany/useTanyRig.ts": {
+      "commentRun": 5,
       "commentShare": 0.07,
       "fileLines": 155,
       "functionsOverLimit": 1,
       "worstFunction": 104
     },
+    "src/features/ragdoll/entities/Ragdoll.tsx": {
+      "commentRun": 16,
+      "commentShare": 0.37,
+      "fileLines": 229,
+      "functionsOverLimit": 0,
+      "worstFunction": 73
+    },
+    "src/features/ragdoll/samples/surfaceSamples.tsx": {
+      "commentRun": 19,
+      "commentShare": 0.12,
+      "fileLines": 190,
+      "functionsOverLimit": 0,
+      "worstFunction": 11
+    },
+    "src/features/ragdoll/systems/capturedPose.ts": {
+      "commentRun": 18,
+      "commentShare": 0.52,
+      "fileLines": 83,
+      "functionsOverLimit": 0,
+      "worstFunction": 17
+    },
     "src/features/ragdoll/systems/mixamoRig.ts": {
+      "commentRun": 25,
       "commentShare": 0.39,
       "fileLines": 843,
       "functionsOverLimit": 1,
       "worstFunction": 176
     },
     "src/features/ragdoll/systems/ragdollBody.ts": {
+      "commentRun": 25,
       "commentShare": 0.35,
       "fileLines": 912,
       "functionsOverLimit": 0,
       "worstFunction": 61
     },
+    "src/features/ragdoll/systems/startPoses.ts": {
+      "commentRun": 13,
+      "commentShare": 0.21,
+      "fileLines": 106,
+      "functionsOverLimit": 0,
+      "worstFunction": 21
+    },
+    "src/features/ui-kit/components/AudioSettingsControls/AudioSettingsControls.tsx": {
+      "commentRun": 13,
+      "commentShare": 0.19,
+      "fileLines": 71,
+      "functionsOverLimit": 0,
+      "worstFunction": 9
+    },
+    "src/features/ui-kit/components/ControlChoice/ControlChoice.tsx": {
+      "commentRun": 9,
+      "commentShare": 0.24,
+      "fileLines": 45,
+      "functionsOverLimit": 0,
+      "worstFunction": 5
+    },
     "src/features/ui-kit/components/Patch9Button/Patch9Button.tsx": {
+      "commentRun": 6,
       "commentShare": 0.04,
       "fileLines": 199,
       "functionsOverLimit": 1,
       "worstFunction": 83
     },
+    "src/features/ui-kit/components/PauseMenu/PauseMenu.tsx": {
+      "commentRun": 20,
+      "commentShare": 0.26,
+      "fileLines": 109,
+      "functionsOverLimit": 0,
+      "worstFunction": 21
+    },
+    "src/features/ui-kit/components/SettingsSection/SettingsSection.tsx": {
+      "commentRun": 9,
+      "commentShare": 0.43,
+      "fileLines": 34,
+      "functionsOverLimit": 0,
+      "worstFunction": 5
+    },
     "src/features/ui-kit/components/UiKitGallery/UiKitGallery.tsx": {
+      "commentRun": 2,
       "commentShare": 0.02,
       "fileLines": 211,
       "functionsOverLimit": 1,
       "worstFunction": 122
     },
+    "src/features/ui-kit/components/VideoSettingsControls/VideoSettingsControls.tsx": {
+      "commentRun": 9,
+      "commentShare": 0.24,
+      "fileLines": 96,
+      "functionsOverLimit": 0,
+      "worstFunction": 12
+    },
+    "src/features/world/entities/Blockout.tsx": {
+      "commentRun": 20,
+      "commentShare": 0.29,
+      "fileLines": 154,
+      "functionsOverLimit": 0,
+      "worstFunction": 66
+    },
+    "src/features/world/entities/ColoredProps.tsx": {
+      "commentRun": 9,
+      "commentShare": 0.22,
+      "fileLines": 46,
+      "functionsOverLimit": 0,
+      "worstFunction": 5
+    },
     "src/features/world/entities/Fountain.tsx": {
-      "commentShare": 0.15,
+      "commentRun": 9,
+      "commentShare": 0.1,
       "fileLines": 208,
       "functionsOverLimit": 1,
-      "worstFunction": 104
+      "worstFunction": 108
+    },
+    "src/features/world/ui/useStarterShowcaseSync.ts": {
+      "commentRun": 10,
+      "commentShare": 0.23,
+      "fileLines": 74,
+      "functionsOverLimit": 0,
+      "worstFunction": 43
+    },
+    "src/scenes/demo-scene/effects/ssgiShader.ts": {
+      "commentRun": 9,
+      "commentShare": 0.12,
+      "fileLines": 87,
+      "functionsOverLimit": 0,
+      "worstFunction": 0
+    },
+    "src/scenes/demo-scene/webgpu/SSGIPipeline.tsx": {
+      "commentRun": 12,
+      "commentShare": 0.27,
+      "fileLines": 137,
+      "functionsOverLimit": 0,
+      "worstFunction": 68
+    },
+    "src/scenes/lab-stage/LabStage.tsx": {
+      "commentRun": 15,
+      "commentShare": 0.36,
+      "fileLines": 390,
+      "functionsOverLimit": 0,
+      "worstFunction": 30
     },
     "src/scenes/ragdoll-lab/RagdollHandling.tsx": {
+      "commentRun": 17,
       "commentShare": 0.25,
       "fileLines": 443,
       "functionsOverLimit": 1,
       "worstFunction": 256
     },
+    "src/scenes/ragdoll-lab/RagdollLabScene.tsx": {
+      "commentRun": 16,
+      "commentShare": 0.44,
+      "fileLines": 113,
+      "functionsOverLimit": 0,
+      "worstFunction": 16
+    },
+    "src/scenes/ragdoll-lab/ThrownShapes.tsx": {
+      "commentRun": 14,
+      "commentShare": 0.27,
+      "fileLines": 194,
+      "functionsOverLimit": 0,
+      "worstFunction": 69
+    },
+    "src/scenes/ragdoll-lab/labActions.ts": {
+      "commentRun": 10,
+      "commentShare": 0.7,
+      "fileLines": 21,
+      "functionsOverLimit": 0,
+      "worstFunction": 0
+    },
+    "src/scenes/ragdoll-lab/projectileShapes.ts": {
+      "commentRun": 12,
+      "commentShare": 0.23,
+      "fileLines": 84,
+      "functionsOverLimit": 0,
+      "worstFunction": 3
+    },
+    "src/shared/config/graphicsPresets.ts": {
+      "commentRun": 26,
+      "commentShare": 0.73,
+      "fileLines": 59,
+      "functionsOverLimit": 0,
+      "worstFunction": 0
+    },
+    "src/shared/lib/ShadowGroup.tsx": {
+      "commentRun": 14,
+      "commentShare": 0.42,
+      "fileLines": 38,
+      "functionsOverLimit": 0,
+      "worstFunction": 15
+    },
+    "src/shared/lib/ShadowThrottle.tsx": {
+      "commentRun": 19,
+      "commentShare": 0.51,
+      "fileLines": 46,
+      "functionsOverLimit": 0,
+      "worstFunction": 18
+    },
+    "src/shared/lib/SunShadow.tsx": {
+      "commentRun": 20,
+      "commentShare": 0.32,
+      "fileLines": 110,
+      "functionsOverLimit": 0,
+      "worstFunction": 41
+    },
+    "src/shared/lib/animation/boneAim.ts": {
+      "commentRun": 16,
+      "commentShare": 0.44,
+      "fileLines": 39,
+      "functionsOverLimit": 0,
+      "worstFunction": 13
+    },
+    "src/shared/lib/animation/boneLayers.ts": {
+      "commentRun": 16,
+      "commentShare": 0.55,
+      "fileLines": 131,
+      "functionsOverLimit": 0,
+      "worstFunction": 25
+    },
+    "src/shared/lib/animation/headAim.ts": {
+      "commentRun": 17,
+      "commentShare": 0.57,
+      "fileLines": 137,
+      "functionsOverLimit": 0,
+      "worstFunction": 18
+    },
+    "src/shared/lib/animation/legStepping.ts": {
+      "commentRun": 10,
+      "commentShare": 0.48,
+      "fileLines": 194,
+      "functionsOverLimit": 0,
+      "worstFunction": 38
+    },
+    "src/shared/lib/animation/twoBoneIk.ts": {
+      "commentRun": 12,
+      "commentShare": 0.53,
+      "fileLines": 111,
+      "functionsOverLimit": 0,
+      "worstFunction": 31
+    },
+    "src/shared/lib/audio/audioSettings.ts": {
+      "commentRun": 15,
+      "commentShare": 0.28,
+      "fileLines": 134,
+      "functionsOverLimit": 0,
+      "worstFunction": 23
+    },
     "src/shared/lib/audio/musicPlayer.ts": {
+      "commentRun": 20,
       "commentShare": 0.27,
       "fileLines": 161,
       "functionsOverLimit": 1,
       "worstFunction": 82
     },
+    "src/shared/lib/audio/oneShotPool.ts": {
+      "commentRun": 14,
+      "commentShare": 0.43,
+      "fileLines": 80,
+      "functionsOverLimit": 0,
+      "worstFunction": 13
+    },
+    "src/shared/lib/audio/playlistOrder.ts": {
+      "commentRun": 17,
+      "commentShare": 0.42,
+      "fileLines": 100,
+      "functionsOverLimit": 0,
+      "worstFunction": 17
+    },
+    "src/shared/lib/audio/sampledVoice.ts": {
+      "commentRun": 19,
+      "commentShare": 0.45,
+      "fileLines": 72,
+      "functionsOverLimit": 0,
+      "worstFunction": 22
+    },
+    "src/shared/lib/audio/soundMixer.ts": {
+      "commentRun": 12,
+      "commentShare": 0.4,
+      "fileLines": 96,
+      "functionsOverLimit": 0,
+      "worstFunction": 10
+    },
+    "src/shared/lib/dev/trimUserTiming.ts": {
+      "commentRun": 16,
+      "commentShare": 0.8,
+      "fileLines": 32,
+      "functionsOverLimit": 0,
+      "worstFunction": 5
+    },
+    "src/shared/lib/devLab.ts": {
+      "commentRun": 15,
+      "commentShare": 0.59,
+      "fileLines": 53,
+      "functionsOverLimit": 0,
+      "worstFunction": 0
+    },
+    "src/shared/lib/glbModel/mergeSkinnedGeometry.ts": {
+      "commentRun": 16,
+      "commentShare": 0.22,
+      "fileLines": 104,
+      "functionsOverLimit": 0,
+      "worstFunction": 67
+    },
+    "src/shared/lib/glbModel/mergeSkinnedModel.ts": {
+      "commentRun": 12,
+      "commentShare": 0.22,
+      "fileLines": 95,
+      "functionsOverLimit": 0,
+      "worstFunction": 49
+    },
     "src/shared/lib/graphics/FrameProbe.tsx": {
+      "commentRun": 22,
       "commentShare": 0.33,
       "fileLines": 317,
       "functionsOverLimit": 2,
       "worstFunction": 152
     },
+    "src/shared/lib/graphics/graphicsQuality.ts": {
+      "commentRun": 11,
+      "commentShare": 0.23,
+      "fileLines": 80,
+      "functionsOverLimit": 0,
+      "worstFunction": 13
+    },
+    "src/shared/lib/input/pointerDevice.ts": {
+      "commentRun": 10,
+      "commentShare": 0.42,
+      "fileLines": 55,
+      "functionsOverLimit": 0,
+      "worstFunction": 7
+    },
+    "src/shared/lib/input/worldPointer.ts": {
+      "commentRun": 21,
+      "commentShare": 0.75,
+      "fileLines": 29,
+      "functionsOverLimit": 0,
+      "worstFunction": 7
+    },
+    "src/shared/lib/lights/VfxLights.tsx": {
+      "commentRun": 29,
+      "commentShare": 0.42,
+      "fileLines": 333,
+      "functionsOverLimit": 0,
+      "worstFunction": 73
+    },
+    "src/shared/lib/lights/vfxLightRanking.ts": {
+      "commentRun": 16,
+      "commentShare": 0.48,
+      "fileLines": 121,
+      "functionsOverLimit": 0,
+      "worstFunction": 32
+    },
+    "src/shared/lib/prng/xoshiro128.ts": {
+      "commentRun": 12,
+      "commentShare": 0.35,
+      "fileLines": 141,
+      "functionsOverLimit": 0,
+      "worstFunction": 16
+    },
+    "src/shared/lib/react/structurallyEqual.ts": {
+      "commentRun": 12,
+      "commentShare": 0.53,
+      "fileLines": 40,
+      "functionsOverLimit": 0,
+      "worstFunction": 16
+    },
+    "src/shared/lib/react/useDedupedState.ts": {
+      "commentRun": 14,
+      "commentShare": 0.59,
+      "fileLines": 34,
+      "functionsOverLimit": 0,
+      "worstFunction": 10
+    },
+    "src/shared/lib/shadowLayers.ts": {
+      "commentRun": 24,
+      "commentShare": 0.44,
+      "fileLines": 109,
+      "functionsOverLimit": 0,
+      "worstFunction": 23
+    },
+    "src/shared/lib/shadows/ShadowCompositor.tsx": {
+      "commentRun": 17,
+      "commentShare": 0.39,
+      "fileLines": 81,
+      "functionsOverLimit": 0,
+      "worstFunction": 39
+    },
+    "src/shared/lib/shadows/cachedShadowRig.ts": {
+      "commentRun": 29,
+      "commentShare": 0.14,
+      "fileLines": 488,
+      "functionsOverLimit": 0,
+      "worstFunction": 37
+    },
+    "src/shared/lib/shadows/shadowInvalidation.ts": {
+      "commentRun": 16,
+      "commentShare": 0.72,
+      "fileLines": 29,
+      "functionsOverLimit": 0,
+      "worstFunction": 3
+    },
+    "src/shared/lib/simulation/FixedTick.tsx": {
+      "commentRun": 9,
+      "commentShare": 0.44,
+      "fileLines": 66,
+      "functionsOverLimit": 0,
+      "worstFunction": 20
+    },
+    "src/shared/lib/simulation/fixedTickBus.ts": {
+      "commentRun": 21,
+      "commentShare": 0.47,
+      "fileLines": 104,
+      "functionsOverLimit": 0,
+      "worstFunction": 42
+    },
+    "src/shared/lib/simulation/fixedTickContext.ts": {
+      "commentRun": 17,
+      "commentShare": 0.63,
+      "fileLines": 56,
+      "functionsOverLimit": 0,
+      "worstFunction": 12
+    },
+    "src/shared/net/createTransport.ts": {
+      "commentRun": 11,
+      "commentShare": 0.39,
+      "fileLines": 32,
+      "functionsOverLimit": 0,
+      "worstFunction": 14
+    },
+    "src/shared/net/loopbackTransport.ts": {
+      "commentRun": 14,
+      "commentShare": 0.1,
+      "fileLines": 202,
+      "functionsOverLimit": 0,
+      "worstFunction": 31
+    },
+    "src/shared/net/photonTransport.ts": {
+      "commentRun": 16,
+      "commentShare": 0.2,
+      "fileLines": 149,
+      "functionsOverLimit": 0,
+      "worstFunction": 24
+    },
+    "src/shared/net/state/netState.ts": {
+      "commentRun": 11,
+      "commentShare": 0.53,
+      "fileLines": 63,
+      "functionsOverLimit": 0,
+      "worstFunction": 5
+    },
+    "src/shared/net/transport.ts": {
+      "commentRun": 14,
+      "commentShare": 0.59,
+      "fileLines": 60,
+      "functionsOverLimit": 0,
+      "worstFunction": 0
+    },
+    "vite.config.ts": {
+      "commentRun": 4,
+      "commentShare": 0.05,
+      "fileLines": 132,
+      "functionsOverLimit": 1,
+      "worstFunction": 93
+    },
+    "vite/assetOptimizerCache.ts": {
+      "commentRun": 12,
+      "commentShare": 0.31,
+      "fileLines": 89,
+      "functionsOverLimit": 0,
+      "worstFunction": 43
+    },
     "vite/audioAssetOptimizerPlugin.ts": {
+      "commentRun": 11,
       "commentShare": 0.04,
       "fileLines": 592,
       "functionsOverLimit": 2,
       "worstFunction": 101
     },
     "vite/fbxAssetLoaderPlugin.ts": {
+      "commentRun": 17,
       "commentShare": 0.08,
       "fileLines": 309,
       "functionsOverLimit": 1,
       "worstFunction": 103
     },
     "vite/glbAssetOptimizerPlugin.ts": {
+      "commentRun": 18,
       "commentShare": 0.09,
       "fileLines": 555,
       "functionsOverLimit": 2,
