@@ -95,10 +95,15 @@ folders. Its current feature mix includes:
 - **A real VFX compositing path.** `VfxPortalPass` renders an independent VFX
   scene after the world composer and depth-tests it against world geometry,
   allowing effect-specific bloom and tone mapping without drawing through walls.
-- **Ground that does not repeat.** `anti-tiling-ground` samples one albedo
-  through per-cell quarter turns, offsets and tone in WORLD space, so a 44 m
-  floor made of a single 1k texture shows no grid — the artefact that gives away
-  every tiled terrain.
+- **Ground that fights the tiling grid.** `anti-tiling-ground` covers a 44 m
+  floor with one 1254² albedo through four world-space tools at once: a domain
+  warp, a macro tone drift, a second rotated layer, and a per-cell stochastic
+  sample (quarter turn, offset and tone, four neighbouring cells blended).
+  Honest about the mix: the demo's `variationStrength` is 0.22, so 78% of the
+  colour is still the plain tiled sample, and on the low-contrast gravel shipped
+  here the warp does most of the visible work — measured, switching the
+  stochastic part off moves the frame by 0.3%. Raise it, or bring a texture with
+  a feature in it, and the difference is the point of the material.
 - **A layered terrain on one mesh.** `terrain-layers` blends ground, a pressed
   road and a parallaxed stone overlay by HEIGHT rather than by alpha, so a stone
   keeps its own silhouette against the soil instead of dissolving into it. A

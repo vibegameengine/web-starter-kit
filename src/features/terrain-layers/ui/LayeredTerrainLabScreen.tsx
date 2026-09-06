@@ -222,10 +222,11 @@ export function LayeredTerrainLabScreen() {
         // blend is being judged.
         grid={false}
         ground={false}
-        // Ближняя дистанция 0.7 м, а не «удобная» пара метров: камень здесь
-        // размером с ладонь, и вопрос, который эта лаба задаёт — лежит ли он НА
-        // земле или напечатан на ней, — с двух метров не виден вовсе. Кромка
-        // камня, грунт в промежутках и контактная тень читаются только вплотную.
+        // 0.7 m at the near end rather than a comfortable couple of metres: a
+        // stone here is the size of a palm, and the question this lab asks — is
+        // it lying ON the ground or printed on it — cannot be answered from two
+        // metres. The stone's edge, the soil between stones and the contact
+        // shadow only read from up close.
         orbit={{ maxDistance: 26, minDistance: 0.7, target: [0, 0.2, 0] }}
         post="rich"
         sun={{ radius: 10 }}

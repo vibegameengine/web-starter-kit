@@ -184,6 +184,13 @@ export function createLayeredTerrainMaterial(options: LayeredTerrainOptions): La
   if (layers.length > MAX_LAYERS) {
     throw new Error(`terrain layers: ${layers.length} exceeds the ${MAX_LAYERS} the shader declares`)
   }
+  // An empty stack is not an empty surface: the shader's loop skips every layer,
+  // the total stays 0, and the compose writes vec3(0). The result is a BLACK
+  // plate with no error anywhere — one of the few states a reader cannot tell
+  // from a broken light rig.
+  if (layers.length === 0) {
+    throw new Error('terrain layers: the stack is empty, which renders as a black surface')
+  }
 
   const pages = atlas.pages.map((page) => maskPage(page, atlas.resolution))
   while (pages.length < 2) pages.push(maskPage(new Uint8Array(4), 1))

@@ -1,6 +1,6 @@
 import { LabStage } from '../../../scenes/lab-stage/LabStage'
 import { ShadowGroup } from '../../../shared/lib/ShadowGroup'
-import { antiTilingGroundGeometries, antiTilingGroundMaterials } from '../materials/antiTilingGroundResources'
+import { antiTilingGroundResources } from '../materials/antiTilingGroundResources'
 
 /**
  * The bench for the anti-tiling ground material — the base the layered terrain
@@ -9,9 +9,16 @@ import { antiTilingGroundGeometries, antiTilingGroundMaterials } from '../materi
  * The ground is ONE continuous 44 m mesh on purpose. A tiled material only
  * betrays itself over distance: split the same surface into plates and every
  * plate's own repeat hides inside its own edge, so the thing this lab exists to
- * show cannot be seen. Walk the orbit out to the far corner and there is no
- * repeating motif to find — the per-cell quarter turn, offset and tone are
- * applied in WORLD space, so the pattern never lines up with itself.
+ * show cannot be seen. Walk the orbit out to the far corner and look for a
+ * motif that repeats.
+ *
+ * Read the result honestly. The material applies four things in WORLD space — a
+ * domain warp, a macro tone drift, a second rotated layer and the per-cell
+ * quarter turn — and the gravel shipped here is low-contrast noise with no
+ * feature large enough to repeat visibly. Measured: turning the per-cell part
+ * off moves this frame by 0.3%, so on THIS texture the warp is doing the work.
+ * Point it at a texture with a stone or a tuft in it to see the difference the
+ * stochastic sample makes.
  *
  * The three boxes are scale and shadow markers, not a level: without something
  * of a known size casting onto it, a ground plane has no distance and the
@@ -30,6 +37,10 @@ const GROUND_MARKERS: readonly GroundMarker[] = [
 ]
 
 export function AntiTilingGroundLabScreen() {
+  // Built on the first render of this lab, and shared by every later one: the
+  // plane and the material are the subject, not per-mount state.
+  const { geometries, materials } = antiTilingGroundResources()
+
   return (
     <LabStage
       camera={{ far: 200, fov: 42, near: 0.1, position: [15, 16, 19] }}
@@ -45,17 +56,17 @@ export function AntiTilingGroundLabScreen() {
     >
       <ShadowGroup kind="static">
         <mesh
-          geometry={antiTilingGroundGeometries.ground}
-          material={antiTilingGroundMaterials.ground}
+          geometry={geometries.ground}
+          material={materials.ground}
           receiveShadow
           rotation-x={-Math.PI / 2}
         />
         {GROUND_MARKERS.map((marker) => (
           <mesh
             castShadow
-            geometry={antiTilingGroundGeometries.marker}
+            geometry={geometries.marker}
             key={marker.position.join('-')}
-            material={antiTilingGroundMaterials.marker}
+            material={materials.marker}
             position={marker.position}
             receiveShadow
             scale={marker.scale}

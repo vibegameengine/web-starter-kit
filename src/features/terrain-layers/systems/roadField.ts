@@ -1,13 +1,15 @@
 /**
- * The road showcase's field, shared.
+ * The road, as one field two shader stages share.
  *
- * `?material=roads` and the layered-terrain pedestal must show the SAME road, so
- * they read the same definition rather than two copies that drift apart. It is
- * the whole surface: where the road covers the ground, where wheels pressed
- * hollows into it, where runoff cut channels, and the terrain height that
- * results once all of that is subtracted from the landform.
+ * The fragment stage needs it to know where the road covers the ground; the
+ * vertex stage needs the same answer to press the surface down. One definition,
+ * because two copies of a road drift apart and the press stops landing where the
+ * colour went. It carries the whole surface: coverage, the hollows wheels
+ * pressed into it, the channels runoff cut, and the height left once all of that
+ * is subtracted.
  *
- * Local XY of the pedestal plate, metres.
+ * Coordinates are the plate's own local XY in metres, never world position: a
+ * field authored around the origin answers zero everywhere else.
  */
 export const ROAD_FIELD_FUNCTIONS = `
 float roadDistanceToSegment(vec2 point, vec2 start, vec2 end) {

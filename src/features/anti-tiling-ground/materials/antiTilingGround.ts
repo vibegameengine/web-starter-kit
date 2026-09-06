@@ -162,7 +162,7 @@ export function createAntiTilingGroundMaterial(
       .replace('#include <roughnessmap_fragment>', ANTI_TILING_ROUGHNESS_FRAGMENT)
   }
   material.userData.antiTilingGroundExtraTextures = dryMap ? [dryMap] : []
-  material.customProgramCacheKey = () => 'zone-stalker-anti-tiling-ground-v2-layered'
+  material.customProgramCacheKey = () => 'anti-tiling-ground'
 
   return material
 }

@@ -15,7 +15,7 @@ import * as THREE from 'three'
  */
 
 /** Every slice is resampled to this. The material requires one square size. */
-export const LAYER_SLICE_RESOLUTION = 1024
+const LAYER_SLICE_RESOLUTION = 1024
 
 /** A 1x1 flat tangent-space normal, for layers that ship none. */
 export const FLAT_NORMAL_URL =

@@ -2,10 +2,16 @@
 // in an engine that does this for a living — rather than as one shader with each
 // new surface hand-mixed into it in a fixed order.
 //
-// This file is the arithmetic and nothing else: no textures, no GL, no React. It
-// is exactly what the shader does, written so it can be tested without a
-// renderer, because a blend rule that can only be checked by looking at a frame
-// is a blend rule nobody can change safely.
+// This file is the arithmetic and nothing else: no textures, no GL, no React,
+// so a blend rule can be checked without a renderer.
+//
+// It is NOT a second copy of the shader, and must not be read as one. The two
+// agree on masks, height blending, lids and normalisation; they DIVERGE in the
+// overlay's distance term. Measured: at density 0.32 and relief 0.5 the shader's
+// `soft = clamp((relief - cut) / density)` answers 0 while `overlayCoverage`
+// here answers 0.5, and the tests never see it because `resolveLayerWeights`
+// calls that function with `sharpness = 1`, which is the hard cut. Whichever of
+// the two is right, the frame follows the shader.
 //
 // The model, reduced to what earns its place:
 //   · a LAYER carries a full PBR bundle, not a colour, so a wet road comes out

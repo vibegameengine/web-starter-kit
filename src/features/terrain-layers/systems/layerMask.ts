@@ -48,7 +48,7 @@ function smoothstep01(t: number): number {
  * what lets one route hand the surface from one layer to another as it runs —
  * a dirt track becoming asphalt is a crossfade, not a second route.
  */
-export function routeCoverageAt(route: MaskRoute, x: number, z: number): number {
+function routeCoverageAt(route: MaskRoute, x: number, z: number): number {
   let best = 0
   for (let index = 0; index < route.points.length - 1; index += 1) {
     const a = route.points[index]
@@ -66,7 +66,7 @@ export function routeCoverageAt(route: MaskRoute, x: number, z: number): number 
   return best
 }
 
-export function maskValueAt(source: MaskSource, x: number, z: number): number {
+function maskValueAt(source: MaskSource, x: number, z: number): number {
   if (source.kind === 'constant') return source.value
   if (source.kind === 'field') return source.field(x, z)
   return routeCoverageAt(source.route, x, z)

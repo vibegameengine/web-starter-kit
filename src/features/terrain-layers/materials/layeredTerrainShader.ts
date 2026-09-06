@@ -116,7 +116,7 @@ varying vec2 vLayerLocal;
  * here answers "how much of each layer is at this pixel", and nothing here
  * lights anything.
  */
-export const layerSampleGlsl = ({ hostSurfaceAssignments, glslMaskAssignments }: LayerGlsl) => `
+const layerSampleGlsl = ({ hostSurfaceAssignments, glslMaskAssignments }: LayerGlsl) => `
 
   // Layer i lives at page i>>2, channel i&3 — the rule the baker follows too.
   vec2 layerAtlasUv = (vAntiTilingWorldPosition.xz - uLayerAtlasOrigin) / max(uLayerAtlasSize, 0.001);
@@ -184,12 +184,16 @@ ${glslMaskAssignments}
 ${hostSurfaceAssignments}
     layerRelief[i] = layerReliefAt(i, layerUv);
     layerUvOf[i] = layerUv;
+    // Blended across the same four cells as the colour, and for the same reason.
+    // Taking N00 alone — which this did — computed the other three and threw them
+    // away, and left the colour smooth across a cell border while the normal
+    // jumped: a lighting seam on the layer's own tiling grid.
     if (uLayerNormalStrength[i] > 0.0) {
       vec3 layerN00 = layerVariantNormal(i, layerCell, layerLocal);
       vec3 layerN10 = layerVariantNormal(i, layerCell + vec2(1.0, 0.0), layerLocal);
       vec3 layerN01 = layerVariantNormal(i, layerCell + vec2(0.0, 1.0), layerLocal);
       vec3 layerN11 = layerVariantNormal(i, layerCell + vec2(1.0, 1.0), layerLocal);
-      layerNormalOf[i] = layerN00;
+      layerNormalOf[i] = mix(mix(layerN00, layerN10, layerMixT.x), mix(layerN01, layerN11, layerMixT.x), layerMixT.y);
     }
 
     // The base is never masked away: if everything else lets go, ground is still
@@ -220,7 +224,7 @@ ${hostSurfaceAssignments}
  * not "what does this layer look like here" but "how much of the pixel does it
  * take from everything under it".
  */
-export const layerLidGlsl = () => `
+const layerLidGlsl = () => `
   // A road is not 70% road: what a lid covers, it covers, and what is left below
   // keeps its proportions.
   for (int i = 1; i < ${MAX_LAYERS}; i++) {
@@ -259,10 +263,10 @@ export const layerLidGlsl = () => `
 
 `
 
-export const layerResolveGlsl = (parts: LayerGlsl) => layerSampleGlsl(parts) + layerLidGlsl()
+const layerResolveGlsl = (parts: LayerGlsl) => layerSampleGlsl(parts) + layerLidGlsl()
 
 /** Contact shadow, tints and the compose: the stack becomes a colour. */
-export const layerComposeGlsl = ({ glslTints, modifierGlsl }: LayerGlsl) => `
+const layerComposeGlsl = ({ glslTints, modifierGlsl }: LayerGlsl) => `
   // CONTACT SHADOW. Parallax digs into a surface; it cannot lift anything above
   // it, so a stone comes out flush with the ground and the scoured gaps around
   // it read as the stone being pressed IN. What says "this is lying on top" is
