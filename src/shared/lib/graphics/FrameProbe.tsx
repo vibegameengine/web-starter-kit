@@ -2,7 +2,8 @@ import { addAfterEffect, addEffect, useThree } from '@react-three/fiber'
 import { useEffect, useRef } from 'react'
 
 /**
- * DEV-only frame-cost seam. The instrument half of `scripts/arena-fps-probe.mjs`.
+ * DEV-only frame-cost seam: the instrument half of a frame-time probe, waiting
+ * for a driver to start it.
  *
  * A frame-rate complaint cannot be answered from outside the canvas. An external
  * `requestAnimationFrame` loop sees the cadence the compositor delivered, which

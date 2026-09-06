@@ -11,9 +11,10 @@ const SHOWCASE_ROOM = 'starter-showcase'
  *
  * The tick is handed back as a REF, not as state. It advances sixty times a
  * second, and a `useState` for it would re-render every consumer of this hook at
- * 60 Hz to move one number — the exact cost `docs/frame-cost.md` is about. Read
- * it from a `useFrame`, or write it straight to a DOM node; do not put it back
- * into React state on the way to the screen.
+ * 60 Hz to move one number — which is the cost the `no-restricted-syntax` rule
+ * in `eslint.config.js` exists to stop. Read it from a `useFrame`, or write it
+ * straight to a DOM node; do not put it back into React state on the way to the
+ * screen.
  */
 export function useStarterShowcaseSync() {
   const transportRef = useRef<LoopbackTransport | null>(null)

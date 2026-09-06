@@ -185,7 +185,9 @@ imagined. The rules themselves apply here without exception.
      optimizer, a headed test bench), which belongs in this repository's `docs/`
      and travels to everything started from it. Label a portable lesson as
      portable when you write it: one nobody labelled never gets lifted, and the
-     lesson documents in `docs/` are what the labelling produced.
+     lesson documents in `docs/` are what the labelling produced. Label it for
+     the KIT only when it would hold with this game gone — the test is whether
+     the technique it describes is in this repository at all.
    - Write the FALSIFIED ones too, with the number that falsified them. A
      recorded dead end is worth more than a recorded success: the success gets
      re-derived from the code, the dead end gets retried by every agent after
