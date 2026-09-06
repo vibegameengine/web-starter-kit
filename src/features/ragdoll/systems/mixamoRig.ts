@@ -25,17 +25,10 @@ export type RagdollSegment = {
   /** Angular damping for this body — arms need far more than the trunk. */
   readonly angularDamping: number
   /**
-   * Bone pose expressed in the BODY's frame: `body⁻¹ · bone`, taken here, where
-   * the two are guaranteed to describe the same instant.
-   *
-   * Measured at build time rather than read off the live rigid body later,
-   * because the two do not agree at any later moment worth trusting. This
-   * function runs while the model may still be detached from the scene, so its
-   * "world" transforms are really local; the rigid body, meanwhile, is created
-   * under whatever ancestors the host happens to have. Sampling both on the
-   * first frame therefore bakes the host's offset into the tie — a body eight
-   * metres to one side of a lab, or wherever a player happens to be standing —
-   * and the corpse is then simulated somewhere the mesh is not.
+   * Bone pose in the BODY's frame (`body⁻¹ · bone`), taken at build time — the
+   * one instant the two are guaranteed to describe. Sampled on the first frame
+   * instead, it bakes in whatever ancestors the host has, and the corpse is then
+   * simulated somewhere the mesh is not.
    */
   readonly bind: Matrix4
 }
@@ -103,38 +96,27 @@ export type RagdollSpec = {
   readonly segments: readonly RagdollSegment[]
   readonly joints: readonly RagdollJoint[]
   /**
-   * Rapier collision groups for every capsule of this body, or undefined to leave
-   * the engine's default (collide with everything).
-   *
-   * Set only when the body asked for `selfCollision: 'off'`, because turning a
-   * pair of contacts off at the JOINTS is not enough on its own: a wide trunk
-   * also intersects limbs it is not jointed to, and nothing was filtering those.
+   * Rapier collision groups for this body's capsules, set only when it asked for
+   * `selfCollision: 'off'`: turning contacts off at the JOINTS is not enough,
+   * since a wide trunk also intersects limbs it is not jointed to.
    */
   readonly collisionGroups?: number
 }
 
 /**
- * The membership bit every self-ignoring ragdoll shares, and the filter that
- * excludes it.
- *
- * One bit rather than one per body: with sixteen available and corpses coming and
- * going, per-instance bits run out and have to be recycled. The cost of sharing
- * is that two such bodies also pass through EACH OTHER — two corpses in a heap
- * rather than a pile. Each still collides with the world, which is the part that
+ * One shared membership bit rather than one per body: sixteen exist and corpses
+ * coming and going would recycle them. The cost is that two self-ignoring bodies
+ * also pass through each other; each still collides with the world, which is what
  * decides whether a body lies on the floor or falls through it.
  */
 const RAGDOLL_SELF_GROUP = (0x8000 << 16) | 0x7fff
 
-// Segment table by normalized bone name: [id, head, tail(for length/dir), radiusFactor, massFraction].
-// radius = radiusFactor × bone length, keeping the ragdoll scale-independent. massFraction is the
-// segment's share of total body mass from Winter's body-segment parameters (Dempster cadaver data):
-// a uniform density makes a thin torso weigh less than a stubby limb, which is wrong — real bodies
-// carry ~half their mass in the trunk. Fractions below sum to 1.0; our torso+pelvis split the trunk
-// (thorax+abdomen vs pelvis), lowerArm folds in the hand, shin folds in the foot.
-// Trailing value is angular damping. Arms are the lightest links on the longest
-// levers, so with one damping for the whole body they whip around while the trunk
-// barely moves — a corpse's arms swing, but they do not flail. Damping them harder
-// stands in for the drag of shoulder tissue the joint limits alone do not provide.
+// [id, head, tail, radiusFactor, massFraction, angularDamping]. radius =
+// radiusFactor × bone length, which keeps the rig scale-independent.
+// Mass fractions: Winter's body-segment parameters (Dempster cadaver data) — a
+// uniform density makes a thin torso weigh less than a stubby limb. They sum to 1.
+// Arms damp hardest: the lightest links on the longest levers flail under one
+// damping for the whole body.
 const SEGMENTS: readonly (readonly [string, string, string, number, number, number])[] = [
   ['pelvis', 'hips', 'spine', 0.42, 0.142, 0.05],
   ['torso', 'spine1', 'neck', 0.34, 0.355, 0.05],
@@ -147,40 +129,24 @@ const SEGMENTS: readonly (readonly [string, string, string, number, number, numb
   ['shinL', 'leftleg', 'leftfoot', 0.26, 0.061, 0.15],
   ['thighR', 'rightupleg', 'rightleg', 0.32, 0.10, 0.15],
   ['shinR', 'rightleg', 'rightfoot', 0.26, 0.061, 0.15],
-  // FEET were added here and reverted. They are worth someone's time later, so
-  // the measurement is kept rather than the code: with `['footL','leftfoot',
-  // 'lefttoebase',0.30,0.0145,d]` and revolute ankles at [-45deg, +30deg] the
-  // imp's corpse span went 0.559 -> 1.047 of body height, straight through a
-  // floor it had never once reached — the feet ARE the extremity a short-limbed
-  // body is missing, and the mannequin control barely moved (0.728 -> 0.722),
-  // which says this was more body being simulated rather than a wider ruler.
-  // But rest time went 3.55s +/- 0.94 to 6.67s +/- 1.46, and BOTH bodies then
-  // failed to settle inside four seconds. Damping the feet like the forearms
-  // (d = 1.2) did not help: 6.99s, worse. Two light bodies at the end of the
-  // chain keep the rest detector awake, and that needs solving before feet can
-  // come back.
+  // FEET were tried here and reverted; the measurement is kept rather than the
+  // code. With revolute ankles at [-45°, +30°] the corpse span went 0.559 -> 1.047
+  // of body height while the control barely moved (0.728 -> 0.722), so it was more
+  // body being simulated rather than a wider ruler. But rest time went 3.55s ±0.94
+  // to 6.67s ±1.46 and both bodies stopped settling inside four seconds; damping
+  // them like the forearms (1.2) made it 6.99s. The rest detector needs solving
+  // before feet can come back.
 ]
 
 /**
  * Segments whose capsule is NOT the plain bone fit, because the bone is not the
- * shape. Everything else spans its own bone: an upper arm IS the bone from
- * shoulder to elbow, so half the bone length is its half-length and that is that.
+ * shape. An upper arm IS its bone; the head is not. Measured on the mannequin's
+ * own mesh: the skull is 0.160 wide × 0.259 tall × 0.248 deep, centred 0.075 above
+ * a bone only 0.196 long, with the jaw 0.055 BELOW it.
  *
- * The head is not. Its bone runs from the base of the skull to the crown, while
- * the skull hangs off BOTH ends of it — measured on the mannequin's own mesh
- * (every vertex whose dominant skin weight is the `Head` joint, taken in that
- * bone's frame): 0.160 wide × 0.259 tall × 0.248 deep, centred 0.075 above the
- * bone, with the jaw 0.055 BELOW it, against a bone only 0.196 long.
- *
- * No radius factor can express that. The generic fit takes half-length from the
- * bone, so a radius large enough to cover a 0.26-tall skull always exceeds it,
- * the half-height clamps to its floor, and the "capsule" degenerates to a sphere
- * — which is what the head has been since it was written: a Ø 0.274 ball, wider
- * than the shoulders it sits between and shorter than the skull it stands for.
- *
- * So the head carries its own fit, still as FACTORS OF THE BONE LENGTH, which is
- * what keeps the rig scale-independent: every Mixamo humanoid shares these
- * proportions whatever its authored height.
+ * No radius factor expresses that — the generic fit clamps half-height and
+ * degenerates to a Ø0.274 sphere. Kept as factors of bone length so the rig stays
+ * scale-independent.
  */
 type CapsuleFit = {
   /** Capsule radius ÷ bone length. */
@@ -192,31 +158,20 @@ type CapsuleFit = {
 }
 
 const CAPSULE_FIT: Readonly<Record<string, CapsuleFit>> = {
-  // Straight off the measurement, divided by the 0.196 bone: centre (0, 0.0746,
-  // 0.0103), half-span along the bone 0.163, half-depth 0.124. The resulting
-  // capsule is 0.248 × 0.327 — the skull's own envelope, front to occiput and jaw
-  // to crown.
-  //
-  // It comes out nearly spherical, and that is the answer to "why is the head a
-  // sphere": this head IS one, 0.16 × 0.26 × 0.25. What was wrong before was not
-  // the shape but that nothing chose it — the radius exceeded half the bone, the
-  // half-height hit its clamp, and a sphere fell out by accident, in the wrong
-  // place and 60% too wide across the shoulders.
+  // The measurement divided by the 0.196 bone: centre (0, 0.0746, 0.0103),
+  // half-span 0.163, half-depth 0.124 — a 0.248 × 0.327 capsule, jaw to crown.
+  // Nearly spherical because this skull is (0.160 × 0.259 × 0.248); what was wrong
+  // before was not the shape but that nothing chose it.
   head: { centre: [0, 0.38, 0.052], halfLength: 0.83, radius: 0.63 },
 }
 
 const deg = (degrees: number): number => (degrees * Math.PI) / 180
 
 /**
- * The articulation table. The anchor is the child segment's head bone (the shared
- * point). Limits keep every joint inside a real human range of motion:
- *  - `revolute` hinges (elbow, knee) bend on one axis with a min/max stop;
- *  - `cone` ball joints (spine, neck, shoulder, hip) allow a limited swing around
- *    the bone plus a limited twist — an UNLIMITED ball joint lets the head/limbs
- *    spin a full 360°, which is what we're fixing here.
- * Ranges are symmetric approximations of anatomical ROM; the goal is plausible,
- * bounded motion, not clinical accuracy. The shoulder is the most mobile joint,
- * the spine the least.
+ * The articulation table; the anchor is the child segment's head bone. `revolute`
+ * hinges (elbow, knee) stop on one axis; `cone` ball joints (spine, neck,
+ * shoulder, hip) limit swing plus twist — unlimited, they spin a full 360°.
+ * Ranges are symmetric approximations of anatomical ROM.
  */
 type JointRow = {
   readonly id: string
@@ -235,46 +190,27 @@ type JointRow = {
 }
 
 // Knees and elbows carry a `buckle` target: at death the limbs FOLD instead of
-// staying rigid. Straight limbs make the body drop like a plank and bounce off the
-// floor; folding joints both read as a person collapsing and absorb the landing.
+// dropping like a plank, which also absorbs the landing.
 //
-// SIGNS ARE MEASURED, NOT DERIVED. Rapier's hinge-angle sign depends on how it
-// completes a basis from the axis we hand it, so it cannot be reasoned out from the
-// bone geometry — a wrong sign puts the ALLOWED range on the side the joint doesn't
-// want to move, and the hinge sits locked at its limit looking like a rigid stick
-// (that was the knee: limit [-2.5, 0] held it at 0-2° through an entire collapse).
-// Both hinges here happen to fold POSITIVE. If a rig ever bends the wrong way,
-// re-measure: open the limits wide, log the signed angle about the hinge axis, and
-// set `limit`/`buckle` to the side it actually travels.
+// SIGNS ARE MEASURED, NOT DERIVED. Rapier completes its basis from the axis it is
+// handed, so a wrong sign puts the allowed range on the side the joint will not
+// travel — that was the knee, held at 0-2° through an entire collapse by a limit
+// of [-2.5, 0]. Both hinges here fold POSITIVE; re-measure by opening the limits
+// and logging the signed angle about the axis.
 //
-// Ranges stay at anatomical ROM. A corpse reading as "wooden" is NOT fixed by widening
-// these — widened stops just let the body reach poses a real one can't. Looseness comes
-// from the bodies' angular damping (how hard a joint holds its current position), not
-// from the size of the range.
+// Widening these does not fix a corpse that reads as wooden. That is damping.
 const JOINTS: readonly JointRow[] = [
-  // Sagittal ranges are ASYMMETRIC, as the real ones are: the trunk flexes ~75° but
-  // extends only ~26°, and the hip flexes 110-120° against 10-15° of extension. That
-  // ratio is why a body folds forward far more readily than back, and why a collapse
-  // pitches forward — with symmetric cones it could jack-knife backwards just as
-  // easily, which no body does. The lateral axis (`swingSide`) stays tight.
-  //
-  // NEGATIVE is forward here, and that was MEASURED, not read off a screenshot: the
-  // first attempt had the sign the other way and the body landed on its back every
-  // time while still looking plausible in stills. The test that settles it is the
-  // torso's own facing at rest — the bodies spawn identity-rotated, so the torso's
-  // local +Z is the model's forward, and the world Y of that vector says whether the
-  // chest ended up pointing at the sky (fell backwards) or at the floor.
+  // Sagittal ranges are ASYMMETRIC, as the real ones are: the trunk flexes ~75°
+  // and extends ~26°, the hip 110-120° against 10-15°. NEGATIVE is forward, and
+  // that was measured — with the sign the other way the body landed on its back
+  // every time while still looking plausible in stills. The test that settles it
+  // is the torso's own facing at rest, not a screenshot.
   { id: 'spine', parent: 'pelvis', child: 'torso', anchor: 'spine1', kind: 'cone', twist: [-deg(35), deg(35)], swing: [-deg(70), deg(26)], swingSide: [-deg(30), deg(30)] },
-  // Neck twist is deliberately well under the 80° a live head can rotate: swing and
-  // twist COMBINE, and 45+60 let the head reach ~105° of total deviation — enough to
-  // fold chin-to-chest, which a limp neck cannot do. Verified the cone limits really
-  // are enforced by clamping this row to 5° and measuring 7° of deviation.
-  // A contact pair on the NECK was tried here and reverted, so it is not tried a
-  // third time: the head does sink toward the chest without one, but switching it
-  // on cost the mannequin both its span (0.728 -> 0.644) and its rest (settled
-  // true -> false) while moving the imp 0.612 -> 0.606, which is nothing. The
-  // file's own note above says why — a trunk capsule wide enough to swallow its
-  // own joint anchor is one the solver spends the whole corpse pushing out of.
+  // Neck twist stays well under the 80° a live head reaches: swing and twist
+  // COMBINE, and 45+60 already give ~105° of deviation. Verified the cone limit is
+  // enforced by clamping this row to 5° and measuring 7°.
+  // A neck contact pair was tried and reverted: mannequin span 0.728 -> 0.644 and
+  // rest true -> false, against 0.612 -> 0.606 on the other body.
   { id: 'neck', parent: 'torso', child: 'head', anchor: 'head', kind: 'cone', twist: [-deg(35), deg(35)], swing: [-deg(35), deg(35)], relaxable: true },
   { id: 'shoulderL', parent: 'torso', child: 'upperArmL', anchor: 'leftarm', kind: 'cone', twist: [-deg(45), deg(45)], swing: [-deg(75), deg(75)], swingSide: [-deg(60), deg(60)], contacts: true, damping: 3 },
   { id: 'elbowL', parent: 'upperArmL', child: 'lowerArmL', anchor: 'leftforearm', kind: 'revolute', limit: [0, 2.5], buckle: deg(70), relaxable: true },
@@ -300,21 +236,14 @@ export function normalizeBoneName(name: string): string {
 }
 
 /**
- * The rig, indexed by normalized name — and deliberately in TWO maps, because a
- * segment asks two different questions of the skeleton.
+ * Two maps on purpose: a segment DRIVES a bone (which must be a real `Bone`,
+ * since the write-back poses it) and is MEASURED to a tail (only ever read for a
+ * length and a direction).
  *
- * A segment DRIVES a bone: that one has to be a real `Bone`, since the write-back
- * poses it. A segment is also MEASURED to a tail, and the tail is only ever read
- * for a length and a direction — it never has to be a bone at all.
- *
- * The distinction is not academic. Mixamo's leaf ends (`HeadTop_End`,
- * `LeftToe_End`) carry no skin weights, so an exporter leaves them out of the
- * glTF skin's joint list — and three creates a `Bone` ONLY for nodes named there
- * (`GLTFLoader._markDefs`); everything else becomes a plain `Object3D` holding
- * the exact same transform. Indexing bones alone therefore loses the top of the
- * head, and the head segment silently falls back to a guessed tail: its capsule
- * ended up 20 cm low, centred on the neck, leaving the skull with no collider at
- * all while the spec still reported a full set of segments.
+ * Mixamo's leaf ends carry no skin weights, so an exporter leaves them out of the
+ * skin's joint list and three makes them plain `Object3D`. Indexing bones alone
+ * lost the top of the head: the skull's capsule ended up 20 cm low, centred on
+ * the neck, while the spec still reported a full set of segments.
  */
 type RigIndex = {
   /** Real bones only — a body may only drive one of these. */
@@ -352,42 +281,25 @@ function indexRig(root: Object3D): RigIndex {
 }
 
 /**
- * Every vertex the body owns, sorted into the bone that carries most of it and
- * expressed in THAT bone's own frame.
+ * Every vertex sorted into the bone that carries most of its weight, in that
+ * bone's frame — the measurement the capsules were missing. A radius written as a
+ * fraction of bone length is one guess reused for every body: fitted to a
+ * full-height mannequin, it put a metre-tall body inside capsules half again too
+ * wide for it.
  *
- * This is the measurement the capsules were missing. A radius written as a
- * fraction of bone length is a guess about proportion, and it is the same guess
- * for every body that ever uses this rig: the numbers in `SEGMENTS` were fitted
- * to a full-height Mixamo mannequin, whose thighs are short and thick relative to
- * the bone. Put a metre-tall imp with long thin legs on the same fractions and it
- * collapses inside capsules half again too wide for it — which is exactly what it
- * did, in front of the person who asked for it.
- *
- * Bone-local, because that is the one frame in which "how far is this vertex from
- * the bone" is a question with an answer. The skin's own inverse bind matrix is
- * the change of basis, and it is also what makes this immune to whatever space
- * the vertex positions happen to be stored in — an asset built with `?meshopt`
- * has its positions rescaled and re-centred, and the matching inverse bind takes
- * that straight back out.
+ * Bone-local because that is the frame in which "how far is this vertex from the
+ * bone" has an answer, and because the inverse bind takes out whatever rescaling
+ * `?meshopt` applied to the stored positions.
  */
 /**
- * Cached per ASSET, keyed by geometry, and the cache is what makes it affordable.
+ * Cached per ASSET, keyed by geometry: this walks twenty thousand vertices and
+ * allocated a `Vector3` for each, once per MOUNT — six to twelve times in a spawn
+ * frame — for a result that cannot differ between clones (`cloneSkinned` shares
+ * the geometry and copies `bindMatrix` and `boneInverses`).
  *
- * This walks every vertex of a twenty-thousand-vertex body and allocates a
- * `Vector3` for each one. It ran once per MOUNT — six to twelve times in the
- * frame a wave spawns — and the result is identical every time: `cloneSkinned`
- * shares the geometry and copies `bindMatrix` and `boneInverses`, and the points
- * are computed in bone-LOCAL bind space, so nothing about a particular clone can
- * change them. Keyed on the geometry rather than the mesh for exactly that
- * reason, and stored by bone NAME so a fresh skeleton's own `Bone` objects can be
- * looked up against it.
- *
- * It is NOT keyed on the scene's applied scale, and does not need to be: the
- * scale `Mob` writes lands on the scene root, while `bindMatrix` and
- * `boneInverses` come off the asset. The distinction matters here more than most
- * places — a spec measured in the wrong space is the `?meshopt` bind-pose
- * disaster in AGENTS.md rule 5 — so if this ever starts being keyed on anything,
- * key it on the values it actually reads.
+ * Not keyed on the applied scale, and must not be: the scale lands on the scene
+ * root while the bind matrices come off the asset. A spec measured in the wrong
+ * space is AGENTS.md rule 5.
  */
 const vertexClouds = new Map<string, Map<string, Vector3[]>>()
 
@@ -522,91 +434,65 @@ function measuredRadius(cloud: Map<Bone, Vector3[]>, bone: Bone, tailLocal: Vect
 
 /**
  * Builds the ragdoll spec from a posed model. Reads current bone WORLD transforms,
- * so call after the model's matrices are up to date. Returns null if the core
- * bones (hips + a limb) are missing — i.e. the rig is not Mixamo-compatible.
+ * so call it after the model's matrices are up to date. Returns null when the core
+ * bones (hips plus a limb) are missing — the rig is not Mixamo-compatible.
  */
 /**
- * Per-BODY choices about how its capsules are found.
+ * Per-BODY choices about how its capsules are found. Options rather than
+ * behaviour because two bodies here need different answers and neither is wrong.
  *
- * They are options rather than behaviour because two bodies in this project
- * genuinely need different answers, and neither answer is wrong. The authored
- * fractions in `SEGMENTS` were fitted to a full-height humanoid and are
- * deliberately slim at the trunk — `hipL/hipR` and the shoulders keep their
- * contacts on so a limb cannot pass through the torso, and a trunk wide enough to
- * swallow its own joint anchor is one the solver must push its own legs out of.
- * That slimness is load-bearing for that body: measured, widening it stops the
- * mannequin settling at all, at four, six and ten seconds.
- *
- * It is also wrong for a body shaped differently. The imp is hunched and its
- * trunk bones are short, so the same fractions degenerate its pelvis to the 3 cm
- * floor and make its torso half the thickness of its own thigh — a stick that
- * never comes to rest and lands folded into itself.
+ * The authored fractions are deliberately slim at the trunk, and that slimness is
+ * load-bearing: measured, widening it stops the mannequin settling at all, at
+ * four, six and ten seconds. It is also wrong for a body shaped differently — on
+ * a hunched rig with short trunk bones the same fractions collapse the pelvis to
+ * its 3 cm floor and leave a torso half the thickness of its own thigh.
  */
 export type RagdollFitOptions = {
   /**
-   * Take each capsule's thickness from the MESH instead of from the authored
-   * fraction of bone length. See `measuredRadius` for how, and why the obvious
-   * statistic measures a garment rather than a body.
+   * Take each capsule's thickness from the MESH instead of the authored fraction
+   * of bone length; see `measuredRadius` for why the obvious statistic measures a
+   * garment rather than a body.
    *
-   * Off by default, and the default is the point: this changes the shape of every
-   * capsule on a body, and a body that already settles reliably has nothing to
-   * gain and a working configuration to lose.
+   * Off by default, and the default is the point: it reshapes every capsule, and a
+   * body that already settles has a working configuration to lose.
    */
   readonly capsulesFromMesh?: boolean
   /**
-   * Whether the segments of THIS body collide with each other.
-   *
-   * `trunk` (the default, and what every body did before this was an option):
-   * the four joints that exist to keep a limb out of the torso — the two hips and
-   * the two shoulders — keep their contacts, and every other jointed pair already
-   * has them off. It is what makes a corpse's arm lie ON its chest rather than
-   * inside it.
-   *
-   * `off`: nothing in this body touches itself, only the world.
+   * Whether this body's segments collide with each other. `trunk` (the default)
+   * keeps contacts on the four joints that hold a limb out of the torso — the
+   * hips and shoulders — which is what makes an arm lie ON the chest rather than
+   * inside it. `off`: nothing in the body touches itself, only the world.
    */
   readonly selfCollision?: 'off' | 'trunk'
   /**
-   * Multiplies every segment's angular damping — how hard a limb resists being
-   * turned, which is what decides whether a corpse creeps or comes to rest.
+   * Multiplies every segment's angular damping, which decides whether a corpse
+   * creeps or comes to rest.
    *
-   * It travels with `capsulesFromMesh` in practice, and for a physical reason: a
-   * capsule fitted to a thin limb has less contact and less drag than the fat
-   * authored one it replaces, so the same body takes longer to stop. Measured on
-   * the imp, whose thighs went from 0.132 to 0.055 — it settled inside four
-   * seconds in one run out of three. The authored damping was fitted to the fat
-   * capsules; the thin ones need their own.
+   * It travels with `capsulesFromMesh`, for a physical reason: a capsule fitted to
+   * a thin limb has less contact and less drag than the fat authored one, so the
+   * same body takes longer to stop. Measured on a body whose thighs went 0.132 ->
+   * 0.055: it settled inside four seconds in one run out of three.
    */
   readonly angularDamping?: number
   /**
-   * Scales the knee/elbow BUCKLE — the fold that is driven into the limbs for the
-   * first moment after death so the body gives way instead of toppling like a
-   * plank. 0 disables it.
+   * Scales the knee/elbow BUCKLE — the fold driven into the limbs for the first
+   * moment after death so the body gives way instead of toppling. 0 disables it.
    *
-   * A per-body number because the reflex drives BOTH knees to the same angle, and
-   * what that produces depends on what the legs were doing. Measured on the imp:
-   * killed standing it comes to rest in four runs out of four, killed mid-stride
-   * in two — the asymmetric pose plus a symmetric fold puts it on one knee, where
-   * it keeps micro-moving. In this game that is the common case, because an imp
-   * is killed running at you.
+   * Per-body because the reflex drives BOTH knees to the same angle, and the
+   * result depends on what the legs were doing. Measured: killed standing, a body
+   * settles in four runs out of four; killed mid-stride, two — the asymmetric pose
+   * plus a symmetric fold leaves it on one knee, micro-moving.
    */
   readonly buckle?: number
   /**
    * Extra hip EXTENSION, in radians — how far the thigh may swing back past the
-   * authored stop.
+   * authored `[-75°, +15°]`, which is a human's range.
    *
-   * The authored range is a human's: `[-75°, +15°]`, because a live person flexes
-   * the hip far more than they extend it. A corpse dropped by a symmetric buckle
-   * then ends with its knees tucked under its pelvis and stays that way, because
-   * fifteen degrees is all the room it has to open out again. Whether that is
-   * right depends on the creature: this one is digitigrade and already stands
-   * with its hips open.
-   *
-   * MEASURED AND NOT USED. It was prescribed as the fix for a corpse that lands
-   * with its knees under it, and it makes that corpse worse: at 0.9 rad of extra
-   * extension the imp came to rest in one run out of four, against six out of six
-   * without it, and the spread of how it lands grew from 0.11 to 0.17 m. More
-   * freedom in the hip is more room to keep moving. Kept as an option because the
-   * next creature may need it; left at zero because this one does not.
+   * MEASURED AND NOT USED. It was prescribed as the fix for a corpse landing with
+   * its knees under it, and it makes that corpse worse: at 0.9 rad the body came
+   * to rest in one run out of four against six out of six without it, and the
+   * spread of where it lands grew from 0.11 to 0.17 m. More freedom in the hip is
+   * more room to keep moving. Kept as an option for the next creature; zero here.
    */
   readonly hipExtension?: number
 }
@@ -663,28 +549,22 @@ function poseToBind(root: Object3D): () => void {
   ;(skeleton as Skeleton).pose()
 
   /**
-   * A bind pose is a POSE, not a resize — so the skeleton is measured at the size
-   * the body actually lives at, whatever size its bind matrices are expressed in.
+   * A bind pose is a POSE, not a resize: the skeleton is measured at the size the
+   * body lives at, whatever size its bind matrices are expressed in.
    *
-   * `Skeleton.pose()` rebuilds every bone from `boneInverses`, and those matrices
-   * do not have to be in the same space as the live rig. A model built with
-   * `?meshopt` is exactly that case: the optimizer's quantization step rescales
-   * and re-centres the vertex positions and compensates by changing the inverse
-   * bind matrices, so the drawn body is identical while the recovered bind pose
-   * comes back at a different scale entirely. Measured on the imp: an inverse-bind
-   * scale of 0.4998 against the source asset's 1.0000, so `pose()` handed back a
-   * skeleton at TWICE size. Every capsule was then measured twice as thick, and
-   * every `bind` below carried that factor into `syncToSkeleton`, which decomposes
-   * it straight onto `bone.scale` — the body visibly doubled the instant it died.
+   * `Skeleton.pose()` rebuilds bones from `boneInverses`, and those need not be
+   * in the live rig's space. `?meshopt` is exactly that case — quantization
+   * rescales and re-centres vertex positions and compensates in the inverse binds,
+   * so the drawn body is identical while the recovered bind pose comes back at a
+   * different scale. Measured: an inverse-bind scale of 0.4998 against the source
+   * asset's 1.0000, so `pose()` handed back a skeleton at TWICE size, every
+   * capsule was measured twice as thick, and the body visibly doubled the instant
+   * it died.
    *
-   * Only the scale has to come out. The bind pose's absolute POSITION never
-   * escapes this function: `bind` is a transform relative to the body's own
-   * centre and waking applies `bone.matrixWorld · bind⁻¹`, so a bind pose that
-   * sits a metre from where the body stands cancels itself out. A scale does not.
-   *
-   * Only bones with no bone parent are touched, and that is the whole of it:
-   * `pose()` derives every other bone's local from its parent's world, which has
-   * already absorbed the factor, so the rest come back unit-scaled on their own.
+   * Only the scale has to come out; the bind pose's absolute POSITION cancels,
+   * since waking applies `bone.matrixWorld · bind⁻¹`. Only bones with no bone
+   * parent are touched: `pose()` derives the rest from a parent that has already
+   * absorbed the factor.
    */
   for (const entry of held) {
     if ((entry.bone.parent as Bone | null)?.isBone) continue
@@ -722,21 +602,15 @@ function poseToBind(root: Object3D): () => void {
 const GUESSED_TAIL_FACTOR: Readonly<Record<string, number>> = { head: 1.82 }
 
 /**
- * Where a segment's tail is when the rig simply has no node for it.
+ * Where a segment's tail is when the rig has no node for it. Mixamo's leaf ends
+ * are export-time extras, and a character rigged elsewhere to Mixamo bone NAMES
+ * routinely has none — the head notices first, since its bone runs to a crown
+ * that is not there.
  *
- * Mixamo's leaf ends (`HeadTop_End`, the finger tips) are export-time extras, and
- * a character rigged elsewhere to Mixamo bone NAMES — a generated mesh, say —
- * routinely has none of them. The head is the segment that notices: its bone runs
- * from the base of the skull to the crown, and with no crown node its capsule has
- * nothing to span.
- *
- * So the guess CONTINUES the link that arrived at the bone: same direction, and a
- * length that is a measured proportion of it. That makes it a proportion of the
- * rig rather than a number — it used to be `head + (0, -0.2, 0)`, a fifth of a
- * metre straight DOWN in world space regardless of which way the bone pointed or
- * how big the body was.
- *
- * It is still a guess, and the DEV error at the call site still says so.
+ * The guess CONTINUES the link that arrived at the bone: same direction, length a
+ * measured proportion of it, so it scales with the rig. It used to be
+ * `head + (0, -0.2, 0)` — a fifth of a metre straight down in world space
+ * whichever way the bone pointed. Still a guess, and the DEV error says so.
  */
 function guessTail(bone: Bone, head: Vector3, id: string): Vector3 {
   const parent = bone.parent
@@ -754,21 +628,14 @@ const scratchBoneInverse = new Matrix4()
 const measuredLog: string[] = []
 
 function measureSpec({ bones, nodes, skinned }: RigIndex, options: RagdollFitOptions): RagdollSpec | null {
-  // One pass over the mesh, at build time, shared by every segment below.
-  // Walked when the body ASKED for mesh-fitted capsules, and additionally in DEV
-  // so the comparison can be read off `__ragdollRadii` on any body. A full pass
-  // over twenty thousand vertices is not something a shipped build pays for
-  // unless it is using the answer.
-  /*
-   * Walked when the body ASKED for mesh-fitted capsules — and no longer "also in
-   * DEV".
-   *
-   * The DEV arm meant every mob paid a full vertex walk on mount whether or not
-   * anything read the answer, and the build being profiled is the DEV build, so
-   * the frame-cost work was measuring a cost the shipped game does not have. The
-   * comparison it fed is still reachable: ask for it explicitly with
-   * `capsulesFromMesh`, or read `__ragdollRadii` on a body that does.
-   */
+  // One pass over the mesh at build time, shared by every segment below, and
+  // walked only when the body ASKED for mesh-fitted capsules.
+  //
+  // It used to walk in DEV as well, so every body paid a full twenty-thousand
+  // vertex pass on mount whether or not anything read the answer — and since the
+  // build being profiled is the DEV build, the frame-cost work was measuring a
+  // cost the shipped game does not have. The comparison is still reachable
+  // through `capsulesFromMesh`, or `__ragdollRadii` on a body that asks.
   const wantsMesh = options.capsulesFromMesh === true
   const cloud = skinned && wantsMesh ? vertexCloud(skinned) : new Map<Bone, Vector3[]>()
   if (import.meta.env.DEV) {
@@ -834,27 +701,19 @@ function measureSpec({ bones, nodes, skinned }: RigIndex, options: RagdollFitOpt
     const tailLocal = tail.clone().applyMatrix4(scratchBoneInverse.copy(bone.matrixWorld).invert())
     const authored = (fit?.radius ?? radiusFactor) * length
     const fromMesh = wantsMesh || import.meta.env.DEV ? measuredRadius(cloud, bone, tailLocal) : null
-    // NOTE, and it used to say the opposite: the measurement does NOT only
-    // shrink. There is no `Math.min` below, and on this rig the mesh INFLATES —
-    // measured live, the imp's pelvis goes 0.029 -> 0.137 and its thigh
-    // 0.132 -> 0.162, and the mannequin's pelvis would go 0.042 -> 0.162 if it
-    // asked. A shrink-only cap was tried and reverted (`wip/imp-anim/VERDICTS.md`
-    // row 3); the comment describing it outlived the code by several hours, which
-    // is exactly how a reader ends up trusting a guarantee nothing provides.
+    // The measurement does NOT only shrink, and this comment once said it did:
+    // there is no `Math.min` below, and the mesh INFLATES on some rigs — measured
+    // live, a pelvis goes 0.029 -> 0.137 and a thigh 0.132 -> 0.162. A shrink-only
+    // cap was tried and reverted; the comment describing it outlived the code by
+    // hours, which is how a reader ends up trusting a guarantee nothing provides.
+    /** Which answer this body asked for; the authored fraction stays the default. */
     /**
-     * Which answer this body asked for. The authored fraction is the default and
-     * stays the default — see `RagdollFitOptions` for why one of them is not
-     * simply better than the other.
-     */
-    /**
-     * And never wider than the joint it carries. Measured on the imp when its
-     * capsules were still sized off a percentile that had counted its loincloth:
-     * pelvis 0.137 plus thigh 0.162 against a hip anchor 0.094 from the pelvis
-     * axis — an overlap of three to one, and a body that never settled. That
-     * arithmetic was once used to argue the clamp could not work; it was arguing
-     * about numbers the measurement no longer produces (thigh 0.055 now), which
-     * is exactly why a conclusion reached by reasoning has to be re-derived when
-     * its inputs move.
+     * And never wider than the joint it carries. Measured when capsules were still
+     * sized off a percentile that had counted a loincloth: pelvis 0.137 plus thigh
+     * 0.162 against a hip anchor 0.094 from the pelvis axis — three to one overlap,
+     * and a body that never settled. That arithmetic was later used to argue the
+     * clamp could not work, using numbers the measurement no longer produces
+     * (thigh 0.055 now): a conclusion has to be re-derived when its inputs move.
      */
     const anchors = contactAnchors.get(id)
     let allowed = Infinity

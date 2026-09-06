@@ -14,6 +14,7 @@
     "knip": "knip --include files,exports",
     "test": "vitest run --coverage",
     "test:watch": "vitest",
+    "clean-code:baseline": "node scripts/clean-code-baseline.mjs",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
     "version:bump": "node scripts/bump-version.ts",

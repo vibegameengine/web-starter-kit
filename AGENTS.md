@@ -206,6 +206,36 @@ imagined. The rules themselves apply here without exception.
      the work. It is the difference between a session that leaves a system and a
      session that leaves a system plus the reasons it is shaped that way.
 
+6a. **NEVER EXPLAIN THE CODE IN A COMMENT. Rule 6 says where the explanation
+   goes, and it is not beside the line.** This rule and the one above are one
+   idea: write the lesson down, and write it where it gets read on purpose
+   rather than by accident.
+
+   Measured here the day this was written: **4 040 of 14 917 source lines were
+   comment — 27%**, with one 980-line file at 59% prose. Nobody chose that. It
+   arrived one reasonable-looking paragraph at a time, and every paragraph made
+   the file it sat in harder to read.
+
+   Every comment gets one of three fates, and only one of them is "leave it".
+
+   - **Delete it** when it restates the code. `/** The player's health. */` over
+     `readonly health: number` is noise with a maintenance cost: it outlives the
+     line it describes and then lies about it.
+   - **Move it** when it is a paragraph of design rationale — into `docs/`, per
+     rule 6, leaving one line that points there. A paragraph beside one line is
+     read by whoever is fixing something else, which is nobody's audience.
+   - **Keep it, unshortened,** when it records a MEASUREMENT, cites a SOURCE, or
+     marks a dead end: `// Measured: 125 Hz against 120 fps gives alpha 1.04`.
+     Those cannot be re-derived from the code, and they are why rule 6 exists.
+     When "fewer comments" and "keep the measurement" disagree, the measurement
+     wins, every time.
+
+   A name is the cheapest comment. Before writing one, try extracting the code
+   into a function whose name says what the comment was going to say.
+
+   The thresholds are mechanical, in `agents/skills/clean-code`; the opt-in guard
+   that measures them is `.claude/hooks/clean-code-guard.mjs`.
+
 7. **NEVER write a Markdown file through a shell script.** No heredoc, no
    `cat >`, no `echo`, no Python that assembles prose. Use the Write tool, once.
 

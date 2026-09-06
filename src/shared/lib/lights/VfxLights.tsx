@@ -5,66 +5,36 @@ import * as THREE from 'three'
 import { assignVfxLightSlots, type VfxLightSample } from './vfxLightRanking'
 
 /**
- * Dynamic lights for VFX, without the freeze.
+ * Dynamic lights for VFX, without the shader recompile.
  *
- * ## The freeze
+ * A three.js material is compiled against the NUMBER of lights in the scene: the
+ * count is part of the program's cache key and the light loop is unrolled to it.
+ * Mounting one `<pointLight>` therefore does not add a light — it invalidates
+ * every program in the scene and recompiles every material, on the main thread,
+ * mid-frame. Every flash, rocket, spark and gib did that twice, once appearing
+ * and once going away; lights inside a `visible={false}` group are not in the
+ * count either, so the recompile fired on the trigger pull.
  *
- * A three.js material is compiled against the NUMBER of lights in the scene —
- * the count is baked into the program's cache key, and the light loop is
- * unrolled to it. So mounting one `<pointLight>` does not add a light: it
- * invalidates every program in the scene and recompiles every material in it,
- * on the main thread, mid-frame. That is the hitch. It is not the GPU being
- * asked to light one more thing; it is the CPU rebuilding the whole shader set
- * because a number changed.
+ * So the count never changes. `<VfxLightPool>` mounts a fixed set of real
+ * `PointLight`s once, at scene load, and they stay at intensity 0 forever.
+ * `<VfxLight>` is not a light: it is an empty marking a place in the graph with
+ * the colour and brightness something WANTS there. Once a frame the pool ranks
+ * the markers (`vfxLightRanking.ts`) and points its lamps at the winners —
+ * position, colour, intensity, distance and decay are plain uniforms, which cost
+ * nothing to write and compile nothing.
  *
- * Every muzzle flash, rocket, impact spark and gib did exactly that, twice —
- * once appearing, once going away. The muzzle flashes were worse than that:
- * they lived inside a `visible={false}` group, and an invisible light is not in
- * three's light count either, so the recompile fired on the trigger pull.
- *
- * ## The rig
- *
- * The count never changes. `<VfxLightPool>` mounts a fixed set of real
- * `PointLight`s ONCE, at scene load, where the shader compile belongs, and they
- * stay in the scene forever at intensity 0. Nothing after that ever adds or
- * removes a light.
- *
- * `<VfxLight>` is what VFX mount instead, and it is not a light at all — it is
- * an empty marking a place in the scene graph, carrying the colour and
- * brightness something WANTS there. Once a frame the pool reads every marker,
- * ranks them (`vfxLightRanking.ts`) and points its lamps at the winners.
- * Position, colour, intensity, distance and decay are all plain uniforms:
- * writing them costs nothing and compiles nothing.
- *
- * ## Using it
- *
- * Mount the pool once in the scene, then use `<VfxLight>` anywhere you would
- * have written `<pointLight>` — same props, same place in the graph, inherits
- * the parent transform, obeys a `visible={false}` ancestor:
- *
- * ```tsx
- * <VfxLightPool />                                            // scene root, once
- * <VfxLight color="#ff541c" distance={4} intensity={2.5} />   // inside the VFX
- * ```
- *
- * The one prop `pointLight` does not have is `priority`: raise it for a light
- * the shot is MADE of — a muzzle flash — so it cannot lose its lamp to six
- * rockets on the far side of the arena on a busy frame.
- *
- * The one thing the rig cannot do is cast shadows. A shadowing light is another
- * define and another sampler, so switching one on at runtime is the same
- * recompile by another name. VFX light does not shadow — the sun does.
+ * `priority` is the one prop `pointLight` lacks: raise it for a light the shot is
+ * made of, so it cannot lose its lamp on a busy frame. The rig cannot cast
+ * shadows — a shadowing light is another define and another sampler, which is the
+ * same recompile by another name.
  */
 
 /**
- * Lamps in the pool.
- *
- * This is the whole cost model of the rig: every material in the scene runs
- * this many point-light iterations per fragment forever, whether or not
- * anything is lit. Eight is a Quake-ish budget — a muzzle flash, two rockets in
- * the air and their impacts, with room to spare — and cheap enough that the
- * arena does not notice it. Raise it in a scene that genuinely needs more
- * concurrent lights, not because one light was dropped once.
+ * Lamps in the pool, and the whole cost model of the rig: every material in the
+ * scene runs this many point-light iterations per fragment forever, lit or not.
+ * Eight is a Quake-ish budget — a muzzle flash, two rockets and their impacts.
+ * Raise it for a scene that needs more concurrent lights, not because one light
+ * was dropped once.
  */
 export const VFX_LIGHT_POOL_SIZE = 8
 
@@ -81,13 +51,9 @@ export interface VfxLightRequest {
 
 interface VfxLightRegistry {
   /**
-   * Which mounted pool is driving the lamps this frame.
-   *
-   * A scene really can end up with two pools mounted, and it is not a mistake
-   * when it happens: a lab mounts the game's scene — which brings its own pool —
-   * onto the shared lab stage, which mounts one for every lab that does not.
-   * So the second pool is not an error to shout about, it is a no-op: the lamps
-   * belong to the REGISTRY, one mount owns them, and the extra mounts sit out.
+   * Which mounted pool drives the lamps this frame. Two pools in one scene is not
+   * a mistake — a lab mounts the game's scene, which brings its own — so the
+   * second is a no-op: the lamps belong to the registry and one mount owns them.
    */
   driver: symbol | null
   /** The scene's lamps, created by the first pool mounted and shared by all. */
@@ -98,31 +64,17 @@ interface VfxLightRegistry {
 }
 
 /**
- * Registries are per-SCENE, not global.
- *
- * A lab and the game can be mounted in the same tab, and a global registry
- * would have one scene's pool chasing markers that live in the other's graph —
- * a lamp following an object nobody can see. Keyed on the scene that cannot
- * happen, and neither component needs a provider around it: both find their
- * registry from the r3f store they are already inside.
+ * Registries are per-SCENE, not global: a lab and the game can be mounted in the
+ * same tab, and a global one would have a pool chasing markers in the other
+ * scene's graph. Both components find theirs from the r3f store they are in.
  */
 const registries = new WeakMap<THREE.Object3D, VfxLightRegistry>()
 
 /**
- * The scene a mounted object really belongs to, by walking the graph.
- *
- * NOT `useThree(state => state.scene)`, and the difference is a bug that cost an
- * afternoon: r3f's `createPortal` injects its own store with `scene` replaced by
- * the PORTAL TARGET. A `VfxLight` portalled into a weapon's `muzzle` node
- * therefore registered itself into a registry keyed on that node — a registry
- * with no pool and no lamps in it — and asked for 20.8 intensity, every frame,
- * of nobody. Nothing threw, the request record filled in correctly, every
- * constant in the effect read back the value it was given, and the muzzle simply
- * never lit. The DEV warning below did fire the whole time and nobody was
- * reading the console.
- *
- * Walking up from the object is the only answer that is true in both cases: for
- * a light mounted normally it returns exactly `state.scene`.
+ * The scene a mounted object really belongs to, by walking the graph — NOT
+ * `useThree(state => state.scene)`. r3f's `createPortal` injects a store whose
+ * `scene` is the PORTAL TARGET, so a light portalled into another node reports
+ * the wrong scene and follows an object nobody can see.
  */
 function sceneOf(object: THREE.Object3D): THREE.Object3D {
   let node = object
