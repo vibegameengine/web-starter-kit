@@ -20,7 +20,8 @@
     "version:major": "node scripts/bump-version.ts major",
     "version:minor": "node scripts/bump-version.ts minor",
     "version:patch": "node scripts/bump-version.ts patch",
-    "labs:previews": "node scripts/shot-lab-previews.mjs"
+    "labs:previews": "node scripts/shot-lab-previews.mjs",
+    "verify:ui-scaler": "node scripts/verify-ui-scaler.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",
