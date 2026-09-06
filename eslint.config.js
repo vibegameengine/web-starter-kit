@@ -21,9 +21,10 @@ export default defineConfig([
     },
     rules: {
       // A `useState` re-renders its whole subtree, so a value held in one costs
-      // the frame budget of everything below it — see docs/frame-cost.md, where
-      // publishing a tick into state above the consumers re-rendered the sky,
-      // the lights and the physics provider, none of which read it.
+      // the frame budget of everything BELOW it rather than of the things that
+      // read it. Publishing a simulation tick into state held above its
+      // consumers is how this is usually discovered: the sky, the lights and the
+      // physics provider all re-render, and not one of them reads a tick.
       //
       // Keep per-frame and per-input values in a ref, a store, or a mutable
       // object read from useFrame. React state is still the right answer when a
@@ -34,13 +35,13 @@ export default defineConfig([
         {
           selector: 'CallExpression[callee.name="useState"]',
           message:
-            'useState re-renders the subtree; see docs/frame-cost.md. Use a ref or a store, or disable this rule on the line with a reason.',
+            'useState re-renders its whole subtree, not just its readers. Keep per-frame and per-input values in a ref or a store, or disable this rule on the line with a reason.',
         },
         {
           selector:
             'CallExpression[callee.object.name="React"][callee.property.name="useState"]',
           message:
-            'useState re-renders the subtree; see docs/frame-cost.md. Use a ref or a store, or disable this rule on the line with a reason.',
+            'useState re-renders its whole subtree, not just its readers. Keep per-frame and per-input values in a ref or a store, or disable this rule on the line with a reason.',
         },
       ],
     },

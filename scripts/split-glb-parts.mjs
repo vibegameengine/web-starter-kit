@@ -161,7 +161,7 @@ kept.slice(0, TOP).forEach((p, i) => {
 
 console.log(
   `\nslenderness = height / widest footprint. Gothic canon puts a pinnacle at 7.0` +
-    `\n(docs/gothic-architecture.md, Roriczer 1486), so a component near that is a spire or pinnacle.`,
+    `\n(Roriczer, 1486), so a component near that ratio is a spire or a pinnacle.`,
 )
 const spires = kept.filter((p) => {
   const foot = Math.max(p.size[0], p.size[2])
