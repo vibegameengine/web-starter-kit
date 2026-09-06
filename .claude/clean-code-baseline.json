@@ -140,6 +140,13 @@
       "functionsOverLimit": 0,
       "worstFunction": 6
     },
+    "src/features/anti-tiling-ground/ui/AntiTilingGroundLabScreen.tsx": {
+      "commentRun": 15,
+      "commentShare": 0.3,
+      "fileLines": 68,
+      "functionsOverLimit": 0,
+      "worstFunction": 5
+    },
     "src/features/bootstrap/ui/BootstrapGate.tsx": {
       "commentRun": 4,
       "commentShare": 0.05,
@@ -202,6 +209,48 @@
       "fileLines": 106,
       "functionsOverLimit": 0,
       "worstFunction": 21
+    },
+    "src/features/terrain-layers/materials/layeredTerrainMaterial.ts": {
+      "commentRun": 20,
+      "commentShare": 0.28,
+      "fileLines": 263,
+      "functionsOverLimit": 0,
+      "worstFunction": 70
+    },
+    "src/features/terrain-layers/systems/layerMask.ts": {
+      "commentRun": 9,
+      "commentShare": 0.18,
+      "fileLines": 104,
+      "functionsOverLimit": 0,
+      "worstFunction": 27
+    },
+    "src/features/terrain-layers/systems/layerTextureArray.ts": {
+      "commentRun": 13,
+      "commentShare": 0.34,
+      "fileLines": 74,
+      "functionsOverLimit": 0,
+      "worstFunction": 20
+    },
+    "src/features/terrain-layers/systems/roadField.ts": {
+      "commentRun": 11,
+      "commentShare": 0.1,
+      "fileLines": 129,
+      "functionsOverLimit": 0,
+      "worstFunction": 0
+    },
+    "src/features/terrain-layers/systems/terrainLayerStack.ts": {
+      "commentRun": 20,
+      "commentShare": 0.65,
+      "fileLines": 226,
+      "functionsOverLimit": 0,
+      "worstFunction": 41
+    },
+    "src/features/terrain-layers/ui/LayeredTerrainLabScreen.tsx": {
+      "commentRun": 22,
+      "commentShare": 0.39,
+      "fileLines": 274,
+      "functionsOverLimit": 0,
+      "worstFunction": 52
     },
     "src/features/ui-kit/components/AudioSettingsControls/AudioSettingsControls.tsx": {
       "commentRun": 13,

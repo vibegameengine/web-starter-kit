@@ -95,6 +95,18 @@ folders. Its current feature mix includes:
 - **A real VFX compositing path.** `VfxPortalPass` renders an independent VFX
   scene after the world composer and depth-tests it against world geometry,
   allowing effect-specific bloom and tone mapping without drawing through walls.
+- **Ground that does not repeat.** `anti-tiling-ground` samples one albedo
+  through per-cell quarter turns, offsets and tone in WORLD space, so a 44 m
+  floor made of a single 1k texture shows no grid — the artefact that gives away
+  every tiled terrain.
+- **A layered terrain on one mesh.** `terrain-layers` blends ground, a pressed
+  road and a parallaxed stone overlay by HEIGHT rather than by alpha, so a stone
+  keeps its own silhouette against the soil instead of dissolving into it. A
+  layer is data — tiling, blend and height bias are values in an array — and each
+  one inherits the anti-tiling treatment above rather than reintroducing the
+  repeat. Every lookup takes explicit gradients: a stochastic uv jumps at each
+  cell border, and the implicit derivative there sends the GPU to its smallest
+  mip, which is what turns a fine surface at distance into crawling sparkle.
 - **Responsive game UI.** `ScalableContainer` keeps the game HUD sized for a
   logical target resolution; Patch9 surfaces/buttons are semantic, asset-backed
   controls. The demo includes a Patch9 dance action, a GitHub Corner link and a

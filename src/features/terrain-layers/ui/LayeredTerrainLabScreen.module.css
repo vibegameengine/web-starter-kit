@@ -1,0 +1,35 @@
+.screen {
+  height: 100vh;
+  position: relative;
+  width: 100vw;
+}
+
+/* Pinned to the corner and inert except for its own controls: the blend is
+   judged WHILE orbiting the plate, so a panel that swallowed the drag would
+   take the camera away from the thing being looked at. */
+.hud {
+  bottom: 14px;
+  display: flex;
+  left: 14px;
+  pointer-events: none;
+  position: absolute;
+  width: min(430px, calc(100vw - 28px));
+}
+
+.hud > * {
+  pointer-events: auto;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hint {
+  color: rgb(224 245 255 / 62%);
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  line-height: 1.45;
+  margin: 2px 0 0;
+}
