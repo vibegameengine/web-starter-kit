@@ -21,6 +21,7 @@
     "version:minor": "node scripts/bump-version.ts minor",
     "version:patch": "node scripts/bump-version.ts patch",
     "labs:previews": "node scripts/shot-lab-previews.mjs",
+    "verify:ui-kit-gallery": "node scripts/verify-ui-kit-gallery.mjs",
     "verify:ui-scaler": "node scripts/verify-ui-scaler.mjs"
   },
   "dependencies": {

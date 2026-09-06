@@ -97,8 +97,25 @@ export function UiKitGallery() {
     zoomBy(Math.exp(-event.deltaY * 0.0016), event.clientX - rect.left - rect.width / 2, event.clientY - rect.top - rect.height / 2)
   }, [zoomBy])
 
-  const onPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+  /**
+   * Claims the gesture in the CAPTURE phase, and only while Space is held.
+   *
+   * On the bubble phase the control under the cursor has already had the event:
+   * measured, a Space-drag begun over the master fader moved it from 0.85 to
+   * 0.1 and panned the view at the same time, because a native
+   * `<input type="range">` jumps to the pressed position on `pointerdown` and
+   * `setPointerCapture` afterwards only redirects what comes NEXT. Suppressing
+   * the following `click` cannot undo a value that was already committed.
+   *
+   * `stopPropagation` in the capture phase is what keeps the event away from the
+   * control; `preventDefault` cancels the browser's own default for it. Removing
+   * both puts the fault back — `npm run verify:ui-kit-gallery` then reports
+   * `0.85 -> 0.1`, which is how this was proved rather than assumed.
+   */
+  const onPointerDownCapture = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     if (!spaceRef.current) return // pan only while Space is held
+    event.preventDefault()
+    event.stopPropagation()
     dragging.current = true
     moved.current = false
     last.current = { x: event.clientX, y: event.clientY }
@@ -167,7 +184,7 @@ export function UiKitGallery() {
           <div
             className={`${styles.viewport} ${spaceHeld ? styles.viewportPan : ''}`}
             onWheel={onWheel}
-            onPointerDown={onPointerDown}
+            onPointerDownCapture={onPointerDownCapture}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
             onPointerCancel={onPointerUp}
