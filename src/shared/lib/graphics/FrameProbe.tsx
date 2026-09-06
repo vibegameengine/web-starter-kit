@@ -8,15 +8,16 @@ import { useEffect, useRef } from 'react'
  * An external `requestAnimationFrame` loop sees the cadence the compositor
  * delivered — the symptom. It cannot see the draw calls, shader links or render
  * targets that produced it, nor say which of a frame's several passes grew.
- * Reaching in through r3f's private `canvas.__r3f` returns nothing in this
- * version (measured), and an instrument built on a private field is one
+ * Reaching in through r3f's private `canvas.__r3f` was tried first and returns
+ * nothing in this version — measured: the probe threw rather than publishing
+ * zeros. An instrument built on a private field is one
  * dependency bump from silently reporting zeros, which reads like a healthy
  * scene. So the renderer publishes itself, DEV-only, from inside the tree that
  * owns it: `start(segment)`, `mark(name)`, `stop()`, `info()`.
  *
  * WHERE the sample is taken is the whole of it. `gl.info.render` resets at the
  * START of every `gl.render()` while `autoReset` is true, and this scene renders
- * several times per frame (main, shadow, every composer pass) — a count read
+ * several times per frame (main, shadow, every `EffectComposer` pass) — a count
  * after the frame describes only the LAST pass, and falls as the scene gets more
  * expensive. So this component owns the reset: `autoReset = false`, reset in
  * `addEffect` before any pass, read in `addAfterEffect` after all of them.
@@ -42,18 +43,22 @@ export type FrameSample = {
    *
    * Measured over three waves, a per-frame attribution could name a cause for
    * barely a third of the time spent over budget: 56-66% of it moved no draw
-   * call, no program, no texture and no geometry. A collection shows up here as a
-   * DROP. Chrome-only and quantized to about 100 KB (it is a fingerprinting
-   * surface); `null` where the browser withholds it, never 0 — a zero would read
-   * as an empty heap.
+   * call, no program, no texture and no geometry. Those frames are either
+   * collection or GPU work and the probe could not tell the two apart, so the
+   * largest single contributor stayed a residual — do not read the 56-66% as
+   * garbage collection.
+   *
+   * A collection shows up here as a DROP. Chrome-only and quantized to about
+   * 100 KB (it has been used for timing attacks); `null` where the browser
+   * withholds it, never 0 — a zero would read as an empty heap.
    */
   readonly heap: number | null
   /**
    * GPU time in ms via `EXT_disjoint_timer_query_webgl2`, or null.
    *
    * A slow frame with a flat heap and a high GPU time is the renderer waiting on
-   * the card. The extension is often withheld, so null is common — and null is
-   * reported rather than folded to zero, because "could not measure the GPU" and
+   * the card. The extension is often withheld (timing attacks), so null is common
+   * — and null is reported rather than folded to zero, because "could not measure the GPU" and
    * "the GPU was idle" must never be confused. The result comes back some frames
    * late by construction: correlate it across a segment, never with one delta.
    */
@@ -93,7 +98,8 @@ export type FrameProbeApi = {
    * private `canvas.__r3f` returns nothing in this version — measured, and the
    * reason this component exists: without a published handle, "where did that
    * body actually end up" has nowhere to look, and a placement regression is
-   * caught only by a human noticing it.
+   * caught only by a human noticing it — bodies fell through the floor for hours
+   * because nothing automated could read a drawn transform.
    */
   scene: () => import('three').Scene
   /**

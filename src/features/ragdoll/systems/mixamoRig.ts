@@ -130,7 +130,8 @@ const SEGMENTS: readonly (readonly [string, string, string, number, number, numb
   ['thighR', 'rightupleg', 'rightleg', 0.32, 0.10, 0.15],
   ['shinR', 'rightleg', 'rightfoot', 0.26, 0.061, 0.15],
   // FEET were tried here and reverted; the measurement is kept rather than the
-  // code. With revolute ankles at [-45°, +30°] the corpse span went 0.559 -> 1.047
+  // code. With `['footL','leftfoot','lefttoebase',0.30,0.0145,d]` and revolute
+  // ankles at [-45°, +30°] the corpse span went 0.559 -> 1.047
   // of body height while the control barely moved (0.728 -> 0.722), so it was more
   // body being simulated rather than a wider ruler. But rest time went 3.55s ±0.94
   // to 6.67s ±1.46 and both bodies stopped settling inside four seconds; damping
@@ -241,7 +242,8 @@ export function normalizeBoneName(name: string): string {
  * length and a direction).
  *
  * Mixamo's leaf ends carry no skin weights, so an exporter leaves them out of the
- * skin's joint list and three makes them plain `Object3D`. Indexing bones alone
+ * skin's joint list and three creates a `Bone` only for nodes named there
+ * (`GLTFLoader._markDefs`), making the rest plain `Object3D`. Indexing bones alone
  * lost the top of the head: the skull's capsule ended up 20 cm low, centred on
  * the neck, while the spec still reported a full set of segments.
  */
@@ -704,8 +706,10 @@ function measureSpec({ bones, nodes, skinned }: RigIndex, options: RagdollFitOpt
     // The measurement does NOT only shrink, and this comment once said it did:
     // there is no `Math.min` below, and the mesh INFLATES on some rigs — measured
     // live, a pelvis goes 0.029 -> 0.137 and a thigh 0.132 -> 0.162. A shrink-only
-    // cap was tried and reverted; the comment describing it outlived the code by
-    // hours, which is how a reader ends up trusting a guarantee nothing provides.
+    // cap was tried and reverted (`wip/imp-anim/VERDICTS.md` row 3); the comment
+    // describing it outlived the code by hours, which is how a reader ends up
+    // trusting a guarantee nothing provides. A mannequin pelvis would go
+    // 0.042 -> 0.162 the same way if it asked.
     /** Which answer this body asked for; the authored fraction stays the default. */
     /**
      * And never wider than the joint it carries. Measured when capsules were still

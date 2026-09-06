@@ -1,28 +1,11 @@
 /**
  * Where a foot should BE, when the body is moving in a direction the take was
- * never captured for.
+ * never captured for. A foot is planted in world space until the body has
+ * carried its leg too far, then it lifts, arcs and lands ahead; legs step in
+ * diagonal pairs, one pair at a time, which is a trot.
  *
- * A run take is a recording of a body going forward. Play it while the body
- * strafes and the feet keep striding forward through a world that is sliding
- * sideways underneath them — the legs are busy, the animal skates. The usual
- * answer is more takes: a strafe-left, a strafe-right, a back-pedal, and a blend
- * tree to pick between them. That is four captures per creature and it still has
- * nothing to say about the diagonals.
- *
- * The other answer is to stop asking the take where the feet go. A foot is
- * PLANTED at a spot on the ground; it stays at that spot, in world space, while
- * the body moves over it; when the body has carried the leg too far from where
- * that leg wants to be, the foot picks up, arcs, and lands somewhere ahead. That
- * works in every direction because no direction is baked into it — this is the
- * whole of it, and it is why the module is pure arithmetic with no three.js in
- * sight.
- *
- * The gait comes out of one extra rule: legs step in DIAGONAL PAIRS, and only
- * one pair is ever off the ground. That is a trot, it is what most quadrupeds do
- * at moderate speed, and it keeps the animal statically balanced at every
- * instant — there is always a support triangle. Without the rule the legs step
- * whenever they individually feel like it, and a dog whose four feet lift in
- * arbitrary order reads as broken long before anyone can say why.
+ * Why this instead of four more takes and a blend tree:
+ * `docs/ragdoll-and-animation.md`, "Procedural stepping".
  */
 
 /** A point on the ground plane. Y is carried but never reasoned about here. */

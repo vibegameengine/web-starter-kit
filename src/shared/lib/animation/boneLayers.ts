@@ -1,27 +1,10 @@
 import type { AnimationClip, KeyframeTrack } from 'three'
 
 /**
- * Splitting a take into BONE LAYERS — the mechanism that lets one body do two
- * things at once.
+ * Splitting a take into BONE LAYERS: the cut is at the PELVIS, and two layers
+ * whose tracks address disjoint bones both play at full weight.
  *
- * A clip animates every bone it was authored with, so two clips played together
- * fight over every bone they share and the mixer settles it by weight. Cutting
- * each clip down to the bones one layer owns removes the fight entirely: the
- * lower layer's tracks and the upper layer's tracks address disjoint sets of
- * bones, so both can play at full weight, at their own rate, at the same time.
- *
- * Two things in this project need exactly that:
- *   - **Striking while running.** The legs keep the stride while an attack takes
- *     the spine and arms, out of ONE authored run and ONE authored swing rather
- *     than a run-and-swing take per gait.
- *   - **Retiming the legs alone.** A run take played faster to keep the feet
- *     planted speeds up the whole body with it, and a body sped up wholesale
- *     reads as comedy fast-motion. Split, the stride can chase the ground speed
- *     while the torso keeps something close to its authored cadence.
- *
- * The cut is at the PELVIS. Hips and the legs below it belong to locomotion and
- * are never taken away, because a body that is running is running with its hips;
- * the spine and everything above it is what an action borrows.
+ * What that buys and what it costs: `docs/ragdoll-and-animation.md` §4.
  */
 
 export type MobBoneLayer = 'lower' | 'upper'
@@ -36,12 +19,9 @@ const HIP_BONE_LEAF = /Hips$/
  */
 const LEG_BONE_LEAF = /(?:UpLeg|Leg|Foot|ToeBase|Toe_End)$/
 /**
- * Both spellings on purpose. Mixamo bones are `mixamorig:LeftUpLeg`, and three's
- * glTF loader strips the colon out of every node name it binds against, so the
- * same bone reaches a clip's tracks as `mixamorigLeftUpLeg`. A rig read straight
- * from an FBX keeps the colon. Matching only one of the two silently produces an
- * EMPTY layer — a clip with no tracks, which plays perfectly and animates
- * nothing.
+ * Both spellings on purpose: three's glTF loader strips the colon out of
+ * `mixamorig:LeftUpLeg`, an FBX keeps it, and matching one spelling produces an
+ * EMPTY layer — a clip with no tracks, which plays perfectly and animates nothing.
  */
 const MIXAMO_BONE_PREFIX = /^mixamorig\d*:?/
 
@@ -90,24 +70,6 @@ export function trackBelongsToLayer(
 }
 
 /**
- * One layer of a take, as a new clip. The source is never touched — it belongs to
- * the asset cache and is shared by every body on screen.
- */
-/**
- * `bones` narrows a take to a few bones INSIDE its layer.
- *
- * A layer is the right cut for locomotion, where the whole upper body follows
- * the take. It is the wrong cut for a take that only reacts: a recoil plays
- * over a body that is already running and already aiming, so keying the rest of
- * the upper body freezes it into one frame of the run for the duration of the
- * shot. On screen that reads as the creature RAISING its arm to fire something
- * it was already pointing at.
- *
- * The filter lives here rather than in the asset because FBX export bakes every
- * bone whatever the source action keyed — the authored intent does not survive
- * the file, so it has to be restated where the clip is built.
- */
-/**
  * Cached per (source clip, layer, name, bone filter).
  *
  * `source.clone()` deep-copies every track including its `times` and `values`
@@ -125,6 +87,21 @@ export function trackBelongsToLayer(
  */
 const layeredClips = new Map<string, AnimationClip>()
 
+/**
+ * One layer of a take, as a new clip. The source is never touched — it belongs to
+ * the asset cache and is shared by every body on screen.
+ *
+ * `bones` narrows the take further, to a few bones INSIDE the layer. A whole
+ * layer is the right cut for locomotion; it is the wrong cut for a take that only
+ * reacts, because a recoil plays over a body that is already running and already
+ * aiming, and keying the rest of the upper body freezes it into one frame of the
+ * run for the duration of the shot — on screen, the creature RAISES its arm to
+ * fire something it was already pointing at.
+ *
+ * The filter lives here rather than in the asset because FBX export bakes every
+ * bone whatever the source action keyed: the authored intent does not survive the
+ * file, so it has to be restated where the clip is built.
+ */
 export function createLayeredClip(
   source: AnimationClip,
   layer: MobBoneLayer,

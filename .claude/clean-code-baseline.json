@@ -1,74 +1,94 @@
 {
   "files": {
     "scripts/rig-audit.mjs": {
-      "commentShare": 0.19,
+      "commentShare": 0.11,
       "fileLines": 474,
-      "worstFunction": 152
+      "functionsOverLimit": 1,
+      "worstFunction": 145
     },
     "src/features/bootstrap/ui/BootstrapGate.tsx": {
       "commentShare": 0.05,
       "fileLines": 318,
-      "worstFunction": 175
+      "functionsOverLimit": 1,
+      "worstFunction": 150
     },
     "src/features/character/entities/Tany/SwordBack.tsx": {
-      "commentShare": 0.08,
+      "commentShare": 0.03,
       "fileLines": 144,
-      "worstFunction": 110
+      "functionsOverLimit": 1,
+      "worstFunction": 108
     },
     "src/features/character/entities/Tany/useTanyRig.ts": {
       "commentShare": 0.07,
       "fileLines": 155,
-      "worstFunction": 116
-    },
-    "src/features/ragdoll/entities/Ragdoll.tsx": {
-      "commentShare": 0.41,
-      "fileLines": 242,
-      "worstFunction": 85
+      "functionsOverLimit": 1,
+      "worstFunction": 104
     },
     "src/features/ragdoll/systems/mixamoRig.ts": {
-      "commentShare": 0.52,
-      "fileLines": 839,
-      "worstFunction": 113
+      "commentShare": 0.39,
+      "fileLines": 843,
+      "functionsOverLimit": 1,
+      "worstFunction": 176
     },
     "src/features/ragdoll/systems/ragdollBody.ts": {
-      "commentShare": 0.38,
-      "fileLines": 942,
-      "worstFunction": 67
+      "commentShare": 0.35,
+      "fileLines": 912,
+      "functionsOverLimit": 0,
+      "worstFunction": 61
     },
     "src/features/ui-kit/components/Patch9Button/Patch9Button.tsx": {
       "commentShare": 0.04,
       "fileLines": 199,
-      "worstFunction": 103
+      "functionsOverLimit": 1,
+      "worstFunction": 83
     },
     "src/features/ui-kit/components/UiKitGallery/UiKitGallery.tsx": {
-      "commentShare": 0.14,
+      "commentShare": 0.02,
       "fileLines": 211,
-      "worstFunction": 112
-    },
-    "src/features/world/entities/Fountain.tsx": {
-      "commentShare": 0.1,
-      "fileLines": 208,
+      "functionsOverLimit": 1,
       "worstFunction": 122
     },
-    "src/scenes/demo-scene/webgpu/SSGIPipeline.tsx": {
-      "commentShare": 0.27,
-      "fileLines": 137,
-      "worstFunction": 82
+    "src/features/world/entities/Fountain.tsx": {
+      "commentShare": 0.15,
+      "fileLines": 208,
+      "functionsOverLimit": 1,
+      "worstFunction": 104
     },
     "src/scenes/ragdoll-lab/RagdollHandling.tsx": {
       "commentShare": 0.25,
       "fileLines": 443,
-      "worstFunction": 282
+      "functionsOverLimit": 1,
+      "worstFunction": 256
     },
     "src/shared/lib/audio/musicPlayer.ts": {
       "commentShare": 0.27,
       "fileLines": 161,
-      "worstFunction": 90
+      "functionsOverLimit": 1,
+      "worstFunction": 82
     },
     "src/shared/lib/graphics/FrameProbe.tsx": {
-      "commentShare": 0.32,
-      "fileLines": 311,
-      "worstFunction": 160
+      "commentShare": 0.33,
+      "fileLines": 317,
+      "functionsOverLimit": 2,
+      "worstFunction": 152
+    },
+    "vite/audioAssetOptimizerPlugin.ts": {
+      "commentShare": 0.04,
+      "fileLines": 592,
+      "functionsOverLimit": 2,
+      "worstFunction": 101
+    },
+    "vite/fbxAssetLoaderPlugin.ts": {
+      "commentShare": 0.08,
+      "fileLines": 309,
+      "functionsOverLimit": 1,
+      "worstFunction": 103
+    },
+    "vite/glbAssetOptimizerPlugin.ts": {
+      "commentShare": 0.09,
+      "fileLines": 555,
+      "functionsOverLimit": 2,
+      "worstFunction": 114
     }
   },
   "recorded": "2026-09-06"

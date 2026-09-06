@@ -172,6 +172,31 @@ three's glTF loader strips the colon. Matching one spelling produces an EMPTY
 layer — a clip that plays perfectly and animates nothing. Include the leaf ends
 (`Toe_End`) or an attack take gets permission to write the toes.
 
+### Procedural stepping, for a body moving in a direction nobody captured
+
+`legStepping.ts` answers "where should this foot BE" without asking the take.
+
+A run take is a recording of a body going forward. Play it while the body
+strafes and the feet keep striding forward through a world sliding sideways
+underneath them — the legs are busy, the animal skates. The usual answer is more
+takes: strafe-left, strafe-right, back-pedal, and a blend tree to pick between
+them. That is four captures per creature and it still has nothing to say about
+the diagonals.
+
+The other answer is to stop asking the take where the feet go. A foot is PLANTED
+at a spot on the ground; it stays at that spot, in world space, while the body
+moves over it; when the body has carried the leg too far from where that leg
+wants to be, the foot picks up, arcs, and lands somewhere ahead. That works in
+every direction because no direction is baked into it, and it is why the module
+is pure arithmetic with no three.js in sight.
+
+The gait comes out of one extra rule: legs step in DIAGONAL PAIRS, and only one
+pair is ever off the ground. That is a trot, it is what most quadrupeds do at
+moderate speed, and it keeps the animal statically balanced at every instant —
+there is always a support triangle. Without the rule the legs step whenever they
+individually feel like it, and a dog whose four feet lift in arbitrary order
+reads as broken long before anyone can say why.
+
 ---
 
 ## 5. Additive head aim, and the two ways it breaks
@@ -304,6 +329,41 @@ The ragdoll's own handle is NOT exposed. It used to be, and it was a trap twice
 over: its `activate()` could never win against the entity's own `active`, and its
 `hit()` on a living body queued an impulse that fired whenever the body later
 happened to die.
+
+### The simulated body is an object, not a tree of components
+
+`ragdollBody.ts` owns the whole corpse: the rigid bodies, the colliders, the
+joints, the collapse ramp, the support, rest detection, and writing the solver's
+result back onto the skeleton. Nothing in it happens until someone calls it, so
+the order things run in is the caller's to state rather than something to
+discover.
+
+It was components first. Every rigid body was a `<RigidBody>` and every joint a
+component with its own `useFrame`, which put **fifteen per-frame subscriptions on
+one corpse** — one doing real work and fourteen polling a ref to notice a number
+had changed, because a component cannot be *told* anything. Worse, r3f calls
+subscribers in mount order, so "does the animation write the skeleton before or
+after the solver" was decided by React reconciliation. That is not a thing to
+tune; it is a thing to remove.
+
+The two clocks stay apart on purpose:
+
+- `step(dt)` — simulation: ramps, support, rest detection. Belongs on the fixed
+  tick.
+- `syncToSkeleton()` — presentation: reads the bodies, writes the bones. Belongs
+  on the render frame, because that is when the mesh is drawn.
+
+They are two methods rather than one `update` so a caller cannot put gameplay
+timing on a render delta — which is exactly what the component version did with
+its buckle, relax and settle windows.
+
+The file imports no React, no r3f, and not even the physics package: the engine
+is described by structural interfaces and handed in. That is what makes it
+extractable, and it is what stops a later edit from quietly reaching for a hook.
+The interfaces are structural rather than imported for a second reason — the
+project resolves two different copies of the physics package, so importing types
+from either one risks describing a different build than the objects actually
+handed in at runtime.
 
 ---
 

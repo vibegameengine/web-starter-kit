@@ -24,23 +24,15 @@ import { Debug } from '../demo-scene/Debug'
 import { labStageGroundGeometry, labStageGroundMaterial } from './labStageMaterials'
 
 /**
- * The one stage every DEV lab stands on.
- *
- * See the `dev-lab-authoring` skill, rule 2. A lab mounts this and adds its
- * SUBJECT — it does not bring its own canvas, light rig, grid or post chain.
- * That is not a tidiness preference: when each lab lights its subject its own
- * way, two labs cannot be compared, and a material or a model tuned in one
+ * The one stage every DEV lab stands on: a lab mounts this and adds its SUBJECT,
+ * never its own canvas, light rig, grid or post chain. When each lab lights its
+ * subject its own way, two labs cannot be compared, and a material tuned in one
  * comes out wrong in the next and wrong again in the game.
  *
- * So the lighting here deliberately speaks the GAME's language — the same sun
- * direction, the same warm key against a cool sky fill, the same ACES tone
- * mapping — rather than a neutral studio rig. A subject that reads well on this
- * stage reads well in the raid.
- *
- * Everything a lab could reasonably need to change is an OPTION. If a lab needs
- * something that is not one, add the option here rather than forking the stage:
- * one more prop is always a smaller diff than a second copy, and the copy is
- * what the next author will inherit.
+ * The lighting speaks the GAME's language rather than a neutral studio's, for the
+ * same reason. Anything a lab might need to change is a PROP below — one more
+ * prop is a smaller diff than a second copy of the stage, and the copy is what
+ * the next author inherits. See the `dev-lab-authoring` skill, rule 2.
  */
 
 /** Sun position relative to the stage centre. Shared with the game's own scenes. */
@@ -92,11 +84,9 @@ export type LabStageProps = {
    * The AMBIENT PALETTE — the colour of the sky above, the bounce from the
    * ground, and the fill from the shadow side.
    *
-   * Options rather than a fork (rule 2), and they default to the game's own
-   * cool-sky-over-warm-ground rig, so a lab that does not name them is lit
-   * exactly as it was before these existed.
-   *
-   * They exist because `ambient` alone cannot express every day. Turning the
+   * They default to the game's own cool-sky-over-warm-ground rig, so a lab that
+   * does not name them is lit exactly as it was before they existed, and they
+   * exist because `ambient` alone cannot express every day. Turning the
    * stage's ambient up to reach a soft, skylight-driven look — a bright overcast
    * where shaded stone is only a quarter darker than lit stone — also turns the
    * blue of `#8bb4ef` up with it, and the subject arrives cold and grey. The
@@ -159,7 +149,7 @@ export type LabStageProps = {
   readonly vfxLights?: boolean
   /** Shadow-receiving floor under the subject. */
   readonly ground?: boolean
-  /** Floor extent in metres. */
+  /** Metres. Also sizes the shadow box, unless `sun.radius` says otherwise. */
   readonly groundSize?: number
   /** Orbit inspection controls, or `false` when the lab drives its own camera. */
   readonly orbit?: false | {
@@ -171,9 +161,9 @@ export type LabStageProps = {
    * Extra composer effects, inserted after AO and BEFORE bloom.
    *
    * The slot exists so a lab whose subject IS a screen-space effect — refraction,
-   * distortion, a scanner overlay — can mount it without forking the post chain
-   * (rule 2: options, not copies). Before bloom on purpose: bloom must bleed from
-   * the image those effects produced, not from the one they replaced.
+   * distortion, a scanner overlay — can mount it without forking the post chain.
+   * Before bloom on purpose: bloom must bleed from the image those effects
+   * produced, not from the one they replaced.
    *
    * Typed as a single element rather than `ReactNode`: each child of a composer
    * must BE an effect, and a fragment or a string silently renders nothing.

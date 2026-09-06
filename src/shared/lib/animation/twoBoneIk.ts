@@ -1,29 +1,16 @@
 import { Vector3 } from 'three'
 
 /**
- * Two-bone inverse kinematics, solved in closed form.
+ * Two-bone inverse kinematics, solved in closed form: a limb is a triangle with
+ * one unknown, and the law of cosines answers it directly. FABRIK and CCD are
+ * general over chains of any length, which is what a leg does not need — the
+ * iteration count buys nothing here but a frame-rate-dependent answer.
  *
- * An arm or a leg is a triangle: two bones of fixed length hinged in the middle,
- * with the shoulder or hip pinned. Ask for the tip to be somewhere and there is
- * exactly one unknown left — how far the middle joint is bent — and the law of
- * cosines answers it directly. No iteration, no convergence, no per-frame budget
- * to blow: the same input gives the same output in the same time, every frame.
- *
- * That matters more than elegance here. The iterative solvers (FABRIK, CCD) are
- * general — they handle chains of any length — and general is what a leg does not
- * need. Two bones with one hinge is the case, and paying an iteration count for
- * it buys nothing but a frame-rate-dependent answer.
- *
- * Nothing here touches three's scene graph, an animation mixer or a clock. It
- * takes positions and returns a position, so it can be unit-tested against
- * arithmetic instead of against a rendered frame — which is how the rest of this
- * feature's systems are written, and for the same reason.
- *
- * WHAT IT DOES NOT DO. It solves where the middle joint goes; it does not write
+ * WHAT IT DOES NOT DO: it solves where the middle joint goes, and does not write
  * bones. Turning a solved triangle into bone rotations belongs to whatever owns
- * the rig, because that is where the bones' rest orientations are known — and on
- * a generated rig those are arbitrary, so a solver that assumed them would work
- * on one character and quietly bend the wrong way on the next.
+ * the rig, where the rest orientations are known — on a generated rig those are
+ * arbitrary, so a solver that assumed them would work on one character and
+ * quietly bend the wrong way on the next.
  */
 
 export type TwoBoneChain = {

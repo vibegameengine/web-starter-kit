@@ -1,12 +1,10 @@
 #!/usr/bin/env node
-// Measures a file that was just written against agents/skills/clean-code, and
-// blocks only what got WORSE than `.claude/clean-code-baseline.json` records.
+// PostToolUse hook. Measures the file that was just written against
+// agents/skills/clean-code, and blocks only what got WORSE than
+// `.claude/clean-code-baseline.json` records.
 //
-// It exists because "keep it small" as advice does not survive a long session.
-// Measured here the day it was written: 196 source files, 10 877 lines of code
-// against 4 040 lines of comment, and one 980-line file that was 59% prose.
-//
-// PostToolUse hook: reads the tool payload on stdin, answers with JSON.
+// Measured the day it was written, across 223 tracked source files: 4 331 of
+// 18 507 non-blank lines were comment, and the longest file was 980 lines.
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { resolve } from 'node:path'
@@ -35,34 +33,63 @@ if (/[\\/]agents[\\/]skills[\\/]/i.test(path)) process.exit(0)
 
 const root = process.env.CLAUDE_PROJECT_DIR ?? process.cwd()
 
+// A silent exit 0 and a clean measurement look identical downstream, so every
+// path that gives up says why. Otherwise the day the compiler stops resolving,
+// the gate reports nothing forever and reads as a repository that got clean.
+function giveUp(why) {
+  process.stdout.write(JSON.stringify({ systemMessage: `clean-code: not measured (${why}).` }))
+  process.exit(0)
+}
+
 let text
 try {
   text = readFileSync(path, 'utf8')
-} catch {
-  process.exit(0)
+} catch (error) {
+  giveUp(`cannot read ${path}: ${error.code ?? error.message}`)
 }
+
+// The compiler and the shared module are resolved from where this hook SITS,
+// not from the project root: they ship in the same checkout, while the root only
+// decides which baseline applies and what path to print. Resolving them from the
+// root made the gate silently stop measuring whenever CLAUDE_PROJECT_DIR pointed
+// at a subdirectory.
+const here = resolve(import.meta.dirname, '../..')
 
 let ts
 let clean
 try {
-  ts = createRequire(resolve(root, 'package.json'))('typescript')
-  clean = await import(pathToFileURL(resolve(root, 'scripts/lib/cleanCode.mjs')).href)
-} catch {
+  ts = createRequire(resolve(here, 'package.json'))('typescript')
+  clean = await import(pathToFileURL(resolve(here, 'scripts/lib/cleanCode.mjs')).href)
+} catch (error) {
   // Without the compiler or the shared module there is no measurement, and a
   // guess about function extents is exactly what this guard refuses to make.
-  process.exit(0)
+  giveUp(`typescript or scripts/lib/cleanCode.mjs did not load from ${here}: ${error.message}`)
 }
 
+// An unreadable baseline is not the same as an absent one: absent means a fresh
+// repository with nothing forgiven, unreadable means every recorded file is
+// about to be blocked for debt it was granted. The second one has to be loud.
 let baseline = {}
 try {
   baseline = JSON.parse(readFileSync(resolve(root, '.claude/clean-code-baseline.json'), 'utf8')).files ?? {}
-} catch {
-  baseline = {}
+} catch (error) {
+  if (error.code !== 'ENOENT') {
+    giveUp(`.claude/clean-code-baseline.json is unreadable (${error.message}); every recorded file would block`)
+  }
 }
 
-const relative = path.replace(/\\/g, '/').replace(`${root.replace(/\\/g, '/')}/`, '')
+// Windows hands the same file back under either drive-letter case, and a strict
+// string compare then misses the baseline entry — which fails CLOSED, blocking
+// exactly the files the ratchet exists to let through. Measured: the same path
+// passed as `C:\projects\…` and blocked as `c:\projects\…`.
+const key = (value) => value.replace(/\\/g, '/').toLowerCase()
+const wanted = key(path)
+const prefix = `${key(root)}/`
+const relative = wanted.startsWith(prefix) ? wanted.slice(prefix.length) : wanted
+const entry = Object.entries(baseline).find(([file]) => key(file) === relative)?.[1]
+
 const measurement = clean.measureFile(ts, path, text)
-const { blockers, warnings } = clean.judge(measurement, baseline[relative])
+const { blockers, warnings } = clean.judge(measurement, entry)
 
 if (blockers.length === 0 && warnings.length === 0) process.exit(0)
 

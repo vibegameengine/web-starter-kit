@@ -3,42 +3,12 @@ import { Matrix4, Quaternion, Vector3 } from 'three'
 import type { RagdollJoint, RagdollSegment, RagdollSpec } from './mixamoRig'
 
 /**
- * A ragdoll as an OBJECT, not as a tree of components.
+ * A ragdoll as an OBJECT, not as a tree of components. `step(dt)` is the fixed
+ * tick, `syncToSkeleton()` is the render frame, and the two never merge.
  *
- * This file owns the whole simulated body: it creates the rigid bodies, the
- * colliders and the joints, ramps the collapse, holds the support, decides when
- * the corpse is at rest, and writes the solver's result back onto the skeleton.
- * It has one owner by construction — nothing happens until someone calls
- * `step`/`syncToSkeleton`, and the order those run in is the caller's to state.
- *
- * Why that matters, concretely. Every rigid body used to be a `<RigidBody>` and
- * every joint a component with its own `useFrame`, which put FIFTEEN per-frame
- * subscriptions on one corpse — one doing real work and fourteen polling a ref
- * to notice a number had changed, because a component cannot be *told* anything.
- * Worse, r3f calls subscribers in mount order, so "does the animation write the
- * skeleton before or after the solver" was decided by React reconciliation. That
- * is not a thing to tune; it is a thing to remove.
- *
- * The two clocks are kept apart on purpose:
- *   - `step(dt)`      — simulation. Ramps, support, rest detection. Belongs on
- *                       the project's fixed tick (see the fixed-tick contract).
- *   - `syncToSkeleton()` — presentation. Reads the bodies, writes the bones.
- *                       Belongs on the render frame, because that is when the
- *                       mesh is drawn.
- * They are separate methods rather than one `update` so a caller cannot
- * accidentally put gameplay timing on a render delta, which is exactly what the
- * component version did with its buckle, relax and settle windows.
- *
- * Deliberately framework-free: no React, no r3f, and no import of the physics
- * package either — the engine is described by the narrow structural interfaces
- * below and handed in. That is what makes this extractable as its own module,
- * and it is also what stops a future edit from quietly reaching for a hook.
+ * Why it is shaped this way, and what the component version cost:
+ * `docs/ragdoll-and-animation.md`, "The simulated body is an object".
  */
-
-// ── The physics surface this needs, and nothing more ────────────────────────
-// Structural rather than imported: the project resolves two different copies of
-// the physics package, so importing types from either one risks describing a
-// different build than the objects actually handed in at runtime.
 
 export type Vec3Like = { readonly x: number; readonly y: number; readonly z: number }
 export type QuatLike = { readonly x: number; readonly y: number; readonly z: number; readonly w: number }

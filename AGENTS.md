@@ -59,8 +59,11 @@ imagined. The rules themselves apply here without exception.
      `clean`, `stash`, `reset --hard`, `switch --force`, `worktree remove` — and
      lets their harmless forms through. It is a policy, not a fact about your
      project, so nothing here enables it: copy `.claude/settings.example.json`
-     to `.claude/settings.json` if you want it, and delete both files if you do
-     not.
+     to `.claude/settings.json` if you want it.
+   - That example wires two independent gates: this one on `PreToolUse`, and the
+     clean-code guard of rule 6a on `PostToolUse`. Taking one and not the other
+     means deleting the block you do not want, not the file. Wanting neither
+     means not making the copy at all.
 
 2a. **NEVER MEASURE A SYSTEM IN A PLAYABLE SCENE.** A playable scene is for
    measuring INTEGRATION — that these systems run together, in the real
@@ -207,14 +210,17 @@ imagined. The rules themselves apply here without exception.
      session that leaves a system plus the reasons it is shaped that way.
 
 6a. **NEVER EXPLAIN THE CODE IN A COMMENT. Rule 6 says where the explanation
-   goes, and it is not beside the line.** This rule and the one above are one
-   idea: write the lesson down, and write it where it gets read on purpose
-   rather than by accident.
+   goes, and it is not beside the line.** What this forbids is prose that says
+   what the code already says. What the code CANNOT say — a measurement, a
+   source, a dead end — is the third fate below, and it is not an explanation.
+   This rule and the one above are one idea: write the lesson down, and write it
+   where it gets read on purpose rather than by accident.
 
-   Measured here the day this was written: **4 040 of 14 917 source lines were
-   comment — 27%**, with one 980-line file at 59% prose. Nobody chose that. It
-   arrived one reasonable-looking paragraph at a time, and every paragraph made
-   the file it sat in harder to read.
+   Measured here the day this was written, by `scripts/lib/cleanCode.mjs` over
+   the 223 tracked source files: **4 331 of 18 507 non-blank lines were comment
+   — 23%**, and the longest file was 980 lines at 43% prose. Nobody chose that.
+   It arrived one reasonable-looking paragraph at a time, and every paragraph
+   made the file it sat in harder to read.
 
    Every comment gets one of three fates, and only one of them is "leave it".
 
@@ -234,7 +240,10 @@ imagined. The rules themselves apply here without exception.
    into a function whose name says what the comment was going to say.
 
    The thresholds are mechanical, in `agents/skills/clean-code`; the opt-in guard
-   that measures them is `.claude/hooks/clean-code-guard.mjs`.
+   that measures them is `.claude/hooks/clean-code-guard.mjs`, wired by the
+   `PostToolUse` block of `.claude/settings.example.json`. It is a ratchet: it
+   blocks a file that gets worse than `.claude/clean-code-baseline.json` records,
+   never the debt already there.
 
 7. **NEVER write a Markdown file through a shell script.** No heredoc, no
    `cat >`, no `echo`, no Python that assembles prose. Use the Write tool, once.

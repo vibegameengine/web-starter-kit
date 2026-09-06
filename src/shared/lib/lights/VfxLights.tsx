@@ -73,8 +73,10 @@ const registries = new WeakMap<THREE.Object3D, VfxLightRegistry>()
 /**
  * The scene a mounted object really belongs to, by walking the graph — NOT
  * `useThree(state => state.scene)`. r3f's `createPortal` injects a store whose
- * `scene` is the PORTAL TARGET, so a light portalled into another node reports
- * the wrong scene and follows an object nobody can see.
+ * `scene` is the PORTAL TARGET. A light portalled into a weapon's `muzzle` node
+ * therefore registered into a registry keyed on that node — no pool, no lamps —
+ * and asked for 20.8 intensity, every frame, of nobody. Nothing threw, every
+ * constant read back the value it was given, and the muzzle simply never lit.
  */
 function sceneOf(object: THREE.Object3D): THREE.Object3D {
   let node = object
@@ -215,9 +217,9 @@ export type VfxLightPoolProps = {
 /**
  * The scene's permanent lamps. Mount it at the scene root, next to the sun.
  *
- * Mounting it is what fixes the freeze: the lamps exist before the first frame,
- * so every material in the scene compiles once, against a light count that will
- * never move again.
+ * Mounting it is what removes the recompile: the lamps exist before the first
+ * frame, so every material in the scene compiles once, against a light count
+ * that will never move again.
  *
  * Mounting it TWICE is harmless — a lab that puts the game's scene on the shared
  * lab stage gets two, and neither of them is the wrong one. The lamps belong to

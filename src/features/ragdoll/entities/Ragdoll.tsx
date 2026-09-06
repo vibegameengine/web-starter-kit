@@ -9,30 +9,17 @@ import { buildRagdollSpec } from '../systems/mixamoRig'
 import { RagdollBody, type PhysicsApi, type PhysicsWorld } from '../systems/ragdollBody'
 
 /**
- * The CONNECTOR, and nothing else.
+ * The CONNECTOR, and nothing else: it hands `systems/ragdollBody.ts` the physics
+ * world, gives it its two clocks, and takes it away again on unmount.
  *
- * Everything the ragdoll actually does lives in `systems/ragdollBody.ts` as a
- * plain object. This file's whole job is to hand that object the physics world,
- * give it its TWO clocks, and take it away again on unmount — the three things
- * React is genuinely for here.
+ * `step()` rides the HOST'S FIXED TICK. On the render delta instead, a 300 ms
+ * hitch drove the collapse ramp straight to zero — the knees never buckled and
+ * the body toppled like a plank — and could push the settle window past its
+ * threshold, force-sleeping a corpse in mid-air. `syncToSkeleton()` stays on the
+ * render frame, because that is the frame that draws the mesh.
  *
- * Two clocks, because the system is deliberately split into two halves and this
- * is the file that decides which half runs when (see the header of
- * `systems/ragdollBody.ts`):
- *   - `step()` is the simulation — the buckle reflex, the flaccidity ramp, the
- *     support hold and rest detection. It rides the HOST'S FIXED TICK. It used
- *     to take the render delta, which meant a 300 ms hitch drove the collapse
- *     ramp straight to zero (the knees never buckled and the body toppled like a
- *     plank) and could push the settle window past its threshold, force-sleeping
- *     a corpse in mid-air.
- *   - `syncToSkeleton()` is presentation — read the bodies, write the bones. It
- *     stays on the render frame, because that is the frame that draws the mesh.
- *
- * It used to be the other way round: every rigid body was a `<RigidBody>`, every
- * joint a component with its own `useFrame`, and one corpse carried fifteen
- * per-frame subscriptions of which fourteen only polled a ref to notice a number
- * had moved. There is now exactly one subscription per body, and the joints are
- * called rather than left a value to discover.
+ * Why the body is an object and not a tree of components:
+ * `docs/ragdoll-and-animation.md`, "The simulated body is an object".
  */
 
 export type RagdollApi = {
