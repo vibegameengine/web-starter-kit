@@ -33,6 +33,7 @@ export function MotionMatchedBody({
     ankleHeight,
     gait: () => ({
       blendShare: animator.current.blendShare,
+      clipId: animator.current.clipId as never,
       clipSpeed: animator.current.clipSpeed,
       grounded: animator.current.grounded,
       phase: animator.current.phase,

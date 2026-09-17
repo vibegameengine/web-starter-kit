@@ -12,7 +12,7 @@ import { useMotionController } from '../../features/motion/components/useMotionC
 import { createBoxWorldTrace, type SolidBox, type Vector3Tuple } from '../../features/motion/systems/boxTrace'
 import type { MotionSettings } from '../../features/motion/systems/motionController'
 import { GROUNDED_MOTION_PROFILE, profileAtSpeed } from '../../features/motion/systems/motionProfile'
-import { WALK_CLIP_SPEED } from '../../features/motion/catalog/locomotionClips'
+import { DIRECTION_SPEED_SHARES, WALK_CLIP_SPEED } from '../../features/motion/catalog/locomotionClips'
 import { HUMAN_TURN_PROFILE } from '../../features/motion/systems/turnDynamics'
 import type { MotionIntent } from '../../features/motion/systems/motionIntent'
 import { ShadowGroup } from '../../shared/lib/ShadowGroup'
@@ -29,6 +29,7 @@ const START: Vector3Tuple = [0, 0.9, 0]
 const bodyMaterial = new MeshStandardMaterial({ color: '#b9743f', roughness: 0.72 })
 
 export type MotionStandSceneProps = {
+  readonly facing: 'aim' | 'travel'
   readonly forward: number
   readonly readout: StandStore
   readonly right: number
@@ -53,18 +54,18 @@ function useMannequin(): Object3D {
   }, [scene])
 }
 
-function StandSubject({ bus, forward, readout, right, sprint }: StandSubjectProps) {
+function StandSubject({ bus, facing, forward, readout, right, sprint }: StandSubjectProps) {
   const rig = useMannequin()
   const aimYaw = useRef(0)
   const frame = useRef(0)
   const invalidate = useThree((state) => state.invalidate)
   const settings = useMemo<MotionSettings>(() => ({
     halfExtents: BODY_HALF_EXTENTS,
-    profile: profileAtSpeed(GROUNDED_MOTION_PROFILE, WALK_CLIP_SPEED),
-    rotationMode: 'orient-to-movement',
+    profile: profileAtSpeed(GROUNDED_MOTION_PROFILE, WALK_CLIP_SPEED, DIRECTION_SPEED_SHARES),
+    rotationMode: facing === 'aim' ? 'follow-aim' : 'orient-to-movement',
     trace: createBoxWorldTrace([FLOOR]),
     turnProfile: HUMAN_TURN_PROFILE,
-  }), [])
+  }), [facing])
 
   const held = useRef({ forward, right, sprint })
   held.current = { forward, right, sprint }

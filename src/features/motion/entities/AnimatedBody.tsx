@@ -21,6 +21,7 @@ export function AnimatedBody({ ankleHeight = 0.09, rig, timeline, trace }: Anima
     ankleHeight,
     gait: () => ({
       blendShare: animator.current.blendShare,
+      clipId: animator.current.clipId as never,
       clipSpeed: animator.current.clipSpeed,
       grounded: animator.current.grounded,
       phase: animator.current.phase,

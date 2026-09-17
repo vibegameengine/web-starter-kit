@@ -79,6 +79,10 @@ export const WALK_CLIP_SPEED = clipSpeedOfMetric('walk-forward')
 
 export const RUN_CLIP_SPEED = clipSpeedOfMetric('run-forward')
 
+function mirroredWindows(windows: FootStanceWindows): FootStanceWindows {
+  return { left: windows.right, right: windows.left }
+}
+
 function windowsOf(name: string): FootStanceWindows {
   const measured = measuredClip(name)
   return {
@@ -90,6 +94,21 @@ function windowsOf(name: string): FootStanceWindows {
 export const WALK_STANCE_WINDOWS: FootStanceWindows = windowsOf('walking')
 
 export const RUN_STANCE_WINDOWS: FootStanceWindows = windowsOf('running')
+
+export const LOCOMOTION_STANCE_WINDOWS: Readonly<Record<LocomotionClipId, FootStanceWindows>> = {
+  idle: windowsOf('idle'),
+  'run-backward': windowsOf('running-backward'),
+  'run-forward': windowsOf('running'),
+  'walk-backward': windowsOf('walking-backwards'),
+  'walk-forward': windowsOf('walking'),
+  'walk-strafe-left': mirroredWindows(windowsOf('walk-strafe-right')),
+  'walk-strafe-right': windowsOf('walk-strafe-right'),
+}
+
+export const DIRECTION_SPEED_SHARES = {
+  backward: clipSpeedOfMetric('walk-backward') / clipSpeedOfMetric('walk-forward'),
+  strafe: clipSpeedOfMetric('walk-strafe-right') / clipSpeedOfMetric('walk-forward'),
+}
 
 export const LOCOMOTION_GAIT_SPEEDS = {
   runSpeed: RUN_CLIP_SPEED,

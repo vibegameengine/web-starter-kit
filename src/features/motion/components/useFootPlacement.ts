@@ -5,8 +5,9 @@ import { Vector3 } from 'three'
 import type { Object3D } from 'three'
 
 import type { TwoBoneChain } from '../../../shared/lib/animation/twoBoneIk'
-import { RUN_STANCE_WINDOWS, WALK_STANCE_WINDOWS } from '../catalog/locomotionClips'
+import { LOCOMOTION_STANCE_WINDOWS, RUN_STANCE_WINDOWS } from '../catalog/locomotionClips'
 import type { TraceBox } from '../systems/boxTrace'
+import type { LocomotionClipId } from '../systems/locomotionPose'
 import { approachWeight, NO_PLANT } from '../systems/footPlanting'
 import { footStance } from '../systems/stanceWindow'
 import { strideScaleFor } from '../systems/strideWarp'
@@ -23,6 +24,7 @@ import type { MotionTimeline } from './useMotionController'
 
 export type GaitReading = {
   readonly blendShare: number
+  readonly clipId: LocomotionClipId
   readonly clipSpeed: number
   readonly grounded: boolean
   readonly phase: number
@@ -110,12 +112,13 @@ export function useFootPlacement(options: FootPlacementOptions): MutableRefObjec
   useFrame((_, delta) => {
     const body = timeline.current.current
     const reading = gait()
+    const windows = LOCOMOTION_STANCE_WINDOWS[reading.clipId] ?? LOCOMOTION_STANCE_WINDOWS['walk-forward']
     const stance = footStance({
       blendShare: reading.blendShare,
       grounded: reading.grounded,
       phase: reading.phase,
-      runWindows: RUN_STANCE_WINDOWS,
-      walkWindows: WALK_STANCE_WINDOWS,
+      runWindows: reading.clipId.startsWith('run') ? windows : RUN_STANCE_WINDOWS,
+      walkWindows: windows,
     })
     const speed = Math.hypot(body.velocity[0], body.velocity[2])
     if (speed > MOVING_SPEED) stride.set(body.velocity[0], 0, body.velocity[2]).normalize()

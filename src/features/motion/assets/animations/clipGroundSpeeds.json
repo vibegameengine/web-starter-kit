@@ -1,25 +1,36 @@
 [
   {
+    "baked": true,
     "clip": "walk-forward",
-    "groundSpeed": 1.0116,
+    "groundSpeed": 1.633,
     "residual": 0,
     "source": "Walking.fbx"
   },
   {
+    "baked": true,
     "clip": "walk-backward",
-    "groundSpeed": 0.6444,
-    "residual": 0.0085,
+    "groundSpeed": 1.0894,
+    "residual": 0,
     "source": "Walking Backwards.fbx"
   },
   {
+    "baked": false,
+    "clip": "walk-strafe-right",
+    "groundSpeed": 0.576,
+    "residual": 0,
+    "source": "Walk Strafe Right.fbx"
+  },
+  {
+    "baked": true,
     "clip": "run-forward",
-    "groundSpeed": 2.6929,
+    "groundSpeed": 2.8376,
     "residual": 0,
     "source": "Running.fbx"
   },
   {
+    "baked": true,
     "clip": "run-backward",
-    "groundSpeed": 2.3735,
+    "groundSpeed": 2.8976,
     "residual": 0,
     "source": "Running Backward.fbx"
   }

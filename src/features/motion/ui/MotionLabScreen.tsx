@@ -5,10 +5,10 @@ import { MotionLabScene, type AnimationMode } from '../../../scenes/motion-lab/M
 import { MOTION_LAB_STATIONS, MOTION_LAB_WARP_EVENT } from '../../../scenes/motion-lab/motionLabCourse'
 import { createMotionReadoutStore } from '../../../scenes/motion-lab/motionReadoutStore'
 import type { RotationMode } from '../systems/motionController'
-import { WALK_CLIP_SPEED } from '../catalog/locomotionClips'
+import { DIRECTION_SPEED_SHARES, WALK_CLIP_SPEED } from '../catalog/locomotionClips'
 import { ARENA_MOTION_PROFILE, GROUNDED_MOTION_PROFILE, profileAtSpeed } from '../systems/motionProfile'
 
-const WALK_ONLY_PROFILE = profileAtSpeed(GROUNDED_MOTION_PROFILE, WALK_CLIP_SPEED)
+const WALK_ONLY_PROFILE = profileAtSpeed(GROUNDED_MOTION_PROFILE, WALK_CLIP_SPEED, DIRECTION_SPEED_SHARES)
 import styles from './MotionLabScreen.module.css'
 
 const PROFILE_OPTIONS = [

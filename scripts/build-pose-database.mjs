@@ -207,8 +207,42 @@ const reference = rawByClip.get(REFERENCE_CLIP)
 if (!reference) throw new Error(`${REFERENCE_CLIP} must be measured before the database can be framed`)
 const hipsToFacing = normalizeAngle(travelHeading(reference) - meanYaw(reference))
 
+const MIRRORED_CLIPS = { 'walk-strafe-right': 'walk-strafe-left' }
+const POSE_BLOCKS = { feetPositions: 6, feetVelocities: 6, hipsVelocity: 3 }
+
+function mirroredFeatures(features, offsetCount) {
+  const mirrored = [...features]
+  const swapTriples = (a, b) => {
+    for (let index = 0; index < 3; index += 1) {
+      const left = features[a + index]
+      const right = features[b + index]
+      mirrored[a + index] = index === 0 ? -right : right
+      mirrored[b + index] = index === 0 ? -left : left
+    }
+  }
+  swapTriples(0, 3)
+  swapTriples(6, 9)
+  mirrored[12] = -features[12]
+
+  const positions = POSE_BLOCKS.feetPositions + POSE_BLOCKS.feetVelocities + POSE_BLOCKS.hipsVelocity
+  for (let index = 0; index < offsetCount * 2; index += 2) mirrored[positions + index] = -features[positions + index]
+  const headings = positions + offsetCount * 2
+  for (let index = 0; index < offsetCount * 2; index += 2) mirrored[headings + index] = -features[headings + index]
+  return mirrored
+}
+
 const poses = []
-for (const [clipId, frames] of rawByClip) poses.push(...indexFrames(clipId, withFacing(frames, hipsToFacing)))
+for (const [clipId, frames] of rawByClip) {
+  const indexed = indexFrames(clipId, withFacing(frames, hipsToFacing))
+  poses.push(...indexed)
+  const mirroredId = MIRRORED_CLIPS[clipId]
+  if (!mirroredId) continue
+  poses.push(...indexed.map((pose) => ({
+    clipId: mirroredId,
+    features: mirroredFeatures(pose.features, [...PAST_OFFSETS, ...FUTURE_OFFSETS].length),
+    time: pose.time,
+  })))
+}
 
 const offsets = [...PAST_OFFSETS, ...FUTURE_OFFSETS]
 const database = {

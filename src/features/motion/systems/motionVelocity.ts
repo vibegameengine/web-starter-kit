@@ -1,11 +1,6 @@
 import type { Vector3Tuple } from './boxTrace'
 import { intentDeflection, intentWishDirection, type MotionIntent, type PlaneVector } from './motionIntent'
-import {
-  BACKWARD_SPEED_MULTIPLIER,
-  SPRINT_SPEED_MULTIPLIER,
-  STRAFE_SPEED_MULTIPLIER,
-  type MotionProfile,
-} from './motionProfile'
+import { SPRINT_SPEED_MULTIPLIER, type MotionProfile } from './motionProfile'
 
 export type MotionVelocityInput = {
   readonly delta: number
@@ -24,15 +19,24 @@ export type MotionVelocityStep = MotionVelocityState & {
   readonly jumped: boolean
 }
 
-export function directionSpeedMultiplier(intent: MotionIntent): number {
-  if (intent.forward < 0) return BACKWARD_SPEED_MULTIPLIER
-  if (Math.abs(intent.right) > Math.abs(intent.forward)) return STRAFE_SPEED_MULTIPLIER
-  return 1
+export type DirectionSpeedShares = {
+  readonly backward: number
+  readonly strafe: number
+}
+
+export function directionSpeedMultiplier(intent: MotionIntent, shares: DirectionSpeedShares): number {
+  const lengthwise = Math.abs(intent.forward)
+  const sideways = Math.abs(intent.right)
+  const total = lengthwise + sideways
+  if (total < 1e-6) return 1
+  const alongShare = intent.forward < 0 ? shares.backward : 1
+  return (lengthwise * alongShare + sideways * shares.strafe) / total
 }
 
 export function wishSpeed(intent: MotionIntent, profile: MotionProfile): number {
   const sprint = intent.sprint && !intent.crouch ? SPRINT_SPEED_MULTIPLIER : 1
-  return profile.maxSpeed * sprint * directionSpeedMultiplier(intent) * intentDeflection(intent)
+  const direction = directionSpeedMultiplier(intent, profile.directionShares)
+  return profile.maxSpeed * sprint * direction * intentDeflection(intent)
 }
 
 export function accelerateTowardWish(

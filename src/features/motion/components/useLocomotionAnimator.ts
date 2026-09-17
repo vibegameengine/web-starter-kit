@@ -23,6 +23,7 @@ export type BonePoint = readonly [number, number, number]
 
 export type LocomotionAnimatorDebug = {
   readonly blendShare: number
+  readonly clipId: string
   readonly cadence: number
   readonly clipSpeed: number
   readonly clock: number
@@ -84,6 +85,7 @@ export function useLocomotionAnimator({
   const idleClock = useRef(0)
   const debug = useRef<LocomotionAnimatorDebug>({
     blendShare: 0,
+    clipId: 'idle',
     cadence: 1,
     clipSpeed: 0,
     clock: 0,
@@ -161,6 +163,7 @@ export function useLocomotionAnimator({
     mixer.update(0)
     debug.current = {
       blendShare: Math.sign(Math.cos(moveAngle)) * Math.min(1, speed / LOCOMOTION_GAIT_SPEEDS.runSpeed),
+      clipId: movingSample ? movingSample.clipId : 'idle',
       cadence: split.cadence,
       clipSpeed: blendedClipSpeed(samples),
       clock: idleClock.current,

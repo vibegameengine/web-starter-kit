@@ -12,6 +12,7 @@ const SPEEDS_FILE = resolve('src/features/motion/assets/animations/clipGroundSpe
 const CLIPS = [
   { clip: 'walk-forward', source: 'Walking.fbx' },
   { clip: 'walk-backward', source: 'Walking Backwards.fbx' },
+  { clip: 'walk-strafe-right', source: 'Walk Strafe Right.fbx' },
   { clip: 'run-forward', source: 'Running.fbx' },
   { clip: 'run-backward', source: 'Running Backward.fbx' },
 ]
@@ -42,18 +43,25 @@ function bake(entry) {
   if (report.speed <= 0) {
     throw new Error(`${entry.clip} measured a non-positive ground speed of ${report.speed} m/s`)
   }
-  return { clip: entry.clip, groundSpeed: report.speed, residual: settled, source: entry.source }
+  return {
+    baked: report.baked !== false,
+    clip: entry.clip,
+    groundSpeed: report.speed,
+    residual: settled,
+    source: entry.source,
+  }
 }
 
 const measured = CLIPS.map(bake)
 writeFileSync(SPEEDS_FILE, `${JSON.stringify(measured, null, 2)}\n`)
 
 const widest = Math.max(...measured.map((entry) => entry.clip.length))
-console.log(`${'clip'.padEnd(widest)}  ground m/s  slip left`)
+console.log(`${'clip'.padEnd(widest)}  ground m/s  slip left  source`)
 for (const entry of measured) {
   console.log([
     entry.clip.padEnd(widest),
     entry.groundSpeed.toFixed(3).padStart(10),
     entry.residual.toFixed(4).padStart(9),
+    entry.baked ? 'baked' : 'already travels',
   ].join('  '))
 }

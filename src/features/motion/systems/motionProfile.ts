@@ -1,5 +1,11 @@
+export type DirectionShares = {
+  readonly backward: number
+  readonly strafe: number
+}
+
 export type MotionProfile = {
   readonly airAcceleration: number
+  readonly directionShares: DirectionShares
   readonly gravity: number
   readonly groundAcceleration: number
   readonly groundFriction: number
@@ -12,8 +18,11 @@ export type MotionProfile = {
 
 export const QUAKE_UNIT_METERS = 1 / 32
 
+export const DEFAULT_DIRECTION_SHARES: DirectionShares = { backward: 0.7, strafe: 0.85 }
+
 export const ARENA_MOTION_PROFILE: MotionProfile = {
   airAcceleration: 1,
+  directionShares: DEFAULT_DIRECTION_SHARES,
   gravity: 800 * QUAKE_UNIT_METERS,
   groundAcceleration: 10,
   groundFriction: 6,
@@ -26,6 +35,7 @@ export const ARENA_MOTION_PROFILE: MotionProfile = {
 
 export const GROUNDED_MOTION_PROFILE: MotionProfile = {
   airAcceleration: 1.4,
+  directionShares: DEFAULT_DIRECTION_SHARES,
   gravity: 9.81,
   groundAcceleration: 9,
   groundFriction: 8,
@@ -38,8 +48,12 @@ export const GROUNDED_MOTION_PROFILE: MotionProfile = {
 
 export const STOP_SPEED_SHARE = 0.3125
 
-export function profileAtSpeed(profile: MotionProfile, maxSpeed: number): MotionProfile {
-  return { ...profile, maxSpeed, stopSpeed: maxSpeed * STOP_SPEED_SHARE }
+export function profileAtSpeed(
+  profile: MotionProfile,
+  maxSpeed: number,
+  directionShares: DirectionShares = profile.directionShares,
+): MotionProfile {
+  return { ...profile, directionShares, maxSpeed, stopSpeed: maxSpeed * STOP_SPEED_SHARE }
 }
 
 export const SPRINT_SPEED_MULTIPLIER = 1.625

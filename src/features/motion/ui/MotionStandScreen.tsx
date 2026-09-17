@@ -9,6 +9,13 @@ import {
 } from '../../../scenes/motion-stand/motionStandStore'
 import styles from './MotionStandScreen.module.css'
 
+const FACING_OPTIONS = [
+  { id: 'travel', label: 'Face travel' },
+  { id: 'aim', label: 'Face aim' },
+] as const
+
+type FacingId = (typeof FACING_OPTIONS)[number]['id']
+
 const DRIVE_OPTIONS = [
   { forward: 0, id: 'still', label: 'Still', right: 0 },
   { forward: 1, id: 'forward', label: 'Forward', right: 0 },
@@ -30,6 +37,7 @@ export function MotionStandScreen() {
      a bench that renders on demand; nothing here runs per frame. */
   const [driveId, setDriveId] = useState<DriveId>('forward')
   const [sprint, setSprint] = useState(false)
+  const [facing, setFacing] = useState<FacingId>('travel')
   /* eslint-enable no-restricted-syntax */
 
   const readout = useMemo(() => createStandStore(), [])
@@ -39,7 +47,14 @@ export function MotionStandScreen() {
 
   return (
     <div className={styles.screen}>
-      <MotionStandScene forward={drive.forward} readout={readout} right={drive.right} sprint={sprint} />
+      <MotionStandScene
+        facing={facing}
+        forward={drive.forward}
+        key={facing}
+        readout={readout}
+        right={drive.right}
+        sprint={sprint}
+      />
       <div className={styles.panel}>
         <ControlPanel data-testid="motion-stand-panel" readout={`frame ${frame.frame}`} title="Motion stand">
           <ControlChoice
@@ -52,6 +67,17 @@ export function MotionStandScreen() {
             }}
             options={DRIVE_OPTIONS.map((option) => ({ id: option.id, label: option.label }))}
             testIdPrefix="motion-stand-drive"
+          />
+          <ControlChoice
+            activeId={facing}
+            label="Body facing"
+            onSelect={(id) => {
+              const focused = document.activeElement
+              if (focused instanceof HTMLElement) focused.blur()
+              setFacing(id as FacingId)
+            }}
+            options={FACING_OPTIONS.map((option) => ({ id: option.id, label: option.label }))}
+            testIdPrefix="motion-stand-facing"
           />
           <div className={styles.numbers} data-testid="motion-stand-readout">
             <span>clip {frame.clip}</span>

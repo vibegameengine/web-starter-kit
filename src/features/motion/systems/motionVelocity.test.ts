@@ -47,12 +47,37 @@ describe('advanceMotionVelocity', () => {
     expect(Math.hypot(state.velocity[0], state.velocity[2])).toBeCloseTo(PROFILE.maxSpeed, 3)
   })
 
-  it('gives a diagonal the same speed as a straight run', () => {
-    const straight = run({ ...IDLE_MOTION_INTENT, forward: 1 }, grounded(), 120)
-    const diagonal = run({ ...IDLE_MOTION_INTENT, forward: 1, right: 1 }, grounded(), 120)
+  it('gives a diagonal the same speed as a straight run when no direction is penalised', () => {
+    const even = { ...PROFILE, directionShares: { backward: 1, strafe: 1 } }
+    const drive = (intent: MotionIntent) => {
+      let state: MotionVelocityState = grounded()
+      for (let index = 0; index < 120; index += 1) {
+        state = advanceMotionVelocity({ delta: STEP, intent, profile: even, state })
+      }
+      return Math.hypot(state.velocity[0], state.velocity[2])
+    }
 
-    expect(Math.hypot(diagonal.velocity[0], diagonal.velocity[2]))
-      .toBeCloseTo(Math.hypot(straight.velocity[0], straight.velocity[2]), 3)
+    expect(drive({ ...IDLE_MOTION_INTENT, forward: 1, right: 1 }))
+      .toBeCloseTo(drive({ ...IDLE_MOTION_INTENT, forward: 1 }), 3)
+  })
+
+  it('prices a diagonal between the straight and the sideways share', () => {
+    const shares = { backward: 0.67, strafe: 0.35 }
+    const profile = { ...PROFILE, directionShares: shares }
+    const speedOf = (intent: MotionIntent) => {
+      let state: MotionVelocityState = grounded()
+      for (let index = 0; index < 180; index += 1) {
+        state = advanceMotionVelocity({ delta: STEP, intent, profile, state })
+      }
+      return Math.hypot(state.velocity[0], state.velocity[2])
+    }
+
+    const straight = speedOf({ ...IDLE_MOTION_INTENT, forward: 1 })
+    const sideways = speedOf({ ...IDLE_MOTION_INTENT, right: 1 })
+    const diagonal = speedOf({ ...IDLE_MOTION_INTENT, forward: 1, right: 1 })
+
+    expect(diagonal).toBeLessThan(straight)
+    expect(diagonal).toBeGreaterThan(sideways)
   })
 
   it('sprints faster than it walks', () => {
