@@ -36,6 +36,12 @@ export const GROUNDED_MOTION_PROFILE: MotionProfile = {
   walkableFloorNormalY: 0.7,
 }
 
+export const STOP_SPEED_SHARE = 0.3125
+
+export function profileAtSpeed(profile: MotionProfile, maxSpeed: number): MotionProfile {
+  return { ...profile, maxSpeed, stopSpeed: maxSpeed * STOP_SPEED_SHARE }
+}
+
 export const SPRINT_SPEED_MULTIPLIER = 1.625
 
 export const STRAFE_SPEED_MULTIPLIER = 0.85

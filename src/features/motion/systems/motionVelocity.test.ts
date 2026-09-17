@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { Vector3Tuple } from './boxTrace'
 import { IDLE_MOTION_INTENT, type MotionIntent } from './motionIntent'
-import { GROUNDED_MOTION_PROFILE, SPRINT_SPEED_MULTIPLIER } from './motionProfile'
+import { ARENA_MOTION_PROFILE, GROUNDED_MOTION_PROFILE, profileAtSpeed, SPRINT_SPEED_MULTIPLIER } from './motionProfile'
 import { advanceMotionVelocity, type MotionVelocityState } from './motionVelocity'
 
 const STEP = 1 / 60
@@ -19,6 +19,26 @@ function run(intent: MotionIntent, state: MotionVelocityState, steps: number): M
   }
   return current
 }
+
+describe('every profile can reach its own top speed', () => {
+  it('holds for the presets and for a profile built around a clip speed', () => {
+    const profiles = [
+      GROUNDED_MOTION_PROFILE,
+      ARENA_MOTION_PROFILE,
+      profileAtSpeed(GROUNDED_MOTION_PROFILE, 1.012),
+      profileAtSpeed(GROUNDED_MOTION_PROFILE, 0.6),
+    ]
+
+    for (const profile of profiles) {
+      let state: MotionVelocityState = { jumpHeld: false, onGround: true, velocity: [0, 0, 0] }
+      const intent = { ...IDLE_MOTION_INTENT, forward: 1 }
+      for (let index = 0; index < 240; index += 1) {
+        state = advanceMotionVelocity({ delta: STEP, intent, profile, state })
+      }
+      expect(Math.hypot(state.velocity[0], state.velocity[2]) / profile.maxSpeed).toBeGreaterThan(0.95)
+    }
+  })
+})
 
 describe('advanceMotionVelocity', () => {
   it('reaches the profile speed and holds it', () => {

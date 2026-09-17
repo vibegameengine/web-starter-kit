@@ -1,4 +1,5 @@
 import measuredClips from '../assets/animations/clipMetrics.json'
+import groundSpeeds from '../assets/animations/clipGroundSpeeds.json'
 import idleUrl from '../assets/animations/idle.glb'
 import runningUrl from '../assets/animations/running.glb'
 import runningBackwardUrl from '../assets/animations/running-backward.glb'
@@ -38,26 +39,45 @@ function measuredClip(name: string): MeasuredClip {
   return found
 }
 
-function metricOf(name: string): ClipMetric {
+export type BakedGroundSpeed = {
+  readonly clip: string
+  readonly groundSpeed: number
+  readonly residual: number
+  readonly source: string
+}
+
+function bakedGroundSpeed(id: LocomotionClipId): number | null {
+  const found = (groundSpeeds as readonly BakedGroundSpeed[]).find((candidate) => candidate.clip === id)
+  return found ? found.groundSpeed : null
+}
+
+function metricOf(id: LocomotionClipId, name: string): ClipMetric {
   const measured = measuredClip(name)
-  return { durationSeconds: measured.duration, strideLengthMeters: measured.strideLength }
+  const baked = bakedGroundSpeed(id)
+  const speed = baked ?? measured.impliedSpeed
+  return { durationSeconds: measured.duration, strideLengthMeters: speed * measured.duration }
 }
 
 export const LOCOMOTION_CLIP_METRICS: ClipMetrics = {
-  idle: metricOf('idle'),
-  'run-backward': metricOf('running-backward'),
-  'run-forward': metricOf('running'),
-  'walk-backward': metricOf('walking-backwards'),
-  'walk-forward': metricOf('walking'),
-  'walk-strafe-left': metricOf('walk-strafe-right'),
-  'walk-strafe-right': metricOf('walk-strafe-right'),
+  idle: metricOf('idle', 'idle'),
+  'run-backward': metricOf('run-backward', 'running-backward'),
+  'run-forward': metricOf('run-forward', 'running'),
+  'walk-backward': metricOf('walk-backward', 'walking-backwards'),
+  'walk-forward': metricOf('walk-forward', 'walking'),
+  'walk-strafe-left': metricOf('walk-strafe-left', 'walk-strafe-right'),
+  'walk-strafe-right': metricOf('walk-strafe-right', 'walk-strafe-right'),
 }
 
-export const WALK_CLIP_SPEED = measuredClip('walking').impliedSpeed
+function clipSpeedOfMetric(id: LocomotionClipId): number {
+  const metric = LOCOMOTION_CLIP_METRICS[id]
+  return metric.durationSeconds > 0 ? metric.strideLengthMeters / metric.durationSeconds : 0
+}
 
-export const RUN_CLIP_SPEED = measuredClip('running').impliedSpeed
+export const WALK_CLIP_SPEED = clipSpeedOfMetric('walk-forward')
+
+export const RUN_CLIP_SPEED = clipSpeedOfMetric('run-forward')
 
 export const LOCOMOTION_GAIT_SPEEDS = {
-  runSpeed: measuredClip('running').impliedSpeed,
-  walkSpeed: measuredClip('walking').impliedSpeed,
+  runSpeed: RUN_CLIP_SPEED,
+  walkSpeed: WALK_CLIP_SPEED,
 }

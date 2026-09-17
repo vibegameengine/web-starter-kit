@@ -1,0 +1,26 @@
+[
+  {
+    "clip": "walk-forward",
+    "groundSpeed": 1.0116,
+    "residual": 0,
+    "source": "Walking.fbx"
+  },
+  {
+    "clip": "walk-backward",
+    "groundSpeed": 0.6444,
+    "residual": 0.0085,
+    "source": "Walking Backwards.fbx"
+  },
+  {
+    "clip": "run-forward",
+    "groundSpeed": 2.6929,
+    "residual": 0,
+    "source": "Running.fbx"
+  },
+  {
+    "clip": "run-backward",
+    "groundSpeed": 2.3735,
+    "residual": 0,
+    "source": "Running Backward.fbx"
+  }
+]
