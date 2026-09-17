@@ -1,0 +1,106 @@
+[
+  {
+    "contactShare": 0.572,
+    "duration": 8.333,
+    "impliedSpeed": 0.006,
+    "name": "idle",
+    "rootSpeed": 0,
+    "strideLength": 0.046
+  },
+  {
+    "contactShare": 0.454,
+    "duration": 0.9,
+    "impliedSpeed": 2.458,
+    "name": "run-forward-arc-right",
+    "rootSpeed": 3.202,
+    "strideLength": 2.212
+  },
+  {
+    "contactShare": 0.489,
+    "duration": 0.733,
+    "impliedSpeed": 3.418,
+    "name": "running",
+    "rootSpeed": 0,
+    "strideLength": 2.506
+  },
+  {
+    "contactShare": 0.452,
+    "duration": 0.7,
+    "impliedSpeed": 3.112,
+    "name": "running-1",
+    "rootSpeed": 0.002,
+    "strideLength": 2.178
+  },
+  {
+    "contactShare": 0.395,
+    "duration": 0.633,
+    "impliedSpeed": 2.555,
+    "name": "running-backward",
+    "rootSpeed": 0.003,
+    "strideLength": 1.618
+  },
+  {
+    "contactShare": 0.489,
+    "duration": 0.767,
+    "impliedSpeed": 2.733,
+    "name": "running-right-turn",
+    "rootSpeed": 0.032,
+    "strideLength": 2.095
+  },
+  {
+    "contactShare": 0.838,
+    "duration": 2.267,
+    "impliedSpeed": 0.665,
+    "name": "running-to-turn",
+    "rootSpeed": 1.713,
+    "strideLength": 1.507
+  },
+  {
+    "contactShare": 0.439,
+    "duration": 0.667,
+    "impliedSpeed": 2.869,
+    "name": "running-turn-180",
+    "rootSpeed": 0.019,
+    "strideLength": 1.913
+  },
+  {
+    "contactShare": 0.78,
+    "duration": 2.933,
+    "impliedSpeed": 0.739,
+    "name": "start-walking",
+    "rootSpeed": 0.649,
+    "strideLength": 2.169
+  },
+  {
+    "contactShare": 0.68,
+    "duration": 1.467,
+    "impliedSpeed": 0.511,
+    "name": "walk-strafe-right",
+    "rootSpeed": 0.589,
+    "strideLength": 0.75
+  },
+  {
+    "contactShare": 0.573,
+    "duration": 1.033,
+    "impliedSpeed": 1.568,
+    "name": "walking",
+    "rootSpeed": 0.001,
+    "strideLength": 1.621
+  },
+  {
+    "contactShare": 0.671,
+    "duration": 1.2,
+    "impliedSpeed": 1.008,
+    "name": "walking-backwards",
+    "rootSpeed": 0,
+    "strideLength": 1.21
+  },
+  {
+    "contactShare": 0.5,
+    "duration": 1,
+    "impliedSpeed": 0.859,
+    "name": "walking-turn-180",
+    "rootSpeed": 0.081,
+    "strideLength": 0.859
+  }
+]
