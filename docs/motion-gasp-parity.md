@@ -138,6 +138,13 @@ so at 144 fps against a 60 Hz tick both feet reported full contact and the
 solver hauled both legs at once. That is the mangled-legs picture. The stance
 window is frame-rate independent by construction.
 
+A plant is also released when the body turns further than the hip can twist, or
+when the lock leaves nine tenths of the leg span, and the release runs the hold
+down at a rate rather than cutting it — an outright cut snapped the foot half a
+metre. The twist limit comes from the ragdoll's own measured joint table, now
+shared at `shared/lib/animation/jointLimits.ts` so both sides read the same
+degrees.
+
 Still missing against UE: the per-limb pelvis offset range with `HeelLiftRatio`,
 and the spring interpolation of the unplant offset.
 
@@ -152,7 +159,17 @@ GASP distance-matches against baked distance curves
 (`AnimDistanceMatchingLibrary.cpp:33` binary-searches the baked curve, `:222`
 sets play rate to match speed) and has shot starts, stops and pivots.
 
-Here: **nothing yet.** This is the largest remaining gap in the locomotion set.
+Here the stop is matched, the start is not. Phase follows distance travelled, so
+no baked curve is needed: `systems/stopMatching.ts` solves the friction model for
+the distance the body still needs — above the stop speed the friction is
+proportional to the speed, which makes the speed fall off linearly with distance;
+below it the deceleration is constant — and scales the phase rate so the
+remaining distance lands the cycle on a plant. Idle blends in by weight as the
+body settles rather than cutting in at a threshold, so the last footfall stays
+under the body: measured 0.317 m between the feet at rest, both planted.
+
+**Starts and pivots are still missing**, and so is the shot vocabulary GASP has
+for them.
 
 ## Root motion
 
@@ -168,11 +185,14 @@ GASP ships no automated animation checks.
 
 Here:
 
-- `npm run verify:limbs` walks the motion stand 90 simulated frames over a step
-  and asserts nine invariants a leg cannot violate: bone lengths, reach, knee
-  range, no sinking through the floor, net drift through a plant, double-support
-  share, that a plant forms at all. Current reading: 3 plants, worst drift
-  5.9 mm over a 20-frame plant.
+- `npm run verify:limbs` walks the motion stand forward, backward, strafing and
+  diagonal, 80 simulated frames each over a step, then stops it, and asserts the
+  invariants a leg cannot violate on every frame of every drive: bone lengths,
+  reach, knee range, no sinking through the floor, net drift while firmly held,
+  double-support share, that a plant forms at all, that the chosen clip travels
+  with the body, and that the body comes to rest on its feet. 45 checks.
+  Current reading: worst drift while held 5.9 mm, stride warp 1.000 in every
+  direction.
 - the motion stand (`/labs/motion-stand`) steps one simulated frame at a time,
   renders on demand so the picture matches the numbers, and can switch the foot
   IK and the orientation warp off independently to isolate a pass.
