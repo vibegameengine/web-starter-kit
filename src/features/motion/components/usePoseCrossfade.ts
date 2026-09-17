@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/immutability -- action weights and times are
+   three's own imperative state, set per frame and never read during render. */
 import { useEffect, useMemo, useRef } from 'react'
 import { AnimationMixer } from 'three'
 import type { AnimationAction, Object3D } from 'three'
@@ -10,9 +12,16 @@ export type PosePlayhead = {
   time: number
 }
 
+export type BlendEntry = {
+  readonly clipId: LocomotionClipId
+  readonly phase: number
+  readonly weight: number
+}
+
 export type PoseCrossfade = {
   readonly advance: (deltaSeconds: number, rate: number) => void
   readonly atPhase: (clipId: LocomotionClipId, phase: number, deltaSeconds: number) => void
+  readonly blendAtPhase: (entries: readonly BlendEntry[]) => void
   readonly blend: () => number
   readonly durationOf: (clipId: LocomotionClipId) => number
   readonly playing: () => PosePlayhead
@@ -69,6 +78,17 @@ export function usePoseCrossfade(rig: Object3D): PoseCrossfade {
   }
 
   return {
+    blendAtPhase: (entries) => {
+      fading.current = null
+      const leading = entries.reduce((best, entry) => (entry.weight > best.weight ? entry : best), entries[0])
+      playing.current = { clipId: leading.clipId, time: leading.phase * durationOf(leading.clipId) }
+      for (const [id, action] of actions) {
+        const entry = entries.find((candidate) => candidate.clipId === id)
+        action.setEffectiveWeight(entry ? entry.weight : 0)
+        if (entry) action.time = entry.phase * durationOf(id)
+      }
+      mixer.update(0)
+    },
     atPhase: (clipId, phase, deltaSeconds) => {
       const wrappedPhase = phase - Math.floor(phase)
       if (clipId !== playing.current.clipId) {

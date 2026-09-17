@@ -1,10 +1,20 @@
+/* eslint-disable react-hooks/immutability -- the search counters and the
+   playhead are per-frame simulation state, never render input. */
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import type { MutableRefObject } from 'react'
 import type { Object3D } from 'three'
 
 import poseDatabaseData from '../assets/animations/poseDatabase.json'
-import { LOCOMOTION_CLIP_METRICS } from '../catalog/locomotionClips'
+import { LOCOMOTION_CLIP_METRICS, LOCOMOTION_PHASE_OFFSETS } from '../catalog/locomotionClips'
+import { alignedPhase } from '../systems/phaseAlign'
+import {
+  directionalBlend,
+  RUN_DIRECTIONS,
+  WALK_DIRECTIONS,
+  withSpeeds,
+} from '../systems/directionalBlend'
+import { travelAngleOf } from '../systems/locomotionDirection'
 import { horizontalSpeed, intentWishDirection } from '../systems/motionIntent'
 import { splitSpeedRatio, stridePhase, strideLengthOf } from '../systems/locomotionBlend'
 import { LOCOMOTION_GAIT_SPEEDS } from '../catalog/locomotionClips'
@@ -49,6 +59,8 @@ export type MotionMatchedDebug = {
 }
 
 const DATABASE = poseDatabaseData as unknown as PoseDatabase
+const WALK_SET = withSpeeds(WALK_DIRECTIONS, clipSpeedOf)
+const RUN_SET = withSpeeds(RUN_DIRECTIONS, clipSpeedOf)
 const SEARCH_INTERVAL_SECONDS = 0.1
 const STANDING_SPEED = 0.06
 
@@ -184,15 +196,23 @@ export function useMotionMatchedAnimator(options: MotionMatchedAnimatorOptions):
       search(elapsed)
     }
 
-    const clipSpeed = clipSpeedOf(chosen.current)
+    const travelAngle = travelAngleOf(
+      { x: state.velocity[0], z: state.velocity[2] },
+      state.bodyFacingRadians,
+    )
+    const blend = directionalBlend(travelAngle, chosen.current.startsWith('run') ? RUN_SET : WALK_SET)
+    const clipSpeed = blend.speed
     const split = splitSpeedRatio(speed, clipSpeed)
-    const duration = crossfade.durationOf(chosen.current)
+    const duration = crossfade.durationOf(blend.clips[0].clipId)
     const strideLength = strideLengthOf(clipSpeed, duration) * Math.max(0.1, split.stride)
     const phase = stridePhase(
       lerp(timeline.current.previous.travelledMeters, state.travelledMeters, 1),
       strideLength,
     )
-    crossfade.atPhase(chosen.current, phase, delta)
+    crossfade.blendAtPhase(blend.clips.map((entry) => ({
+      ...entry,
+      phase: alignedPhase(phase, LOCOMOTION_PHASE_OFFSETS[entry.clipId]),
+    })))
     const playing = crossfade.playing()
     if (match.current) match.current = { ...match.current, time: playing.time }
     debug.current = {

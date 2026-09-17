@@ -7,6 +7,7 @@ import walkStrafeRightUrl from '../assets/animations/walk-strafe-right.glb'
 import walkingUrl from '../assets/animations/walking.glb'
 import walkingBackwardsUrl from '../assets/animations/walking-backwards.glb'
 import type { ClipMetric, ClipMetrics, LocomotionClipId } from '../systems/locomotionPose'
+import { phaseOffsetOf } from '../systems/phaseAlign'
 import type { FootStanceWindows } from '../systems/stanceWindow'
 
 export type MeasuredClip = {
@@ -104,6 +105,13 @@ export const LOCOMOTION_STANCE_WINDOWS: Readonly<Record<LocomotionClipId, FootSt
   'walk-strafe-left': mirroredWindows(windowsOf('walk-strafe-right')),
   'walk-strafe-right': windowsOf('walk-strafe-right'),
 }
+
+export const LOCOMOTION_PHASE_OFFSETS: Readonly<Record<LocomotionClipId, number>> = Object.fromEntries(
+  (Object.keys(LOCOMOTION_STANCE_WINDOWS) as readonly LocomotionClipId[]).map((id) => [
+    id,
+    phaseOffsetOf(LOCOMOTION_STANCE_WINDOWS[id], LOCOMOTION_STANCE_WINDOWS['walk-forward']),
+  ]),
+) as Readonly<Record<LocomotionClipId, number>>
 
 export const DIRECTION_SPEED_SHARES = {
   backward: clipSpeedOfMetric('walk-backward') / clipSpeedOfMetric('walk-forward'),

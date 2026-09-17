@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/immutability -- the render transform of a scene
+   object is written every frame, which is what three expects of it. */
 import { useFrame } from '@react-three/fiber'
 import { useContext } from 'react'
 import type { MutableRefObject, RefObject } from 'react'

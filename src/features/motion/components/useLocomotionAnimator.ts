@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/immutability -- mixer actions are three's own
+   imperative state, driven per frame and never read during render. */
 import { useFrame } from '@react-three/fiber'
 import { useContext, useEffect, useMemo, useRef } from 'react'
 import type { MutableRefObject } from 'react'
@@ -7,7 +9,7 @@ import type { AnimationAction, Object3D } from 'three'
 import { FixedTickContext } from '../../../shared/lib/simulation/fixedTickContext'
 import { lerp } from '../../../shared/lib/simulation/renderInterpolation'
 import { LOCOMOTION_CLIP_METRICS, LOCOMOTION_GAIT_SPEEDS } from '../catalog/locomotionClips'
-import { normalizeAngle } from '../systems/angles'
+import { travelAngleOf } from '../systems/locomotionDirection'
 import { horizontalSpeed } from '../systems/motionIntent'
 import { locomotionSamples, mergedSamples, type LocomotionClipId, type LocomotionSample } from '../systems/locomotionPose'
 import { splitSpeedRatio } from '../systems/locomotionBlend'
@@ -59,7 +61,7 @@ function worldPoint(bone: Object3D | null, into: Vector3): BonePoint {
 function bodyFrameAngle(timeline: MutableRefObject<MotionTimeline>): number {
   const { bodyFacingRadians, velocity } = timeline.current.current
   if (horizontalSpeed(velocity) < 1e-4) return 0
-  return normalizeAngle(Math.atan2(velocity[0], velocity[2]) - bodyFacingRadians)
+  return travelAngleOf({ x: velocity[0], z: velocity[2] }, bodyFacingRadians)
 }
 
 function blendedClipSpeed(samples: readonly LocomotionSample[]): number {

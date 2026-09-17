@@ -22,6 +22,16 @@ export function movementInActorSpace(movement: PlaneVector, facingRadians: numbe
   }
 }
 
+/* @important The kit's right axis is forward x up, so for a body facing +Z it
+   points at -X: atan2(velocity.x, velocity.z) - facing therefore reports a step
+   to the right as -pi/2, the mirror of what every clip table here means. Taking
+   the angle from the actor-space components leaves the sign to the basis. */
+export function travelAngleOf(movement: PlaneVector, facingRadians: number): number {
+  const local = movementInActorSpace(movement, facingRadians)
+  if (Math.hypot(local.x, local.z) < 1e-4) return 0
+  return Math.atan2(local.x, local.z)
+}
+
 function normalizedPlane(vector: PlaneVector): PlaneVector | null {
   const length = Math.hypot(vector.x, vector.z)
   if (length < 1e-4) return null
