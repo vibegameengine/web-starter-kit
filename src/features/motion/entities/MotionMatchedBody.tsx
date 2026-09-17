@@ -5,7 +5,7 @@ import type { MotionIntentSource } from '../components/useKeyboardMotionIntent'
 import { useMotionMatchedAnimator } from '../components/useMotionMatchedAnimator'
 import type { MotionTimeline } from '../components/useMotionController'
 import { useOrientationWarp } from '../components/useOrientationWarp'
-import { useStrideWarpedLegs } from '../components/useStrideWarpedLegs'
+import { useFootPlacement } from '../components/useFootPlacement'
 import type { TraceBox } from '../systems/boxTrace'
 
 export type MotionMatchedBodyProps = {
@@ -29,7 +29,19 @@ export function MotionMatchedBody({
 }: MotionMatchedBodyProps) {
   const animator = useMotionMatchedAnimator({ aimYaw, intent, rig, timeline, topSpeed })
   useOrientationWarp({ rig, timeline })
-  useStrideWarpedLegs({ ankleHeight, clipSpeed: () => animator.current.clipSpeed, rig, timeline, trace })
+  useFootPlacement({
+    ankleHeight,
+    gait: () => ({
+      blendShare: animator.current.blendShare,
+      clipSpeed: animator.current.clipSpeed,
+      grounded: animator.current.grounded,
+      phase: animator.current.phase,
+      stride: animator.current.stride,
+    }),
+    rig,
+    timeline,
+    trace,
+  })
 
   return <primitive object={rig} />
 }

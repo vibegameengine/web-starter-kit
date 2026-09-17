@@ -6,6 +6,8 @@ import type { Object3D } from 'three'
 import poseDatabaseData from '../assets/animations/poseDatabase.json'
 import { LOCOMOTION_CLIP_METRICS } from '../catalog/locomotionClips'
 import { horizontalSpeed, intentWishDirection } from '../systems/motionIntent'
+import { splitSpeedRatio } from '../systems/locomotionBlend'
+import { LOCOMOTION_GAIT_SPEEDS } from '../catalog/locomotionClips'
 import type { LocomotionClipId } from '../systems/locomotionPose'
 import { motionMatchQuery, trajectoryFeatureOf, type LocalPose } from '../systems/motionMatchQuery'
 import { findBestPose, rankedPoses, type PoseDatabase, type PoseMatch } from '../systems/poseSearch'
@@ -32,6 +34,11 @@ export type MotionMatchedAnimatorOptions = {
 export type MotionMatchedDebug = {
   readonly best: readonly { readonly clipId: string; readonly cost: number; readonly time: number }[]
   readonly blend: number
+  readonly blendShare: number
+  readonly cadence: number
+  readonly grounded: boolean
+  readonly phase: number
+  readonly stride: number
   readonly clipSpeed: number
   readonly clipId: string
   readonly cost: number
@@ -95,6 +102,11 @@ export function useMotionMatchedAnimator(options: MotionMatchedAnimatorOptions):
   const debug = useRef<MotionMatchedDebug>({
     best: [],
     blend: 1,
+    blendShare: 0,
+    cadence: 1,
+    grounded: true,
+    phase: 0,
+    stride: 1,
     clipId: 'idle',
     clipSpeed: 0,
     cost: 0,
@@ -174,14 +186,21 @@ export function useMotionMatchedAnimator(options: MotionMatchedAnimatorOptions):
 
     const playing = crossfade.playing()
     const clipSpeed = clipSpeedOf(playing.clipId)
-    crossfade.advance(delta, clipSpeed > 0 ? speed / clipSpeed : 1)
+    const split = splitSpeedRatio(speed, clipSpeed)
+    crossfade.advance(delta, split.cadence)
     if (match.current) match.current = { ...match.current, time: playing.time }
+    const duration = crossfade.durationOf(playing.clipId)
     debug.current = {
       ...debug.current,
       ...counters,
       blend: crossfade.blend(),
+      blendShare: Math.min(1, speed / LOCOMOTION_GAIT_SPEEDS.runSpeed),
+      cadence: split.cadence,
       clipId: playing.clipId,
       clipSpeed,
+      grounded: state.mode === 'walking',
+      phase: duration > 0 ? playing.time / duration : 0,
+      stride: split.stride,
       time: playing.time,
     }
   })

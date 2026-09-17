@@ -37,6 +37,26 @@ export function playbackRateForSpeed(speed: number, clipTravelSpeed: number): nu
   return clampNumber(speed / clipTravelSpeed, MIN_PLAYBACK_RATE, MAX_PLAYBACK_RATE)
 }
 
+export const MIN_CADENCE = 0.85
+
+export const MAX_CADENCE = 1.6
+
+export const MIN_STRIDE = 0.7
+
+export const MAX_STRIDE = 1.9
+
+export type GaitSplit = {
+  readonly cadence: number
+  readonly stride: number
+}
+
+export function splitSpeedRatio(speed: number, clipTravelSpeed: number): GaitSplit {
+  if (clipTravelSpeed <= 1e-4 || speed <= 1e-4) return { cadence: 1, stride: 1 }
+  const ratio = speed / clipTravelSpeed
+  const cadence = clampNumber(Math.sqrt(ratio), MIN_CADENCE, MAX_CADENCE)
+  return { cadence, stride: clampNumber(ratio / cadence, MIN_STRIDE, MAX_STRIDE) }
+}
+
 export function strideLengthOf(clipTravelSpeed: number, clipDurationSeconds: number): number {
   return clipTravelSpeed * clipDurationSeconds
 }

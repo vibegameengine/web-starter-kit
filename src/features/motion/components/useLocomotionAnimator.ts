@@ -10,6 +10,7 @@ import { LOCOMOTION_CLIP_METRICS, LOCOMOTION_GAIT_SPEEDS } from '../catalog/loco
 import { normalizeAngle } from '../systems/angles'
 import { horizontalSpeed } from '../systems/motionIntent'
 import { locomotionSamples, mergedSamples, type LocomotionClipId, type LocomotionSample } from '../systems/locomotionPose'
+import { splitSpeedRatio } from '../systems/locomotionBlend'
 import type { MotionTimeline } from './useMotionController'
 import { useLocomotionClips } from './useLocomotionClips'
 
@@ -21,8 +22,13 @@ export type LocomotionAnimatorOptions = {
 export type BonePoint = readonly [number, number, number]
 
 export type LocomotionAnimatorDebug = {
+  readonly blendShare: number
+  readonly cadence: number
   readonly clipSpeed: number
   readonly clock: number
+  readonly grounded: boolean
+  readonly phase: number
+  readonly stride: number
   readonly hips: BonePoint
   readonly leftFoot: BonePoint
   readonly rightFoot: BonePoint
@@ -77,8 +83,13 @@ export function useLocomotionAnimator({
   const mixer = useMemo(() => new AnimationMixer(rig), [rig])
   const idleClock = useRef(0)
   const debug = useRef<LocomotionAnimatorDebug>({
+    blendShare: 0,
+    cadence: 1,
     clipSpeed: 0,
     clock: 0,
+    grounded: true,
+    phase: 0,
+    stride: 1,
     hips: [0, 0, 0],
     leftFoot: [0, 0, 0],
     rightFoot: [0, 0, 0],
@@ -121,12 +132,15 @@ export function useLocomotionAnimator({
     const speed = horizontalSpeed(state.velocity)
     idleClock.current += delta
 
+    const moveAngle = bodyFrameAngle(timeline)
+    const previousClipSpeed = debug.current.clipSpeed
+    const split = splitSpeedRatio(speed, previousClipSpeed)
     const samples = mergedSamples(locomotionSamples({
       gaitSpeeds: LOCOMOTION_GAIT_SPEEDS,
       metrics: LOCOMOTION_CLIP_METRICS,
-      moveAngleRadians: bodyFrameAngle(timeline),
+      moveAngleRadians: moveAngle,
       speed,
-      travelledMeters,
+      travelledMeters: travelledMeters / Math.max(0.1, split.stride),
     }))
 
     const weights: Record<string, number> = {}
@@ -142,10 +156,17 @@ export function useLocomotionAnimator({
         : idleClock.current % action.getClip().duration
     }
 
+    const movingSample = samples.find((candidate) => candidate.onDistance)
+    const duration = movingSample ? LOCOMOTION_CLIP_METRICS[movingSample.clipId].durationSeconds : 1
     mixer.update(0)
     debug.current = {
+      blendShare: Math.sign(Math.cos(moveAngle)) * Math.min(1, speed / LOCOMOTION_GAIT_SPEEDS.runSpeed),
+      cadence: split.cadence,
       clipSpeed: blendedClipSpeed(samples),
       clock: idleClock.current,
+      grounded: state.mode === 'walking',
+      phase: movingSample && duration > 0 ? movingSample.timeSeconds / duration : 0,
+      stride: split.stride,
       hips: worldPoint(probeBones.hips, probePoint),
       leftFoot: worldPoint(probeBones.leftFoot, probePoint),
       rightFoot: worldPoint(probeBones.rightFoot, probePoint),

@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest'
 
 import {
   gaitWeights,
+  MAX_CADENCE,
+  MAX_STRIDE,
+  MIN_CADENCE,
+  MIN_STRIDE,
+  splitSpeedRatio,
   MAX_PLAYBACK_RATE,
   MIN_PLAYBACK_RATE,
   orientationWarp,
@@ -88,6 +93,43 @@ describe('orientationWarp', () => {
     for (const angle of [-Math.PI, -1.2, -0.4, 0.4, 1.2, Math.PI]) {
       expect(Math.abs(orientationWarp(angle, Math.PI / 4).yawRadians)).toBeLessThanOrEqual(Math.PI / 4 + 1e-9)
     }
+  })
+})
+
+describe('splitSpeedRatio', () => {
+  it('leaves both alone when the body matches the clip', () => {
+    const split = splitSpeedRatio(1.012, 1.012)
+
+    expect(split.cadence).toBeCloseTo(1, 6)
+    expect(split.stride).toBeCloseTo(1, 6)
+  })
+
+  it('splits a doubled speed between cadence and stride by the square root', () => {
+    const split = splitSpeedRatio(2.024, 1.012)
+
+    expect(split.cadence).toBeCloseTo(Math.SQRT2, 6)
+    expect(split.stride).toBeCloseTo(Math.SQRT2, 6)
+  })
+
+  it('multiplies back to the speed ratio while inside the limits', () => {
+    for (const ratio of [0.8, 1, 1.4, 2, 2.5]) {
+      const split = splitSpeedRatio(ratio, 1)
+      expect(split.cadence * split.stride).toBeCloseTo(ratio, 5)
+    }
+  })
+
+  it('holds both inside their limits at any speed', () => {
+    for (const speed of [0.05, 0.5, 1, 4, 20]) {
+      const split = splitSpeedRatio(speed, 1.012)
+      expect(split.cadence).toBeGreaterThanOrEqual(MIN_CADENCE)
+      expect(split.cadence).toBeLessThanOrEqual(MAX_CADENCE)
+      expect(split.stride).toBeGreaterThanOrEqual(MIN_STRIDE)
+      expect(split.stride).toBeLessThanOrEqual(MAX_STRIDE)
+    }
+  })
+
+  it('holds still rather than dividing by a clip that does not travel', () => {
+    expect(splitSpeedRatio(2, 0)).toEqual({ cadence: 1, stride: 1 })
   })
 })
 

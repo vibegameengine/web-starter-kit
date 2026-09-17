@@ -7,6 +7,7 @@ import walkStrafeRightUrl from '../assets/animations/walk-strafe-right.glb'
 import walkingUrl from '../assets/animations/walking.glb'
 import walkingBackwardsUrl from '../assets/animations/walking-backwards.glb'
 import type { ClipMetric, ClipMetrics, LocomotionClipId } from '../systems/locomotionPose'
+import type { FootStanceWindows } from '../systems/stanceWindow'
 
 export type MeasuredClip = {
   readonly contactShare: number
@@ -14,6 +15,7 @@ export type MeasuredClip = {
   readonly impliedSpeed: number
   readonly name: string
   readonly rootSpeed: number
+  readonly stanceWindows: { readonly left: readonly number[]; readonly right: readonly number[] }
   readonly strideLength: number
 }
 
@@ -76,6 +78,18 @@ function clipSpeedOfMetric(id: LocomotionClipId): number {
 export const WALK_CLIP_SPEED = clipSpeedOfMetric('walk-forward')
 
 export const RUN_CLIP_SPEED = clipSpeedOfMetric('run-forward')
+
+function windowsOf(name: string): FootStanceWindows {
+  const measured = measuredClip(name)
+  return {
+    left: [measured.stanceWindows.left[0], measured.stanceWindows.left[1]],
+    right: [measured.stanceWindows.right[0], measured.stanceWindows.right[1]],
+  }
+}
+
+export const WALK_STANCE_WINDOWS: FootStanceWindows = windowsOf('walking')
+
+export const RUN_STANCE_WINDOWS: FootStanceWindows = windowsOf('running')
 
 export const LOCOMOTION_GAIT_SPEEDS = {
   runSpeed: RUN_CLIP_SPEED,
