@@ -9,6 +9,7 @@ const METRICS_FILE = join(CLIP_DIRECTORY, 'clipMetrics.json')
 const SAMPLE_HZ = 60
 const CENTIMETRES_PER_METRE = 100
 const CONTACT_HEIGHT_FRACTION = 0.3
+const STANCE_HEIGHT_FRACTION = 0.3
 const BONE_NAMES = { hips: /Hips$/, leftFoot: /LeftFoot$/, rightFoot: /RightFoot$/ }
 
 function loadGlb(file) {
@@ -106,6 +107,35 @@ function contactShare(frames, side) {
   return grounded.length / frames.length
 }
 
+function stanceWindow(frames, side) {
+  const threshold = contactThreshold(frames, side)
+  const grounded = frames.map((frame) => frame[side].y / CENTIMETRES_PER_METRE <= threshold)
+  const count = grounded.length
+  let bestStart = 0
+  let bestLength = 0
+  let runStart = 0
+  let runLength = 0
+
+  for (let index = 0; index < count * 2; index += 1) {
+    if (grounded[index % count]) {
+      if (runLength === 0) runStart = index
+      runLength += 1
+      if (runLength > bestLength) {
+        bestLength = runLength
+        bestStart = runStart
+      }
+      continue
+    }
+    runLength = 0
+  }
+
+  const length = Math.min(bestLength, count)
+  return [
+    Number(((bestStart % count) / count).toFixed(3)),
+    Number((((bestStart + length) % count) / count).toFixed(3)),
+  ]
+}
+
 function hipsTravel(frames) {
   const first = frames[0].hips
   const last = frames[frames.length - 1].hips
@@ -124,6 +154,7 @@ async function measure(file) {
 
   return {
     contactShare: Number(((contactShare(frames, 'left') + contactShare(frames, 'right')) / 2).toFixed(3)),
+    stanceWindows: { left: stanceWindow(frames, 'left'), right: stanceWindow(frames, 'right') },
     duration: Number(clip.duration.toFixed(3)),
     impliedSpeed: Number(impliedSpeed.toFixed(3)),
     name,
@@ -141,7 +172,7 @@ metrics.sort((a, b) => a.name.localeCompare(b.name))
 writeFileSync(METRICS_FILE, `${JSON.stringify(metrics, null, 2)}\n`)
 
 const widest = Math.max(...metrics.map((entry) => entry.name.length))
-console.log(`${'clip'.padEnd(widest)}  seconds  root m/s  implied m/s  stride m  contact`)
+console.log(`${'clip'.padEnd(widest)}  seconds  root m/s  implied m/s  stride m  contact  stance L        stance R`)
 for (const entry of metrics) {
   console.log([
     entry.name.padEnd(widest),
@@ -150,5 +181,7 @@ for (const entry of metrics) {
     String(entry.impliedSpeed).padStart(11),
     String(entry.strideLength).padStart(8),
     String(entry.contactShare).padStart(7),
+    `${entry.stanceWindows.left[0]}..${entry.stanceWindows.left[1]}`.padStart(13),
+    `${entry.stanceWindows.right[0]}..${entry.stanceWindows.right[1]}`.padStart(13),
   ].join('  '))
 }

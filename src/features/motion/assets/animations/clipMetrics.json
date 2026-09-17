@@ -1,6 +1,16 @@
 [
   {
     "contactShare": 0.572,
+    "stanceWindows": {
+      "left": [
+        0.856,
+        0.044
+      ],
+      "right": [
+        0.726,
+        0.634
+      ]
+    },
     "duration": 8.333,
     "impliedSpeed": 0.006,
     "name": "idle",
@@ -9,6 +19,16 @@
   },
   {
     "contactShare": 0.454,
+    "stanceWindows": {
+      "left": [
+        0.148,
+        0.611
+      ],
+      "right": [
+        0.685,
+        0.13
+      ]
+    },
     "duration": 0.9,
     "impliedSpeed": 2.458,
     "name": "run-forward-arc-right",
@@ -17,6 +37,16 @@
   },
   {
     "contactShare": 0.489,
+    "stanceWindows": {
+      "left": [
+        0.178,
+        0.644
+      ],
+      "right": [
+        0.667,
+        0.178
+      ]
+    },
     "duration": 0.733,
     "impliedSpeed": 3.418,
     "name": "running",
@@ -25,6 +55,16 @@
   },
   {
     "contactShare": 0.452,
+    "stanceWindows": {
+      "left": [
+        0.262,
+        0.69
+      ],
+      "right": [
+        0.714,
+        0.19
+      ]
+    },
     "duration": 0.7,
     "impliedSpeed": 3.112,
     "name": "running-1",
@@ -33,6 +73,16 @@
   },
   {
     "contactShare": 0.395,
+    "stanceWindows": {
+      "left": [
+        0.395,
+        0.842
+      ],
+      "right": [
+        0.921,
+        0.263
+      ]
+    },
     "duration": 0.633,
     "impliedSpeed": 2.555,
     "name": "running-backward",
@@ -41,6 +91,16 @@
   },
   {
     "contactShare": 0.489,
+    "stanceWindows": {
+      "left": [
+        0.152,
+        0.63
+      ],
+      "right": [
+        0.63,
+        0.13
+      ]
+    },
     "duration": 0.767,
     "impliedSpeed": 2.733,
     "name": "running-right-turn",
@@ -49,6 +109,16 @@
   },
   {
     "contactShare": 0.838,
+    "stanceWindows": {
+      "left": [
+        0.243,
+        0
+      ],
+      "right": [
+        0.382,
+        0.044
+      ]
+    },
     "duration": 2.267,
     "impliedSpeed": 0.665,
     "name": "running-to-turn",
@@ -57,6 +127,16 @@
   },
   {
     "contactShare": 0.439,
+    "stanceWindows": {
+      "left": [
+        0.171,
+        0.78
+      ],
+      "right": [
+        0.78,
+        0.049
+      ]
+    },
     "duration": 0.667,
     "impliedSpeed": 2.869,
     "name": "running-turn-180",
@@ -65,6 +145,16 @@
   },
   {
     "contactShare": 0.78,
+    "stanceWindows": {
+      "left": [
+        0,
+        0.424
+      ],
+      "right": [
+        0.797,
+        0.237
+      ]
+    },
     "duration": 2.933,
     "impliedSpeed": 0.739,
     "name": "start-walking",
@@ -73,6 +163,16 @@
   },
   {
     "contactShare": 0.68,
+    "stanceWindows": {
+      "left": [
+        0.157,
+        0.787
+      ],
+      "right": [
+        0.573,
+        0.303
+      ]
+    },
     "duration": 1.467,
     "impliedSpeed": 0.511,
     "name": "walk-strafe-right",
@@ -81,6 +181,16 @@
   },
   {
     "contactShare": 0.573,
+    "stanceWindows": {
+      "left": [
+        0.242,
+        0.742
+      ],
+      "right": [
+        0.726,
+        0.21
+      ]
+    },
     "duration": 1.033,
     "impliedSpeed": 1.568,
     "name": "walking",
@@ -89,6 +199,16 @@
   },
   {
     "contactShare": 0.671,
+    "stanceWindows": {
+      "left": [
+        0.26,
+        0.959
+      ],
+      "right": [
+        0.753,
+        0.329
+      ]
+    },
     "duration": 1.2,
     "impliedSpeed": 1.008,
     "name": "walking-backwards",
@@ -96,7 +216,35 @@
     "strideLength": 1.21
   },
   {
+    "contactShare": 0.569,
+    "stanceWindows": {
+      "left": [
+        0.262,
+        0.738
+      ],
+      "right": [
+        0.723,
+        0.231
+      ]
+    },
+    "duration": 1.067,
+    "impliedSpeed": 0.015,
+    "name": "walking-rooted",
+    "rootSpeed": 0.01,
+    "strideLength": 0.017
+  },
+  {
     "contactShare": 0.5,
+    "stanceWindows": {
+      "left": [
+        0.083,
+        0.667
+      ],
+      "right": [
+        0.683,
+        0.1
+      ]
+    },
     "duration": 1,
     "impliedSpeed": 0.859,
     "name": "walking-turn-180",
