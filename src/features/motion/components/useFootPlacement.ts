@@ -74,7 +74,7 @@ function chainOf(leg: LegBones): TwoBoneChain {
 }
 
 function freshState(): LegState {
-  return { contact: 0, correction: 0, plant: NO_PLANT }
+  return { contact: 0, correction: 0, footSpeed: 0, plant: NO_PLANT, previousFoot: null, wantedToPlant: false }
 }
 
 export function useFootPlacement(options: FootPlacementOptions): MutableRefObject<FootPlacementDebug> {
@@ -87,6 +87,7 @@ export function useFootPlacement(options: FootPlacementOptions): MutableRefObjec
     [ankleHeight],
   )
   const states = useRef<LegState[]>([freshState(), freshState()])
+  const lastTravelled = useRef(0)
   const pelvisDrop = useRef(0)
   const stride = useMemo(() => new Vector3(0, 0, 1), [])
   const debug = useRef<FootPlacementDebug>({
@@ -122,7 +123,10 @@ export function useFootPlacement(options: FootPlacementOptions): MutableRefObjec
       ? strideScaleFor(speed, reading.clipSpeed * Math.max(0.1, reading.stride))
       : 1
 
+    const travelDelta = Math.max(0, body.travelledMeters - lastTravelled.current)
+    lastTravelled.current = body.travelledMeters
     const steps = legs.map((leg, index) => stepFoot({
+      bodySpeed: speed,
       chain: chains[index],
       deltaSeconds: delta,
       groundReference: body.position[1] - BODY_GROUND_OFFSET,
@@ -132,6 +136,7 @@ export function useFootPlacement(options: FootPlacementOptions): MutableRefObjec
       strideDirection: stride,
       strideScale,
       trace,
+      travelDelta,
       tuning,
     }))
 

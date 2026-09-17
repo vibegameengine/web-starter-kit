@@ -5,12 +5,15 @@ import { aimBoneAlong } from '../../../shared/lib/animation/boneAim'
 import { solveTwoBoneIk, type TwoBoneChain } from '../../../shared/lib/animation/twoBoneIk'
 import type { TraceBox, Vector3Tuple } from '../systems/boxTrace'
 import {
+  alignmentAlpha,
   approachWeight,
-  contactWeight,
-  DEFAULT_PLANT_MARGIN,
-  DEFAULT_SWING_MARGIN,
+  DEFAULT_PLANT_DISTANCE,
+  DEFAULT_PLANT_HYSTERESIS,
+  DEFAULT_PLANT_SPEED,
+  DEFAULT_UNALIGN_SPEED,
+  plantDecision,
   plantedTarget,
-  updatePlant,
+  wantsToPlant,
   type PlantState,
 } from '../systems/footPlanting'
 import { warpedFootTarget } from '../systems/strideWarp'
@@ -24,7 +27,10 @@ export type LegBones = {
 export type LegState = {
   contact: number
   correction: number
+  footSpeed: number
   plant: PlantState
+  previousFoot: Vector3 | null
+  wantedToPlant: boolean
 }
 
 export type GroundHit = {
@@ -76,26 +82,16 @@ export function groundUnder(point: Vector3, trace: TraceBox): GroundHit | null {
   }
 }
 
-export function contactTargetFor(
-  stance: boolean,
-  footY: number,
-  ground: GroundHit,
-  tuning: FootPlacementTuning,
-): number {
-  if (stance) {
-    const over = Math.max(0, footY - ground.surfaceY - tuning.ankleHeight - tuning.maxStepDrop)
-    return Math.max(0, 1 - over / 0.3)
-  }
-  return contactWeight({
-    ankleHeight: tuning.ankleHeight,
-    footY,
-    plantMargin: DEFAULT_PLANT_MARGIN,
-    surfaceY: ground.surfaceY,
-    swingMargin: DEFAULT_SWING_MARGIN,
-  })
+export function footSpeedOf(state: LegState, foot: Vector3, travel: number, bodySpeed: number): number {
+  const previous = state.previousFoot
+  const drift = previous ? Math.hypot(foot.x - previous.x, foot.z - previous.z) : 0
+  state.previousFoot = previous ? previous.copy(foot) : foot.clone()
+  if (!previous || travel <= 1e-4) return 0
+  return (drift / travel) * bodySpeed
 }
 
 export type FootStepInput = {
+  readonly bodySpeed: number
   readonly chain: TwoBoneChain
   readonly deltaSeconds: number
   readonly groundReference: number
@@ -105,16 +101,33 @@ export type FootStepInput = {
   readonly strideDirection: Vector3
   readonly strideScale: number
   readonly trace: TraceBox
+  readonly travelDelta: number
   readonly tuning: FootPlacementTuning
 }
 
 export function stepFoot(input: FootStepInput): FootStep {
-  const { chain, deltaSeconds, groundReference, leg, stance, state, strideDirection, strideScale, trace, tuning } = input
+  const {
+    bodySpeed,
+    chain,
+    deltaSeconds,
+    groundReference,
+    leg,
+    stance,
+    state,
+    strideDirection,
+    strideScale,
+    trace,
+    travelDelta,
+    tuning,
+  } = input
   leg.foot.getWorldPosition(scratch.foot)
   leg.thigh.getWorldPosition(scratch.hip)
   const ground = groundUnder(scratch.foot, trace)
+  const footSpeed = footSpeedOf(state, scratch.foot, travelDelta, bodySpeed)
+  state.footSpeed = footSpeed
 
-  const wanted = ground ? contactTargetFor(stance, scratch.foot.y, ground, tuning) : 0
+  const distanceToGround = ground ? scratch.foot.y - ground.surfaceY - tuning.ankleHeight : Number.POSITIVE_INFINITY
+  const wanted = ground ? alignmentAlpha(footSpeed, DEFAULT_UNALIGN_SPEED, DEFAULT_PLANT_SPEED) : 0
   state.contact = approachWeight(state.contact, wanted, tuning.contactRate, deltaSeconds)
 
   const surfaceDelta = ground ? ground.surfaceY - groundReference : 0
@@ -130,15 +143,30 @@ export function stepFoot(input: FootStepInput): FootStep {
     warpedFootTarget(target, scratch.hip, strideDirection, strideScale, target)
   }
 
-  state.plant = updatePlant({
-    contact: stance ? state.contact : 0,
-    footX: target.x,
-    footZ: target.z,
-    hipX: scratch.hip.x,
-    hipZ: scratch.hip.z,
-    reach: chain.lowerLength + chain.upperLength,
-    state: state.plant,
+  const wants = stance && wantsToPlant({
+    distanceToGround,
+    footSpeed,
+    plantDistance: DEFAULT_PLANT_DISTANCE,
+    speedThreshold: DEFAULT_PLANT_SPEED,
   })
+  const drift = state.plant.locked
+    ? Math.hypot(target.x - state.plant.lockX, target.z - state.plant.lockZ)
+    : 0
+  const decision = plantDecision({
+    drift,
+    hysteresis: DEFAULT_PLANT_HYSTERESIS,
+    wantedToPlant: state.wantedToPlant,
+    wantsToPlant: wants,
+    wasPlanted: state.plant.locked,
+  })
+  state.wantedToPlant = wants
+  const overReached = Math.hypot(state.plant.lockX - scratch.hip.x, state.plant.lockZ - scratch.hip.z)
+    > chain.lowerLength + chain.upperLength
+  state.plant = decision === 'unplanted' || overReached
+    ? { ...state.plant, locked: false, weight: 0 }
+    : decision === 'planted' && !state.plant.locked
+      ? { lockX: target.x, lockZ: target.z, locked: true, weight: state.contact }
+      : { ...state.plant, locked: true, weight: state.contact }
   const placed = plantedTarget(
     state.plant,
     [target.x, target.y, target.z],
