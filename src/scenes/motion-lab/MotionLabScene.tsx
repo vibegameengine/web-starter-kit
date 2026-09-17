@@ -1,5 +1,10 @@
-import { Instance, Instances } from '@react-three/drei'
+import { Instance, Instances, useGLTF } from '@react-three/drei'
 import { useEffect, useMemo, useRef } from 'react'
+import { Mesh, MeshStandardMaterial } from 'three'
+import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js'
+
+import mannequinUrl from '../../features/ragdoll/assets/models/default-humanoid.fbx?fbx=raw'
+import { AnimatedBody } from '../../features/motion/entities/AnimatedBody'
 
 import { MotionBody } from '../../features/motion/entities/MotionBody'
 import { useKeyboardMotionIntent } from '../../features/motion/components/useKeyboardMotionIntent'
@@ -23,6 +28,21 @@ import { MOTION_READOUT_INTERVAL_SECONDS, type MotionReadoutStore } from './moti
 
 const BODY_HALF_EXTENTS: Vector3Tuple = [0.3, 0.9, 0.3]
 const SIMULATION_HZ = 60
+const bodyMaterial = new MeshStandardMaterial({ color: '#b9743f', roughness: 0.72 })
+
+function useMannequinRig() {
+  const { scene } = useGLTF(mannequinUrl)
+  return useMemo(() => {
+    const rig = cloneSkinned(scene)
+    rig.position.set(0, -BODY_HALF_EXTENTS[1], 0)
+    rig.traverse((object) => {
+      const mesh = object as Mesh
+      if (mesh.isMesh) mesh.material = bodyMaterial
+      mesh.frustumCulled = false
+    })
+    return rig
+  }, [scene])
+}
 
 export type MotionLabSceneProps = {
   readonly paused: boolean
@@ -70,6 +90,7 @@ function MotionLabSubject({ profile, readout, rotationMode, showCollider }: Omit
     turnProfile: HUMAN_TURN_PROFILE,
   }), [profile, rotationMode])
 
+  const rig = useMannequinRig()
   const { timeline, warp } = useMotionController({ aimYaw, intent, settings, start: MOTION_LAB_START })
   useWarpStations(warp)
 
@@ -86,14 +107,7 @@ function MotionLabSubject({ profile, readout, rotationMode, showCollider }: Omit
   return (
     <ShadowGroup kind="dynamic">
       <MotionBody collider={showCollider ? BODY_HALF_EXTENTS : undefined} timeline={timeline}>
-        <mesh castShadow>
-          <capsuleGeometry args={[0.28, 1.04, 8, 16]} />
-          <meshStandardMaterial color="#d9b382" roughness={0.6} />
-        </mesh>
-        <mesh castShadow position={[0, 0.5, 0.3]}>
-          <boxGeometry args={[0.16, 0.16, 0.36]} />
-          <meshStandardMaterial color="#2f6f4f" roughness={0.5} />
-        </mesh>
+        <AnimatedBody rig={rig} timeline={timeline} />
       </MotionBody>
     </ShadowGroup>
   )
