@@ -1,14 +1,18 @@
-import { useCallback, useMemo, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 
 import { ControlButton, ControlChoice, ControlPanel } from '../../ui-kit'
 import { MotionLabScene } from '../../../scenes/motion-lab/MotionLabScene'
 import { MOTION_LAB_STATIONS, MOTION_LAB_WARP_EVENT } from '../../../scenes/motion-lab/motionLabCourse'
 import { createMotionReadoutStore } from '../../../scenes/motion-lab/motionReadoutStore'
 import type { RotationMode } from '../systems/motionController'
+import { WALK_CLIP_SPEED } from '../catalog/locomotionClips'
 import { ARENA_MOTION_PROFILE, GROUNDED_MOTION_PROFILE } from '../systems/motionProfile'
+
+const WALK_ONLY_PROFILE = { ...GROUNDED_MOTION_PROFILE, maxSpeed: WALK_CLIP_SPEED }
 import styles from './MotionLabScreen.module.css'
 
 const PROFILE_OPTIONS = [
+  { id: 'walk', label: 'Walk', value: WALK_ONLY_PROFILE },
   { id: 'grounded', label: 'Grounded', value: GROUNDED_MOTION_PROFILE },
   { id: 'arena', label: 'Arena', value: ARENA_MOTION_PROFILE },
 ] as const
@@ -33,12 +37,21 @@ export function MotionLabScreen() {
      person presses, and each rebuilds or re-parameterises the scene below. The
      body's own motion never passes through React: it is published to a store
      the readout subscribes to. */
-  const [profileId, setProfileId] = useState<ProfileId>('grounded')
+  const [profileId, setProfileId] = useState<ProfileId>('walk')
   const [rotationMode, setRotationMode] = useState<RotationMode>('orient-to-movement')
   const [showCollider, setShowCollider] = useState(true)
   const [paused, setPaused] = useState(false)
   const [runId, setRunId] = useState(0)
+  const [panelVisible, setPanelVisible] = useState(true)
   /* eslint-enable no-restricted-syntax */
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.code === 'KeyH' && !event.repeat) setPanelVisible((previous) => !previous)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
 
   const readout = useMemo(() => createMotionReadoutStore(), [])
   const snapshot = useSyncExternalStore(readout.subscribe, readout.getSnapshot)
@@ -62,7 +75,7 @@ export function MotionLabScreen() {
         rotationMode={rotationMode}
         showCollider={showCollider}
       />
-      <div className={styles.panel}>
+      <div className={styles.panel} hidden={!panelVisible}>
         <ControlPanel
           data-testid="motion-lab-panel"
           readout={`${snapshot.mode} · ${snapshot.speed.toFixed(2)} m/s`}
@@ -130,7 +143,7 @@ export function MotionLabScreen() {
               Reset
             </ControlButton>
           </div>
-          <p className={styles.legend}>WASD move · Shift sprint · Space jump · Ctrl crouch</p>
+          <p className={styles.legend}>WASD move · Shift sprint · Space jump · Ctrl crouch · H hides this panel</p>
         </ControlPanel>
       </div>
     </div>

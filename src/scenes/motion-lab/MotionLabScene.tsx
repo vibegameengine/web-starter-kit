@@ -9,7 +9,7 @@ import { AnimatedBody } from '../../features/motion/entities/AnimatedBody'
 import { MotionBody } from '../../features/motion/entities/MotionBody'
 import { useKeyboardMotionIntent } from '../../features/motion/components/useKeyboardMotionIntent'
 import { useMotionController } from '../../features/motion/components/useMotionController'
-import { useThirdPersonCamera } from '../../features/motion/components/useThirdPersonCamera'
+import { DEFAULT_THIRD_PERSON_CAMERA, useThirdPersonCamera } from '../../features/motion/components/useThirdPersonCamera'
 import { createBoxWorldTrace, type Vector3Tuple } from '../../features/motion/systems/boxTrace'
 import type { MotionSettings, RotationMode } from '../../features/motion/systems/motionController'
 import type { MotionProfile } from '../../features/motion/systems/motionProfile'
@@ -102,12 +102,15 @@ function MotionLabSubject({ profile, readout, rotationMode, showCollider }: Omit
     readout.publish(timeline.current.current)
   })
 
-  useThirdPersonCamera(timeline)
+  useThirdPersonCamera(timeline, useMemo(
+    () => ({ ...DEFAULT_THIRD_PERSON_CAMERA, trace: settings.trace }),
+    [settings.trace],
+  ))
 
   return (
     <ShadowGroup kind="dynamic">
       <MotionBody collider={showCollider ? BODY_HALF_EXTENTS : undefined} timeline={timeline}>
-        <AnimatedBody rig={rig} timeline={timeline} />
+        <AnimatedBody rig={rig} timeline={timeline} trace={settings.trace} />
       </MotionBody>
     </ShadowGroup>
   )

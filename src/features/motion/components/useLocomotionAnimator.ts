@@ -1,9 +1,11 @@
 import { useFrame } from '@react-three/fiber'
-import { useEffect, useMemo, useRef } from 'react'
+import { useContext, useEffect, useMemo, useRef } from 'react'
 import type { MutableRefObject } from 'react'
-import { AnimationMixer } from 'three'
+import { AnimationMixer, Vector3 } from 'three'
 import type { AnimationAction, Object3D } from 'three'
 
+import { FixedTickContext } from '../../../shared/lib/simulation/fixedTickContext'
+import { lerp } from '../../../shared/lib/simulation/renderInterpolation'
 import { LOCOMOTION_CLIP_METRICS, LOCOMOTION_GAIT_SPEEDS } from '../catalog/locomotionClips'
 import { normalizeAngle } from '../systems/angles'
 import { horizontalSpeed } from '../systems/motionIntent'
@@ -16,10 +18,35 @@ export type LocomotionAnimatorOptions = {
   readonly timeline: MutableRefObject<MotionTimeline>
 }
 
+export type BonePoint = readonly [number, number, number]
+
 export type LocomotionAnimatorDebug = {
+  readonly clipSpeed: number
   readonly clock: number
+  readonly hips: BonePoint
+  readonly leftFoot: BonePoint
+  readonly rightFoot: BonePoint
   readonly samples: readonly LocomotionSample[]
+  readonly speed: number
   readonly weights: Readonly<Record<string, number>>
+}
+
+const FOOT_BONES = { hips: /Hips$/, leftFoot: /LeftFoot$/, rightFoot: /RightFoot$/ }
+
+function findProbeBones(rig: Object3D): Readonly<Record<keyof typeof FOOT_BONES, Object3D | null>> {
+  const found: Record<string, Object3D | null> = { hips: null, leftFoot: null, rightFoot: null }
+  rig.traverse((node) => {
+    for (const [key, pattern] of Object.entries(FOOT_BONES)) {
+      if (!found[key] && pattern.test(node.name)) found[key] = node
+    }
+  })
+  return found as Readonly<Record<keyof typeof FOOT_BONES, Object3D | null>>
+}
+
+function worldPoint(bone: Object3D | null, into: Vector3): BonePoint {
+  if (!bone) return [0, 0, 0]
+  bone.getWorldPosition(into)
+  return [into.x, into.y, into.z]
 }
 
 function bodyFrameAngle(timeline: MutableRefObject<MotionTimeline>): number {
@@ -28,11 +55,39 @@ function bodyFrameAngle(timeline: MutableRefObject<MotionTimeline>): number {
   return normalizeAngle(Math.atan2(velocity[0], velocity[2]) - bodyFacingRadians)
 }
 
-export function useLocomotionAnimator({ rig, timeline }: LocomotionAnimatorOptions): void {
+function blendedClipSpeed(samples: readonly LocomotionSample[]): number {
+  let weighted = 0
+  let total = 0
+  for (const sample of samples) {
+    if (!sample.onDistance) continue
+    const metric = LOCOMOTION_CLIP_METRICS[sample.clipId]
+    if (metric.durationSeconds <= 0) continue
+    weighted += sample.weight * (metric.strideLengthMeters / metric.durationSeconds)
+    total += sample.weight
+  }
+  return total > 0 ? weighted / total : 0
+}
+
+export function useLocomotionAnimator({
+  rig,
+  timeline,
+}: LocomotionAnimatorOptions): MutableRefObject<LocomotionAnimatorDebug> {
+  const bus = useContext(FixedTickContext)
   const clips = useLocomotionClips(rig)
   const mixer = useMemo(() => new AnimationMixer(rig), [rig])
   const idleClock = useRef(0)
-  const debug = useRef<LocomotionAnimatorDebug>({ clock: 0, samples: [], weights: {} })
+  const debug = useRef<LocomotionAnimatorDebug>({
+    clipSpeed: 0,
+    clock: 0,
+    hips: [0, 0, 0],
+    leftFoot: [0, 0, 0],
+    rightFoot: [0, 0, 0],
+    samples: [],
+    speed: 0,
+    weights: {},
+  })
+  const probeBones = useMemo(() => findProbeBones(rig), [rig])
+  const probePoint = useMemo(() => new Vector3(), [])
 
   const actions = useMemo(() => {
     const built = new Map<LocomotionClipId, AnimationAction>()
@@ -60,7 +115,9 @@ export function useLocomotionAnimator({ rig, timeline }: LocomotionAnimatorOptio
   }, [mixer])
 
   useFrame((_, delta) => {
-    const state = timeline.current.current
+    const { current: state, previous } = timeline.current
+    const alpha = bus ? bus.alpha() : 1
+    const travelledMeters = lerp(previous.travelledMeters, state.travelledMeters, alpha)
     const speed = horizontalSpeed(state.velocity)
     idleClock.current += delta
 
@@ -69,7 +126,7 @@ export function useLocomotionAnimator({ rig, timeline }: LocomotionAnimatorOptio
       metrics: LOCOMOTION_CLIP_METRICS,
       moveAngleRadians: bodyFrameAngle(timeline),
       speed,
-      travelledMeters: state.travelledMeters,
+      travelledMeters,
     }))
 
     const weights: Record<string, number> = {}
@@ -86,6 +143,17 @@ export function useLocomotionAnimator({ rig, timeline }: LocomotionAnimatorOptio
     }
 
     mixer.update(0)
-    debug.current = { clock: idleClock.current, samples, weights }
+    debug.current = {
+      clipSpeed: blendedClipSpeed(samples),
+      clock: idleClock.current,
+      hips: worldPoint(probeBones.hips, probePoint),
+      leftFoot: worldPoint(probeBones.leftFoot, probePoint),
+      rightFoot: worldPoint(probeBones.rightFoot, probePoint),
+      samples,
+      speed,
+      weights,
+    }
   })
+
+  return debug
 }

@@ -15,6 +15,10 @@
   width: min(420px, calc(100vw - 28px));
 }
 
+.panel[hidden] {
+  display: none;
+}
+
 .panel > * {
   pointer-events: auto;
 }

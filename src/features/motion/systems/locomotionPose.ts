@@ -75,10 +75,8 @@ function movingSample(
   clipId: LocomotionClipId,
   metric: ClipMetric,
   speed: number,
-  travelledMeters: number,
+  phase: number,
 ): Omit<LocomotionSample, 'weight'> {
-  const stride = strideLengthOf(clipSpeedOf(metric), metric.durationSeconds)
-  const phase = stridePhase(travelledMeters, stride)
   return {
     clipId,
     onDistance: true,
@@ -87,22 +85,43 @@ function movingSample(
   }
 }
 
+function blendedStride(entries: readonly { readonly metric: ClipMetric; readonly weight: number }[]): number {
+  const total = entries.reduce((sum, entry) => sum + entry.weight, 0)
+  if (total <= 0) return 0
+  const stride = entries.reduce(
+    (sum, entry) => sum + entry.weight * strideLengthOf(clipSpeedOf(entry.metric), entry.metric.durationSeconds),
+    0,
+  )
+  return stride / total
+}
+
+export function syncedPhase(
+  travelledMeters: number,
+  entries: readonly { readonly metric: ClipMetric; readonly weight: number }[],
+): number {
+  return stridePhase(travelledMeters, blendedStride(entries))
+}
+
 export function locomotionSamples(input: LocomotionPoseInput): readonly LocomotionSample[] {
   const { gaitSpeeds, metrics, moveAngleRadians, speed, travelledMeters } = input
   const weights = gaitWeights(speed, gaitSpeeds)
   const travel = travelDirectionOf(moveAngleRadians)
+  const walkId = WALK_CLIPS[travel]
+  const runId = RUN_CLIPS[travel]
+  const phase = syncedPhase(travelledMeters, [
+    { metric: metrics[walkId], weight: weights.walk },
+    { metric: metrics[runId], weight: weights.run },
+  ])
   const samples: LocomotionSample[] = []
 
   if (weights.idle > 0) {
     samples.push({ clipId: 'idle', onDistance: false, rate: 1, timeSeconds: 0, weight: weights.idle })
   }
   if (weights.walk > 0) {
-    const clipId = WALK_CLIPS[travel]
-    samples.push({ ...movingSample(clipId, metrics[clipId], speed, travelledMeters), weight: weights.walk })
+    samples.push({ ...movingSample(walkId, metrics[walkId], speed, phase), weight: weights.walk })
   }
   if (weights.run > 0) {
-    const clipId = RUN_CLIPS[travel]
-    samples.push({ ...movingSample(clipId, metrics[clipId], speed, travelledMeters), weight: weights.run })
+    samples.push({ ...movingSample(runId, metrics[runId], speed, phase), weight: weights.run })
   }
 
   return samples

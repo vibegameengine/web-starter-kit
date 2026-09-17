@@ -53,6 +53,10 @@ export const LOCOMOTION_CLIP_METRICS: ClipMetrics = {
   'walk-strafe-right': metricOf('walk-strafe-right'),
 }
 
+export const WALK_CLIP_SPEED = measuredClip('walking').impliedSpeed
+
+export const RUN_CLIP_SPEED = measuredClip('running').impliedSpeed
+
 export const LOCOMOTION_GAIT_SPEEDS = {
   runSpeed: measuredClip('running').impliedSpeed,
   walkSpeed: measuredClip('walking').impliedSpeed,
