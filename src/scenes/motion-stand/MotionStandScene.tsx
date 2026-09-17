@@ -103,6 +103,7 @@ function StandSubject({ bus, facing, forward, passes, readout, right, sprint }: 
           aimYaw={aimYaw}
           intent={intent}
           passes={() => held.current.passes}
+          profile={settings.profile}
           rig={rig}
           timeline={timeline}
           topSpeed={settings.profile.maxSpeed}

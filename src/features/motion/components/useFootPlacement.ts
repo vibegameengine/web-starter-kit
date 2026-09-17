@@ -49,6 +49,7 @@ export type LimbReading = {
   readonly hip: readonly [number, number, number]
   readonly hold: number
   readonly knee: readonly [number, number, number]
+  readonly lock: readonly [number, number]
   readonly lowerLength: number
   readonly surfaceY: number | null
   readonly upperLength: number
@@ -109,6 +110,7 @@ function limbReading(
     hip: [hip.x, hip.y, hip.z],
     hold: state.hold,
     knee: [knee.x, knee.y, knee.z],
+    lock: [state.plant.lockX, state.plant.lockZ],
     lowerLength: chain.lowerLength,
     surfaceY: step.ground ? step.ground.surfaceY : null,
     upperLength: chain.upperLength,
@@ -116,7 +118,17 @@ function limbReading(
 }
 
 function freshState(): LegState {
-  return { contact: 0, correction: 0, footSpeed: 0, hold: 0, plant: NO_PLANT, previousFoot: null, wasStance: false }
+  return {
+    contact: 0,
+    correction: 0,
+    footSpeed: 0,
+    hold: 0,
+    lockFacing: 0,
+    plant: NO_PLANT,
+    previousFoot: null,
+    releasing: false,
+    wasStance: false,
+  }
 }
 
 export function useFootPlacement(options: FootPlacementOptions): MutableRefObject<FootPlacementDebug> {
@@ -176,6 +188,7 @@ export function useFootPlacement(options: FootPlacementOptions): MutableRefObjec
       bodyPosition: [body.position[0], body.position[2]],
       bodySpeed: speed,
       chain: chains[index],
+      facingRadians: body.bodyFacingRadians,
       deltaSeconds: delta,
       groundReference: body.position[1] - BODY_GROUND_OFFSET,
       leg,

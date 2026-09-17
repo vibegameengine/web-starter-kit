@@ -1,6 +1,8 @@
 import { Bone, Matrix4, Object3D, Quaternion, Vector3 } from 'three'
 import type { Skeleton, SkinnedMesh } from 'three'
 
+import { HUMANOID_JOINT_LIMITS as LIMITS } from '../../../shared/lib/animation/jointLimits'
+
 /**
  * A physics ragdoll built from a standard Mixamo humanoid skeleton. The bone
  * names are matched case-insensitively and with any namespace prefix stripped
@@ -205,22 +207,24 @@ const JOINTS: readonly JointRow[] = [
   // and extends ~26°, the hip 110-120° against 10-15°. NEGATIVE is forward, and
   // that was measured — with the sign the other way the body landed on its back
   // every time while still looking plausible in stills. The test that settles it
-  // is the torso's own facing at rest, not a screenshot.
-  { id: 'spine', parent: 'pelvis', child: 'torso', anchor: 'spine1', kind: 'cone', twist: [-deg(35), deg(35)], swing: [-deg(70), deg(26)], swingSide: [-deg(30), deg(30)] },
+  // is the torso's own facing at rest, not a screenshot. The numbers themselves
+  // live in shared/lib/animation/jointLimits so the animation side reads the
+  // same table.
+  { id: 'spine', parent: 'pelvis', child: 'torso', anchor: 'spine1', kind: 'cone', twist: [-LIMITS.spineTwist, LIMITS.spineTwist], swing: LIMITS.spineSwing, swingSide: LIMITS.spineSwingSide },
   // Neck twist stays well under the 80° a live head reaches: swing and twist
   // COMBINE, and 45+60 already give ~105° of deviation. Verified the cone limit is
   // enforced by clamping this row to 5° and measuring 7°.
   // A neck contact pair was tried and reverted: mannequin span 0.728 -> 0.644 and
   // rest true -> false, against 0.612 -> 0.606 on the other body.
-  { id: 'neck', parent: 'torso', child: 'head', anchor: 'head', kind: 'cone', twist: [-deg(35), deg(35)], swing: [-deg(35), deg(35)], relaxable: true },
-  { id: 'shoulderL', parent: 'torso', child: 'upperArmL', anchor: 'leftarm', kind: 'cone', twist: [-deg(45), deg(45)], swing: [-deg(75), deg(75)], swingSide: [-deg(60), deg(60)], contacts: true, damping: 3 },
-  { id: 'elbowL', parent: 'upperArmL', child: 'lowerArmL', anchor: 'leftforearm', kind: 'revolute', limit: [0, 2.5], buckle: deg(70), relaxable: true },
-  { id: 'shoulderR', parent: 'torso', child: 'upperArmR', anchor: 'rightarm', kind: 'cone', twist: [-deg(45), deg(45)], swing: [-deg(75), deg(75)], swingSide: [-deg(60), deg(60)], contacts: true, damping: 3 },
-  { id: 'elbowR', parent: 'upperArmR', child: 'lowerArmR', anchor: 'rightforearm', kind: 'revolute', limit: [0, 2.5], buckle: deg(70), relaxable: true },
-  { id: 'hipL', parent: 'pelvis', child: 'thighL', anchor: 'leftupleg', kind: 'cone', twist: [-deg(35), deg(35)], swing: [-deg(75), deg(15)], swingSide: [-deg(15), deg(15)], contacts: true },
-  { id: 'kneeL', parent: 'thighL', child: 'shinL', anchor: 'leftleg', kind: 'revolute', limit: [-2.5, 0], buckle: -deg(85), relaxable: true },
-  { id: 'hipR', parent: 'pelvis', child: 'thighR', anchor: 'rightupleg', kind: 'cone', twist: [-deg(35), deg(35)], swing: [-deg(75), deg(15)], swingSide: [-deg(15), deg(15)], contacts: true },
-  { id: 'kneeR', parent: 'thighR', child: 'shinR', anchor: 'rightleg', kind: 'revolute', limit: [-2.5, 0], buckle: -deg(85), relaxable: true },
+  { id: 'neck', parent: 'torso', child: 'head', anchor: 'head', kind: 'cone', twist: [-LIMITS.neckTwist, LIMITS.neckTwist], swing: [-LIMITS.neckSwing, LIMITS.neckSwing], relaxable: true },
+  { id: 'shoulderL', parent: 'torso', child: 'upperArmL', anchor: 'leftarm', kind: 'cone', twist: [-LIMITS.shoulderTwist, LIMITS.shoulderTwist], swing: [-LIMITS.shoulderSwing, LIMITS.shoulderSwing], swingSide: [-LIMITS.shoulderSwingSide, LIMITS.shoulderSwingSide], contacts: true, damping: 3 },
+  { id: 'elbowL', parent: 'upperArmL', child: 'lowerArmL', anchor: 'leftforearm', kind: 'revolute', limit: LIMITS.elbowFlexion, buckle: deg(70), relaxable: true },
+  { id: 'shoulderR', parent: 'torso', child: 'upperArmR', anchor: 'rightarm', kind: 'cone', twist: [-LIMITS.shoulderTwist, LIMITS.shoulderTwist], swing: [-LIMITS.shoulderSwing, LIMITS.shoulderSwing], swingSide: [-LIMITS.shoulderSwingSide, LIMITS.shoulderSwingSide], contacts: true, damping: 3 },
+  { id: 'elbowR', parent: 'upperArmR', child: 'lowerArmR', anchor: 'rightforearm', kind: 'revolute', limit: LIMITS.elbowFlexion, buckle: deg(70), relaxable: true },
+  { id: 'hipL', parent: 'pelvis', child: 'thighL', anchor: 'leftupleg', kind: 'cone', twist: [-LIMITS.hipTwist, LIMITS.hipTwist], swing: LIMITS.hipSwing, swingSide: LIMITS.hipSwingSide, contacts: true },
+  { id: 'kneeL', parent: 'thighL', child: 'shinL', anchor: 'leftleg', kind: 'revolute', limit: LIMITS.kneeFlexion, buckle: -deg(85), relaxable: true },
+  { id: 'hipR', parent: 'pelvis', child: 'thighR', anchor: 'rightupleg', kind: 'cone', twist: [-LIMITS.hipTwist, LIMITS.hipTwist], swing: LIMITS.hipSwing, swingSide: LIMITS.hipSwingSide, contacts: true },
+  { id: 'kneeR', parent: 'thighR', child: 'shinR', anchor: 'rightleg', kind: 'revolute', limit: LIMITS.kneeFlexion, buckle: -deg(85), relaxable: true },
 ]
 
 const UP = new Vector3(0, 1, 0)

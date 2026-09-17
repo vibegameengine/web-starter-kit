@@ -2,6 +2,8 @@ import { Quaternion, Vector3 } from 'three'
 import type { Object3D } from 'three'
 
 import { aimBoneAlong } from '../../../shared/lib/animation/boneAim'
+import { PLANT_RELEASE_TWIST_RADIANS } from '../../../shared/lib/animation/jointLimits'
+import { shortestAngle } from '../systems/angles'
 import { solveTwoBoneIk, type TwoBoneChain } from '../../../shared/lib/animation/twoBoneIk'
 import type { TraceBox } from '../systems/boxTrace'
 import { stanceGround, type GroundSample } from '../systems/footGround'
@@ -28,6 +30,8 @@ export type LegState = {
   correction: number
   footSpeed: number
   hold: number
+  lockFacing: number
+  releasing: boolean
   plant: PlantState
   previousFoot: Vector3 | null
   wasStance: boolean
@@ -57,6 +61,8 @@ export const KNEE_POLE_DISTANCE = 0.8
 export const HOLD_RATE = 9
 
 const REACH_SHARE = 0.985
+
+const RELEASE_SHARE = 0.9
 
 const UP = new Vector3(0, 1, 0)
 
@@ -98,6 +104,7 @@ export function withinReach(hip: Vector3, target: Vector3, chain: TwoBoneChain):
 
 export type FootStepInput = {
   readonly bodyForward: Vector3
+  readonly facingRadians: number
   readonly bodyPosition: readonly [number, number]
   readonly bodySpeed: number
   readonly chain: TwoBoneChain
@@ -117,17 +124,45 @@ export type FootStepInput = {
    lock point and the animated foot are the same point on that frame. Easing the
    weight up instead let the foot skate five centimetres through heel strike
    while the clip carried it forward. Only the release is rate limited. */
-function holdOnPlant(state: LegState, target: Vector3, stance: boolean, deltaSeconds: number): void {
-  const struck = stance && !state.wasStance
-  if (struck) {
+type HoldInput = {
+  readonly chain: TwoBoneChain
+  readonly deltaSeconds: number
+  readonly facingRadians: number
+  readonly hip: Vector3
+  readonly stance: boolean
+  readonly state: LegState
+  readonly target: Vector3
+}
+
+function outOfReach(hip: Vector3, state: LegState, chain: TwoBoneChain): boolean {
+  if (!state.plant.locked) return false
+  const span = Math.hypot(hip.x - state.plant.lockX, hip.z - state.plant.lockZ)
+  return span > (chain.lowerLength + chain.upperLength) * RELEASE_SHARE
+}
+
+function twistedOff(state: LegState, facingRadians: number): boolean {
+  if (!state.plant.locked) return false
+  return Math.abs(shortestAngle(state.lockFacing, facingRadians)) > PLANT_RELEASE_TWIST_RADIANS
+}
+
+/* @important A hard release has to ease like any other: cutting the hold from
+   one to zero on the frame the lock goes out of reach snapped the foot half a
+   metre to wherever the clip had carried it. While releasing, the lock is not
+   renewed and the weight runs down at the same rate it would fade on drift, so
+   the foot rejoins the animation instead of teleporting onto it. */
+function holdOnPlant({ chain, deltaSeconds, facingRadians, hip, stance, state, target }: HoldInput): void {
+  if (outOfReach(hip, state, chain) || twistedOff(state, facingRadians)) state.releasing = true
+  if (stance && !state.wasStance) {
     state.plant = { lockX: target.x, lockZ: target.z, locked: true, weight: 1 }
     state.hold = 1
+    state.lockFacing = facingRadians
+    state.releasing = false
   }
   state.wasStance = stance
   const drift = Math.hypot(target.x - state.plant.lockX, target.z - state.plant.lockZ)
-  const wanted = holdWeight(stance, drift, DEFAULT_MAX_HOLD)
-  if (!struck) state.hold = moveToward(state.hold, wanted, HOLD_RATE * deltaSeconds)
-  state.plant = { ...state.plant, locked: stance && state.hold > 0.01, weight: state.hold }
+  const wanted = state.releasing ? 0 : holdWeight(stance, drift, DEFAULT_MAX_HOLD)
+  state.hold = moveToward(state.hold, wanted, HOLD_RATE * deltaSeconds)
+  state.plant = { ...state.plant, locked: state.hold > 0.01, weight: state.hold }
   target.setX(target.x + (state.plant.lockX - target.x) * state.hold)
   target.setZ(target.z + (state.plant.lockZ - target.z) * state.hold)
 }
@@ -178,7 +213,7 @@ export function stepFoot(input: FootStepInput): FootStep {
   if (Math.abs(strideScale - 1) > 0.01) {
     warpedFootTarget(target, scratch.hip, bodyForward, strideScale, target)
   }
-  holdOnPlant(state, target, stance, deltaSeconds)
+  holdOnPlant({ chain, deltaSeconds, facingRadians: input.facingRadians, hip: scratch.hip, stance, state, target })
 
   return { contact: state.contact, ground, surfaceDelta, target: withinReach(scratch.hip, target, chain) }
 }

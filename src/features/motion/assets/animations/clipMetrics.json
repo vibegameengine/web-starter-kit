@@ -18,24 +18,6 @@
     "strideLength": 0.046
   },
   {
-    "contactShare": 0.454,
-    "stanceWindows": {
-      "left": [
-        0.148,
-        0.611
-      ],
-      "right": [
-        0.685,
-        0.13
-      ]
-    },
-    "duration": 0.9,
-    "impliedSpeed": 2.458,
-    "name": "run-forward-arc-right",
-    "rootSpeed": 3.202,
-    "strideLength": 2.212
-  },
-  {
     "contactShare": 0.489,
     "stanceWindows": {
       "left": [
@@ -54,24 +36,6 @@
     "strideLength": 2.506
   },
   {
-    "contactShare": 0.452,
-    "stanceWindows": {
-      "left": [
-        0.262,
-        0.69
-      ],
-      "right": [
-        0.714,
-        0.19
-      ]
-    },
-    "duration": 0.7,
-    "impliedSpeed": 3.112,
-    "name": "running-1",
-    "rootSpeed": 0.002,
-    "strideLength": 2.178
-  },
-  {
     "contactShare": 0.395,
     "stanceWindows": {
       "left": [
@@ -88,78 +52,6 @@
     "name": "running-backward",
     "rootSpeed": 0.003,
     "strideLength": 1.618
-  },
-  {
-    "contactShare": 0.489,
-    "stanceWindows": {
-      "left": [
-        0.152,
-        0.63
-      ],
-      "right": [
-        0.63,
-        0.13
-      ]
-    },
-    "duration": 0.767,
-    "impliedSpeed": 2.733,
-    "name": "running-right-turn",
-    "rootSpeed": 0.032,
-    "strideLength": 2.095
-  },
-  {
-    "contactShare": 0.838,
-    "stanceWindows": {
-      "left": [
-        0.243,
-        0
-      ],
-      "right": [
-        0.382,
-        0.044
-      ]
-    },
-    "duration": 2.267,
-    "impliedSpeed": 0.665,
-    "name": "running-to-turn",
-    "rootSpeed": 1.713,
-    "strideLength": 1.507
-  },
-  {
-    "contactShare": 0.439,
-    "stanceWindows": {
-      "left": [
-        0.171,
-        0.78
-      ],
-      "right": [
-        0.78,
-        0.049
-      ]
-    },
-    "duration": 0.667,
-    "impliedSpeed": 2.869,
-    "name": "running-turn-180",
-    "rootSpeed": 0.019,
-    "strideLength": 1.913
-  },
-  {
-    "contactShare": 0.78,
-    "stanceWindows": {
-      "left": [
-        0,
-        0.424
-      ],
-      "right": [
-        0.797,
-        0.237
-      ]
-    },
-    "duration": 2.933,
-    "impliedSpeed": 0.739,
-    "name": "start-walking",
-    "rootSpeed": 0.649,
-    "strideLength": 2.169
   },
   {
     "contactShare": 0.68,
@@ -214,41 +106,5 @@
     "name": "walking-backwards",
     "rootSpeed": 0,
     "strideLength": 1.21
-  },
-  {
-    "contactShare": 0.569,
-    "stanceWindows": {
-      "left": [
-        0.262,
-        0.738
-      ],
-      "right": [
-        0.723,
-        0.231
-      ]
-    },
-    "duration": 1.067,
-    "impliedSpeed": 0.015,
-    "name": "walking-rooted",
-    "rootSpeed": 0.01,
-    "strideLength": 0.017
-  },
-  {
-    "contactShare": 0.5,
-    "stanceWindows": {
-      "left": [
-        0.083,
-        0.667
-      ],
-      "right": [
-        0.683,
-        0.1
-      ]
-    },
-    "duration": 1,
-    "impliedSpeed": 0.859,
-    "name": "walking-turn-180",
-    "rootSpeed": 0.081,
-    "strideLength": 0.859
   }
 ]
