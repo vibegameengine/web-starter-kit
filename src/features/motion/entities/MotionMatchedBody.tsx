@@ -7,10 +7,12 @@ import type { MotionTimeline } from '../components/useMotionController'
 import { useOrientationWarp } from '../components/useOrientationWarp'
 import { useFootPlacement } from '../components/useFootPlacement'
 import type { TraceBox } from '../systems/boxTrace'
+import type { ProceduralPasses } from '../systems/proceduralPasses'
 
 export type MotionMatchedBodyProps = {
   readonly aimYaw: MutableRefObject<number>
   readonly ankleHeight?: number
+  readonly passes?: () => ProceduralPasses
   readonly intent: MotionIntentSource
   readonly rig: Object3D
   readonly timeline: MutableRefObject<MotionTimeline>
@@ -22,15 +24,17 @@ export function MotionMatchedBody({
   aimYaw,
   ankleHeight = 0.09,
   intent,
+  passes,
   rig,
   timeline,
   topSpeed,
   trace,
 }: MotionMatchedBodyProps) {
   const animator = useMotionMatchedAnimator({ aimYaw, intent, rig, timeline, topSpeed })
-  useOrientationWarp({ rig, timeline })
+  useOrientationWarp({ enabled: () => (passes ? passes().warp : true), rig, timeline })
   useFootPlacement({
     ankleHeight,
+    enabled: () => (passes ? passes().feet : true),
     gait: () => ({
       blendShare: animator.current.blendShare,
       clipId: animator.current.clipId as never,

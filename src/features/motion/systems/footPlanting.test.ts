@@ -3,7 +3,10 @@ import { describe, expect, it } from 'vitest'
 import {
   alignmentAlpha,
   contactWeight,
+  DEFAULT_MAX_HOLD,
   DEFAULT_PLANT_HYSTERESIS,
+  footContactWeight,
+  holdWeight,
   plantDecision,
   plantedTarget,
   updatePlant,
@@ -99,5 +102,45 @@ describe('updatePlant and plantedTarget', () => {
     )
 
     expect(target[0]).toBeCloseTo(0.5, 6)
+  })
+})
+
+describe('footContactWeight', () => {
+  const base = { ankleHeight: 0.09, maxStepDrop: 0.55, plantMargin: 0.06, surfaceY: 0, swingMargin: 0.22 }
+
+  it('keeps a stance foot in full contact over its own ground', () => {
+    expect(footContactWeight({ ...base, footY: 0.09, stance: true })).toBeCloseTo(1)
+    expect(footContactWeight({ ...base, footY: 0.4, stance: true })).toBeCloseTo(1)
+  })
+
+  it('fades a stance foot out past the reach of the leg', () => {
+    expect(footContactWeight({ ...base, footY: 0.75, stance: true })).toBeLessThan(1)
+    expect(footContactWeight({ ...base, footY: 1.0, stance: true })).toBe(0)
+  })
+
+  it('fades a swing foot out by height', () => {
+    expect(footContactWeight({ ...base, footY: 0.12, stance: false })).toBeCloseTo(1)
+    expect(footContactWeight({ ...base, footY: 0.4, stance: false })).toBe(0)
+  })
+
+  it('leaves a lifted swing foot all but free of the ground', () => {
+    expect(footContactWeight({ ...base, footY: 0.3, stance: false })).toBeLessThan(0.1)
+  })
+})
+
+describe('holdWeight', () => {
+  it('holds a stance foot on its lock point', () => {
+    expect(holdWeight(true, 0, DEFAULT_MAX_HOLD)).toBeCloseTo(1)
+  })
+
+  it('eases the hold off as the body carries the foot away', () => {
+    const half = holdWeight(true, DEFAULT_MAX_HOLD * 0.75, DEFAULT_MAX_HOLD)
+    expect(half).toBeGreaterThan(0)
+    expect(half).toBeLessThan(1)
+    expect(holdWeight(true, DEFAULT_MAX_HOLD, DEFAULT_MAX_HOLD)).toBe(0)
+  })
+
+  it('never holds a swing foot', () => {
+    expect(holdWeight(false, 0, DEFAULT_MAX_HOLD)).toBe(0)
   })
 })

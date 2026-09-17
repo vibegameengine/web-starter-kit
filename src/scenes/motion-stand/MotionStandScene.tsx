@@ -1,12 +1,15 @@
+/* eslint-disable react-hooks/refs -- the bench hands the current drive to a
+   simulation that reads it per tick, not to the render. */
 import { useGLTF } from '@react-three/drei'
 import { useThree } from '@react-three/fiber'
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { Mesh, MeshStandardMaterial } from 'three'
 import type { Object3D } from 'three'
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js'
 
 import mannequinUrl from '../../features/ragdoll/assets/models/default-humanoid.fbx?fbx=raw'
 import { MotionMatchedBody } from '../../features/motion/entities/MotionMatchedBody'
+import type { ProceduralPasses } from '../../features/motion/systems/proceduralPasses'
 import { MotionBody } from '../../features/motion/entities/MotionBody'
 import { useMotionController } from '../../features/motion/components/useMotionController'
 import { createBoxWorldTrace, type SolidBox, type Vector3Tuple } from '../../features/motion/systems/boxTrace'
@@ -25,12 +28,15 @@ import { useStandStepping } from './useStandStepping'
 
 const BODY_HALF_EXTENTS: Vector3Tuple = [0.3, 0.9, 0.3]
 const FLOOR: SolidBox = { center: [0, -1, 0], halfExtents: [40, 1, 40] }
+const STEP: SolidBox = { center: [0.18, 0.1, 1.4], halfExtents: [0.22, 0.1, 0.7] }
+const GROUND: readonly SolidBox[] = [FLOOR, STEP]
 const START: Vector3Tuple = [0, 0.9, 0]
 const bodyMaterial = new MeshStandardMaterial({ color: '#b9743f', roughness: 0.72 })
 
 export type MotionStandSceneProps = {
   readonly facing: 'aim' | 'travel'
   readonly forward: number
+  readonly passes: ProceduralPasses
   readonly readout: StandStore
   readonly right: number
   readonly sprint: boolean
@@ -54,7 +60,7 @@ function useMannequin(): Object3D {
   }, [scene])
 }
 
-function StandSubject({ bus, facing, forward, readout, right, sprint }: StandSubjectProps) {
+function StandSubject({ bus, facing, forward, passes, readout, right, sprint }: StandSubjectProps) {
   const rig = useMannequin()
   const aimYaw = useRef(0)
   const frame = useRef(0)
@@ -63,12 +69,13 @@ function StandSubject({ bus, facing, forward, readout, right, sprint }: StandSub
     halfExtents: BODY_HALF_EXTENTS,
     profile: profileAtSpeed(GROUNDED_MOTION_PROFILE, WALK_CLIP_SPEED, DIRECTION_SPEED_SHARES),
     rotationMode: facing === 'aim' ? 'follow-aim' : 'orient-to-movement',
-    trace: createBoxWorldTrace([FLOOR]),
+    trace: createBoxWorldTrace(GROUND),
     turnProfile: HUMAN_TURN_PROFILE,
   }), [facing])
 
-  const held = useRef({ forward, right, sprint })
-  held.current = { forward, right, sprint }
+  const held = useRef({ forward, passes, right, sprint })
+  held.current = { forward, passes, right, sprint }
+  useEffect(() => invalidate(), [invalidate, passes])
   const intent = useMemo(() => ({
     read: (yaw: number): MotionIntent => ({
       crouch: false,
@@ -85,11 +92,17 @@ function StandSubject({ bus, facing, forward, readout, right, sprint }: StandSub
   useStandStepping({ bus, frame, invalidate, readout, rig, start: START, timeline, warp })
 
   return (
+    <>
+    <mesh position={STEP.center as unknown as [number, number, number]} receiveShadow>
+      <boxGeometry args={[STEP.halfExtents[0] * 2, STEP.halfExtents[1] * 2, STEP.halfExtents[2] * 2]} />
+      <meshStandardMaterial color="#8d8f94" roughness={0.9} />
+    </mesh>
     <ShadowGroup kind="dynamic">
       <MotionBody collider={BODY_HALF_EXTENTS} timeline={timeline}>
         <MotionMatchedBody
           aimYaw={aimYaw}
           intent={intent}
+          passes={() => held.current.passes}
           rig={rig}
           timeline={timeline}
           topSpeed={settings.profile.maxSpeed}
@@ -97,6 +110,7 @@ function StandSubject({ bus, facing, forward, readout, right, sprint }: StandSub
         />
       </MotionBody>
     </ShadowGroup>
+    </>
   )
 }
 

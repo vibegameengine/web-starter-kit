@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState, useSyncExternalStore } from 'react'
 
 import { ControlButton, ControlChoice, ControlPanel } from '../../ui-kit'
 import { MotionStandScene } from '../../../scenes/motion-stand/MotionStandScene'
+import { ALL_PASSES, type ProceduralPasses } from '../systems/proceduralPasses'
 import {
   createStandStore,
   MOTION_STAND_RESET_EVENT,
@@ -38,12 +39,18 @@ export function MotionStandScreen() {
   const [driveId, setDriveId] = useState<DriveId>('forward')
   const [sprint, setSprint] = useState(false)
   const [facing, setFacing] = useState<FacingId>('travel')
+  const [passes, setPasses] = useState<ProceduralPasses>(ALL_PASSES)
   /* eslint-enable no-restricted-syntax */
 
   const readout = useMemo(() => createStandStore(), [])
   const frame = useSyncExternalStore(readout.subscribe, readout.getSnapshot)
   const drive = DRIVE_OPTIONS.find((option) => option.id === driveId) ?? DRIVE_OPTIONS[1]
   const step = useCallback((count: number) => fire(MOTION_STAND_STEP_EVENT, count), [])
+  const togglePass = useCallback((key: keyof ProceduralPasses) => {
+    const focused = document.activeElement
+    if (focused instanceof HTMLElement) focused.blur()
+    setPasses((previous) => ({ ...previous, [key]: !previous[key] }))
+  }, [])
 
   return (
     <div className={styles.screen}>
@@ -51,6 +58,7 @@ export function MotionStandScreen() {
         facing={facing}
         forward={drive.forward}
         key={facing}
+        passes={passes}
         readout={readout}
         right={drive.right}
         sprint={sprint}
@@ -115,6 +123,20 @@ export function MotionStandScreen() {
             </ControlButton>
             <ControlButton data-testid="motion-stand-reset" onClick={() => fire(MOTION_STAND_RESET_EVENT)}>
               Reset
+            </ControlButton>
+            <ControlButton
+              active={passes.feet}
+              data-testid="motion-stand-pass-feet"
+              onClick={() => togglePass('feet')}
+            >
+              Foot IK
+            </ControlButton>
+            <ControlButton
+              active={passes.warp}
+              data-testid="motion-stand-pass-warp"
+              onClick={() => togglePass('warp')}
+            >
+              Orient warp
             </ControlButton>
           </div>
           <p className={styles.legend}>

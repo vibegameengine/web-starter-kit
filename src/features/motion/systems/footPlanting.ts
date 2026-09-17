@@ -44,6 +44,48 @@ export function contactWeight({
   return 1 - (above - plantMargin) / (swingMargin - plantMargin)
 }
 
+export function smoothStep(edge0: number, edge1: number, value: number): number {
+  if (edge1 <= edge0) return value >= edge1 ? 1 : 0
+  const t = clampNumber((value - edge0) / (edge1 - edge0), 0, 1)
+  return t * t * (3 - 2 * t)
+}
+
+export const STANCE_FADE_RANGE = 0.3
+
+/* @important Contact comes from the stance window and the gap to the ground,
+   never from a measured foot speed: a speed read over render frames goes to
+   zero between simulation ticks, which lifted both feet into full contact at
+   once and let the solver haul both legs at the same time. A stance foot keeps
+   full contact until its ground is further away than the leg can reach; a swing
+   foot fades out by height so it keeps the clip's own motion. */
+export function footContactWeight({
+  ankleHeight,
+  footY,
+  maxStepDrop,
+  plantMargin,
+  stance,
+  surfaceY,
+  swingMargin,
+}: FootContactInput & { readonly maxStepDrop: number; readonly stance: boolean }): number {
+  const gap = footY - surfaceY
+  if (!stance) return contactWeight({ ankleHeight, footY, plantMargin, surfaceY, swingMargin })
+  const reachedFor = Math.max(0, gap - ankleHeight)
+  return 1 - smoothStep(maxStepDrop, maxStepDrop + STANCE_FADE_RANGE, reachedFor)
+}
+
+export const DEFAULT_MAX_HOLD = 0.9
+
+export function holdWeight(stance: boolean, drift: number, maxHold: number): number {
+  if (!stance) return 0
+  return 1 - smoothStep(maxHold * 0.5, maxHold, drift)
+}
+
+export function moveToward(current: number, wanted: number, step: number): number {
+  const gap = wanted - current
+  if (Math.abs(gap) <= step) return wanted
+  return current + Math.sign(gap) * step
+}
+
 export function approachWeight(current: number, wanted: number, rate: number, deltaSeconds: number): number {
   const share = clampNumber(rate * deltaSeconds, 0, 1)
   return current + (wanted - current) * share
