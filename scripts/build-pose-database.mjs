@@ -40,8 +40,18 @@ function findBones(scene) {
   return found
 }
 
+function unitScale(gltf, bones) {
+  const point = new Vector3()
+  gltf.scene.updateMatrixWorld(true)
+  bones.hips.getWorldPosition(point)
+  if (point.y > 10) return 1 / CENTIMETRES_PER_METRE
+  if (point.y > 0.3) return 1
+  throw new Error(`clip rig stands ${point.y} units tall, which is neither metres nor centimetres`)
+}
+
 function sampleClip(gltf, clip) {
   const bones = findBones(gltf.scene)
+  const scale = unitScale(gltf, bones)
   const mixer = new AnimationMixer(gltf.scene)
   mixer.clipAction(clip).play()
   const rotation = new Quaternion()
@@ -52,7 +62,7 @@ function sampleClip(gltf, clip) {
 
   const read = (bone) => {
     bone.getWorldPosition(point)
-    return [point.x / CENTIMETRES_PER_METRE, point.y / CENTIMETRES_PER_METRE, point.z / CENTIMETRES_PER_METRE]
+    return [point.x * scale, point.y * scale, point.z * scale]
   }
 
   for (let time = 0; time < clip.duration; time += step) {
@@ -68,9 +78,29 @@ function sampleClip(gltf, clip) {
 function intoLocal(frame, point) {
   const dx = point[0] - frame.hips[0]
   const dz = point[2] - frame.hips[2]
-  const cos = Math.cos(-frame.yaw)
-  const sin = Math.sin(-frame.yaw)
+  const cos = Math.cos(-frame.facing)
+  const sin = Math.sin(-frame.facing)
   return [dx * cos + dz * sin, point[1], dz * cos - dx * sin]
+}
+
+function normalizeAngle(angle) {
+  return Math.atan2(Math.sin(angle), Math.cos(angle))
+}
+
+function travelHeading(frames) {
+  const first = frames[0].hips
+  const last = frames[frames.length - 1].hips
+  return Math.atan2(last[0] - first[0], last[2] - first[2])
+}
+
+function meanYaw(frames) {
+  const sin = frames.reduce((sum, frame) => sum + Math.sin(frame.yaw), 0) / frames.length
+  const cos = frames.reduce((sum, frame) => sum + Math.cos(frame.yaw), 0) / frames.length
+  return Math.atan2(sin, cos)
+}
+
+function withFacing(frames, hipsToFacing) {
+  return frames.map((frame) => ({ ...frame, facing: normalizeAngle(frame.yaw + hipsToFacing) }))
 }
 
 function localVelocity(frames, index, key) {
@@ -86,9 +116,21 @@ function localVelocity(frames, index, key) {
   ]
 }
 
-function frameAt(frames, seconds) {
-  const clamped = Math.min(frames.length - 1, Math.max(0, Math.round(seconds * SAMPLE_HZ)))
-  return frames[clamped]
+function loopedFrameAt(frames, seconds) {
+  const count = frames.length
+  const index = Math.round(seconds * SAMPLE_HZ)
+  const loops = Math.floor(index / count)
+  const wrapped = index - loops * count
+  const cycle = [
+    frames[count - 1].hips[0] - frames[0].hips[0],
+    0,
+    frames[count - 1].hips[2] - frames[0].hips[2],
+  ]
+  const frame = frames[wrapped]
+  return {
+    ...frame,
+    hips: [frame.hips[0] + cycle[0] * loops, frame.hips[1], frame.hips[2] + cycle[2] * loops],
+  }
 }
 
 function trajectoryFeatures(frames, index) {
@@ -96,10 +138,10 @@ function trajectoryFeatures(frames, index) {
   const positions = []
   const headings = []
   for (const offset of [...PAST_OFFSETS, ...FUTURE_OFFSETS]) {
-    const sample = frameAt(frames, current.time + offset)
+    const sample = loopedFrameAt(frames, current.time + offset)
     const local = intoLocal(current, sample.hips)
     positions.push(local[0], local[2])
-    const heading = sample.yaw - current.yaw
+    const heading = sample.facing - current.facing
     headings.push(Math.sin(heading), Math.cos(heading))
   }
   return { headings, positions }
@@ -131,15 +173,17 @@ function weightVector(sampleCount) {
   return weights
 }
 
-async function indexClip(file) {
-  const clipId = basename(file, extname(file))
+async function rawFrames(file) {
   const gltf = await loadGlb(join(ROOTED_DIRECTORY, file))
   if (gltf.animations.length !== 1) throw new Error(`${file} holds ${gltf.animations.length} clips, expected one`)
 
   const clip = gltf.animations[0]
   const frames = sampleClip(gltf, clip)
   if (frames.length < 4) throw new Error(`${file} is too short to index: ${frames.length} frames`)
+  return frames
+}
 
+function indexFrames(clipId, frames) {
   return frames.map((frame, index) => ({
     clipId,
     features: featureVector(frames, index).map((value) => Number(value.toFixed(4))),
@@ -155,8 +199,16 @@ for (const file of files) {
   }
 }
 
+const REFERENCE_CLIP = 'walk-forward'
+const rawByClip = new Map()
+for (const entry of verified) rawByClip.set(entry.clip, await rawFrames(`${entry.clip}.glb`))
+
+const reference = rawByClip.get(REFERENCE_CLIP)
+if (!reference) throw new Error(`${REFERENCE_CLIP} must be measured before the database can be framed`)
+const hipsToFacing = normalizeAngle(travelHeading(reference) - meanYaw(reference))
+
 const poses = []
-for (const file of files) poses.push(...await indexClip(file))
+for (const [clipId, frames] of rawByClip) poses.push(...indexFrames(clipId, withFacing(frames, hipsToFacing)))
 
 const offsets = [...PAST_OFFSETS, ...FUTURE_OFFSETS]
 const database = {
@@ -173,5 +225,5 @@ writeFileSync(DATABASE_FILE, `${JSON.stringify(database)}\n`)
 
 const perClip = new Map()
 for (const pose of poses) perClip.set(pose.clipId, (perClip.get(pose.clipId) ?? 0) + 1)
-console.log(`poses ${poses.length}  dimensions ${database.dimensions}  offsets ${offsets.join(' ')}`)
+console.log(`poses ${poses.length}  dimensions ${database.dimensions}  hips-to-facing ${(hipsToFacing * 180 / Math.PI).toFixed(1)} deg`)
 for (const [clipId, count] of perClip) console.log(`  ${clipId.padEnd(16)} ${String(count).padStart(4)} poses`)

@@ -5,6 +5,7 @@ import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js
 
 import mannequinUrl from '../../features/ragdoll/assets/models/default-humanoid.fbx?fbx=raw'
 import { AnimatedBody } from '../../features/motion/entities/AnimatedBody'
+import { MotionMatchedBody } from '../../features/motion/entities/MotionMatchedBody'
 
 import { MotionBody } from '../../features/motion/entities/MotionBody'
 import { useKeyboardMotionIntent } from '../../features/motion/components/useKeyboardMotionIntent'
@@ -44,7 +45,10 @@ function useMannequinRig() {
   }, [scene])
 }
 
+export type AnimationMode = 'blend' | 'matching'
+
 export type MotionLabSceneProps = {
+  readonly animation: AnimationMode
   readonly paused: boolean
   readonly profile: MotionProfile
   readonly readout: MotionReadoutStore
@@ -79,7 +83,7 @@ function useWarpStations(warp: (position: Vector3Tuple) => void): void {
   }, [warp])
 }
 
-function MotionLabSubject({ profile, readout, rotationMode, showCollider }: Omit<MotionLabSceneProps, 'paused'>) {
+function MotionLabSubject({ animation, profile, readout, rotationMode, showCollider }: Omit<MotionLabSceneProps, 'paused'>) {
   const intent = useKeyboardMotionIntent()
   const aimYaw = useRef(0)
   const settings = useMemo<MotionSettings>(() => ({
@@ -110,13 +114,24 @@ function MotionLabSubject({ profile, readout, rotationMode, showCollider }: Omit
   return (
     <ShadowGroup kind="dynamic">
       <MotionBody collider={showCollider ? BODY_HALF_EXTENTS : undefined} timeline={timeline}>
-        <AnimatedBody rig={rig} timeline={timeline} trace={settings.trace} />
+        {animation === 'matching' ? (
+          <MotionMatchedBody
+            aimYaw={aimYaw}
+            intent={intent}
+            rig={rig}
+            timeline={timeline}
+            topSpeed={profile.maxSpeed}
+            trace={settings.trace}
+          />
+        ) : (
+          <AnimatedBody rig={rig} timeline={timeline} trace={settings.trace} />
+        )}
       </MotionBody>
     </ShadowGroup>
   )
 }
 
-export function MotionLabScene({ paused, profile, readout, rotationMode, showCollider }: MotionLabSceneProps) {
+export function MotionLabScene({ animation, paused, profile, readout, rotationMode, showCollider }: MotionLabSceneProps) {
   const bus = useOwnedFixedTickBus()
 
   return (
@@ -127,6 +142,7 @@ export function MotionLabScene({ paused, profile, readout, rotationMode, showCol
       </ShadowGroup>
       <FixedTickProvider bus={bus}>
         <MotionLabSubject
+          animation={animation}
           profile={profile}
           readout={readout}
           rotationMode={rotationMode}

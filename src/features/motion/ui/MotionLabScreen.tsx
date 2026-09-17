@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 
 import { ControlButton, ControlChoice, ControlPanel } from '../../ui-kit'
-import { MotionLabScene } from '../../../scenes/motion-lab/MotionLabScene'
+import { MotionLabScene, type AnimationMode } from '../../../scenes/motion-lab/MotionLabScene'
 import { MOTION_LAB_STATIONS, MOTION_LAB_WARP_EVENT } from '../../../scenes/motion-lab/motionLabCourse'
 import { createMotionReadoutStore } from '../../../scenes/motion-lab/motionReadoutStore'
 import type { RotationMode } from '../systems/motionController'
@@ -15,6 +15,11 @@ const PROFILE_OPTIONS = [
   { id: 'walk', label: 'Walk', value: WALK_ONLY_PROFILE },
   { id: 'grounded', label: 'Grounded', value: GROUNDED_MOTION_PROFILE },
   { id: 'arena', label: 'Arena', value: ARENA_MOTION_PROFILE },
+] as const
+
+const ANIMATION_OPTIONS = [
+  { id: 'matching', label: 'Motion matching' },
+  { id: 'blend', label: 'Gait blend' },
 ] as const
 
 const ROTATION_OPTIONS = [
@@ -38,6 +43,7 @@ export function MotionLabScreen() {
      body's own motion never passes through React: it is published to a store
      the readout subscribes to. */
   const [profileId, setProfileId] = useState<ProfileId>('walk')
+  const [animation, setAnimation] = useState<AnimationMode>('matching')
   const [rotationMode, setRotationMode] = useState<RotationMode>('orient-to-movement')
   const [showCollider, setShowCollider] = useState(true)
   const [paused, setPaused] = useState(false)
@@ -68,7 +74,8 @@ export function MotionLabScreen() {
   return (
     <div className={styles.screen}>
       <MotionLabScene
-        key={`${runId}-${profileId}`}
+        animation={animation}
+        key={`${runId}-${profileId}-${animation}`}
         paused={paused}
         profile={profile.value}
         readout={readout}
@@ -90,6 +97,16 @@ export function MotionLabScreen() {
             }}
             options={PROFILE_OPTIONS.map((option) => ({ id: option.id, label: option.label }))}
             testIdPrefix="motion-profile"
+          />
+          <ControlChoice
+            activeId={animation}
+            label="Animation"
+            onSelect={(id) => {
+              dropFocus()
+              setAnimation(id as AnimationMode)
+            }}
+            options={ANIMATION_OPTIONS.map((option) => ({ id: option.id, label: option.label }))}
+            testIdPrefix="motion-animation"
           />
           <ControlChoice
             activeId={rotationMode}

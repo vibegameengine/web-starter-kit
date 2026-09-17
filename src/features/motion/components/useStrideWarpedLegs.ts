@@ -8,12 +8,11 @@ import { aimBoneAlong } from '../../../shared/lib/animation/boneAim'
 import { solveTwoBoneIk } from '../../../shared/lib/animation/twoBoneIk'
 import type { TraceBox, Vector3Tuple } from '../systems/boxTrace'
 import { groundedFootTarget, pelvisDropFor, strideScaleFor, warpedFootTarget } from '../systems/strideWarp'
-import type { LocomotionAnimatorDebug } from './useLocomotionAnimator'
 import type { MotionTimeline } from './useMotionController'
 
 export type StrideWarpedLegsOptions = {
-  readonly animator: MutableRefObject<LocomotionAnimatorDebug>
   readonly ankleHeight: number
+  readonly clipSpeed: () => number
   readonly rig: Object3D
   readonly timeline: MutableRefObject<MotionTimeline>
   readonly trace: TraceBox
@@ -63,7 +62,7 @@ export type StrideWarpedLegsDebug = {
 }
 
 export function useStrideWarpedLegs(options: StrideWarpedLegsOptions): void {
-  const { animator, ankleHeight, rig, timeline, trace } = options
+  const { ankleHeight, clipSpeed, rig, timeline, trace } = options
   const legs = useMemo(() => [legOf(rig, 'Left'), legOf(rig, 'Right')], [rig])
   const scratch = useMemo(() => ({
     hip: new Vector3(),
@@ -102,7 +101,7 @@ export function useStrideWarpedLegs(options: StrideWarpedLegsOptions): void {
     if (speed < 0.05) return
 
     scratch.stride.set(state.velocity[0], 0, state.velocity[2]).normalize()
-    const strideScale = strideScaleFor(speed, animator.current.clipSpeed)
+    const strideScale = strideScaleFor(speed, clipSpeed())
 
     for (let index = 0; index < legs.length; index += 1) {
       const leg = legs[index]

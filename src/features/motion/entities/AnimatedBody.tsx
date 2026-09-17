@@ -17,7 +17,7 @@ export type AnimatedBodyProps = {
 export function AnimatedBody({ ankleHeight = 0.09, rig, timeline, trace }: AnimatedBodyProps) {
   const animator = useLocomotionAnimator({ rig, timeline })
   useOrientationWarp({ rig, timeline })
-  useStrideWarpedLegs({ animator, ankleHeight, rig, timeline, trace })
+  useStrideWarpedLegs({ ankleHeight, clipSpeed: () => animator.current.clipSpeed, rig, timeline, trace })
 
   return <primitive object={rig} />
 }

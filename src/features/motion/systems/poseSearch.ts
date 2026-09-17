@@ -73,6 +73,20 @@ export function findBestPose(
   return best as PoseMatch
 }
 
+export function rankedPoses(
+  database: PoseDatabase,
+  query: readonly number[],
+  count: number,
+): readonly PoseMatch[] {
+  const scored = database.poses.map((pose, index) => ({
+    clipId: pose.clipId,
+    cost: poseCost(query, pose.features, database.weights),
+    index,
+    time: pose.time,
+  }))
+  return scored.sort((a, b) => a.cost - b.cost).slice(0, count)
+}
+
 export function poseAfter(database: PoseDatabase, match: PoseMatch, seconds: number): PoseMatch {
   const pose = database.poses[match.index]
   const samplesAhead = Math.round(seconds * database.sampleHz)

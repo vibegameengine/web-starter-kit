@@ -1,16 +1,8 @@
-// Records today's clean-code numbers so the guard reports regressions only.
-//
-//   npm run clean-code:baseline
-//
-// Run it after a real cleanup, never to make a complaint go away: every entry
-// here is a file the repository has agreed to leave worse than its own limits,
-// and the list is meant to shrink.
 import { execSync } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { LIMITS, baselineOf, isOverLimits, measureFile, trackedSources } from './lib/cleanCode.mjs'
 
-/** Both prerequisites fail with a stack that says nothing about the cause. */
 function required(what, load) {
   try {
     return load()
@@ -33,7 +25,8 @@ const files = required(
 const entries = {}
 let overFile = 0
 let overFunction = 0
-let overComment = 0
+let withComments = 0
+let comments = 0
 
 for (const file of files) {
   const measurement = measureFile(ts, file, readFileSync(file, 'utf8'))
@@ -41,7 +34,8 @@ for (const file of files) {
   entries[file] = baselineOf(measurement)
   if (measurement.fileLines > LIMITS.fileLines) overFile += 1
   if (measurement.worstFunction > LIMITS.functionLinesHard) overFunction += 1
-  if (measurement.commentRun > LIMITS.commentBlock || measurement.commentShare > LIMITS.commentShare) overComment += 1
+  if (measurement.comments > 0) withComments += 1
+  comments += measurement.comments
 }
 
 writeFileSync(
@@ -50,7 +44,7 @@ writeFileSync(
 )
 
 console.log(`${files.length} files measured; ${Object.keys(entries).length} recorded as over at least one limit`)
-console.log(`  ${overFile} over ${LIMITS.fileLines} lines, ${overFunction} with a function over ${LIMITS.functionLinesHard}, ${overComment} over a comment limit`)
+console.log(`  ${overFile} over ${LIMITS.fileLines} lines, ${overFunction} with a function over ${LIMITS.functionLinesHard}, ${withComments} holding ${comments} forbidden comments`)
 for (const [file, entry] of Object.entries(entries)) {
   if (entry.fileLines <= LIMITS.fileLines && entry.worstFunction <= LIMITS.functionLinesHard) continue
   console.log(`  ${String(entry.fileLines).padStart(4)} lines, worst ${String(entry.worstFunction).padStart(3)}, over-limit ${entry.functionsOverLimit}  ${file}`)
