@@ -26,7 +26,7 @@ function settingsFor(solids: readonly SolidBox[], rotationMode: MotionSettings['
   }
 }
 
-function standing(settings: MotionSettings, position: Vector3Tuple = [0, 0.9, 0]): MotionState {
+function standing(position: Vector3Tuple = [0, 0.9, 0]): MotionState {
   return { ...createMotionState(position), mode: 'walking' }
 }
 
@@ -41,7 +41,7 @@ function drive(state: MotionState, intent: MotionIntent, settings: MotionSetting
 describe('stepMotionController', () => {
   it('walks a grounded body forward along its yaw', () => {
     const settings = settingsFor([FLOOR], 'orient-to-movement')
-    const state = drive(standing(settings), { ...IDLE_MOTION_INTENT, forward: 1 }, settings, 60)
+    const state = drive(standing(), { ...IDLE_MOTION_INTENT, forward: 1 }, settings, 60)
 
     expect(state.mode).toBe('walking')
     expect(state.moving).toBe(true)
@@ -50,9 +50,17 @@ describe('stepMotionController', () => {
     expect(state.locomotionDirection).toBe('forward')
   })
 
+  it('accumulates the distance travelled, which is what drives a stride', () => {
+    const settings = settingsFor([FLOOR], 'orient-to-movement')
+    const state = drive(standing(), { ...IDLE_MOTION_INTENT, forward: 1 }, settings, 60)
+
+    expect(state.travelledMeters).toBeCloseTo(state.position[2] - 0, 2)
+    expect(state.travelledMeters).toBeGreaterThan(2)
+  })
+
   it('falls when there is nothing underneath', () => {
     const settings = settingsFor([], 'orient-to-movement')
-    const state = drive(standing(settings), IDLE_MOTION_INTENT, settings, 30)
+    const state = drive(standing(), IDLE_MOTION_INTENT, settings, 30)
 
     expect(state.mode).toBe('falling')
     expect(state.position[1]).toBeLessThan(0.9)
@@ -60,7 +68,7 @@ describe('stepMotionController', () => {
 
   it('lands back on the floor after a jump', () => {
     const settings = settingsFor([FLOOR], 'orient-to-movement')
-    const jumped = drive(standing(settings), { ...IDLE_MOTION_INTENT, jump: true }, settings, 6)
+    const jumped = drive(standing(), { ...IDLE_MOTION_INTENT, jump: true }, settings, 6)
     expect(jumped.mode).toBe('falling')
 
     const landed = drive(jumped, IDLE_MOTION_INTENT, settings, 120)
@@ -70,7 +78,7 @@ describe('stepMotionController', () => {
 
   it('climbs a step while walking into it', () => {
     const settings = settingsFor([FLOOR, SLAB], 'orient-to-movement')
-    const state = drive(standing(settings), { ...IDLE_MOTION_INTENT, forward: 1 }, settings, 120)
+    const state = drive(standing(), { ...IDLE_MOTION_INTENT, forward: 1 }, settings, 120)
 
     expect(state.position[1]).toBeCloseTo(1.2, 2)
     expect(state.mode).toBe('walking')
@@ -78,14 +86,14 @@ describe('stepMotionController', () => {
 
   it('turns the body onto the aim when the rotation follows it', () => {
     const settings = settingsFor([FLOOR], 'follow-aim')
-    const state = drive(standing(settings), IDLE_MOTION_INTENT, settings, 120, Math.PI / 2)
+    const state = drive(standing(), IDLE_MOTION_INTENT, settings, 120, Math.PI / 2)
 
     expect(state.bodyFacingRadians).toBeCloseTo(Math.PI / 2, 3)
   })
 
   it('reports a strafe as a sideways stride when the body holds its aim', () => {
     const settings = settingsFor([FLOOR], 'follow-aim')
-    const state = drive(standing(settings), { ...IDLE_MOTION_INTENT, right: 1 }, settings, 60)
+    const state = drive(standing(), { ...IDLE_MOTION_INTENT, right: 1 }, settings, 60)
 
     expect(state.locomotionDirection).toBe('right')
     expect(state.bodyFacingRadians).toBeCloseTo(0, 3)
@@ -93,7 +101,7 @@ describe('stepMotionController', () => {
 
   it('keeps the aim inside the spine limit while the legs catch up', () => {
     const settings = settingsFor([FLOOR], 'orient-to-movement')
-    const state = drive(standing(settings), IDLE_MOTION_INTENT, settings, 2, Math.PI)
+    const state = drive(standing(), IDLE_MOTION_INTENT, settings, 2, Math.PI)
 
     expect(Math.abs(state.upperAimRadians)).toBeLessThanOrEqual(HUMAN_TURN_PROFILE.upperAimLimitRadians)
   })

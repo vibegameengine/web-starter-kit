@@ -1,0 +1,42 @@
+.screen {
+  height: 100vh;
+  position: relative;
+  width: 100vw;
+}
+
+/* Pinned to a corner and pointer-transparent except on its own controls: the
+   frame the lab exists to show is the body against the course. */
+.panel {
+  bottom: 14px;
+  display: flex;
+  left: 14px;
+  pointer-events: none;
+  position: absolute;
+  width: min(420px, calc(100vw - 28px));
+}
+
+.panel > * {
+  pointer-events: auto;
+}
+
+.readout {
+  color: rgb(226 232 240 / 82%);
+  display: flex;
+  flex-wrap: wrap;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  gap: 10px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.legend {
+  color: rgb(226 232 240 / 62%);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  margin: 0;
+}

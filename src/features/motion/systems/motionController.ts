@@ -24,6 +24,7 @@ export type MotionState = {
   readonly moving: boolean
   readonly position: Vector3Tuple
   readonly steppedUp: number
+  readonly travelledMeters: number
   readonly upperAimRadians: number
   readonly velocity: Vector3Tuple
 }
@@ -56,6 +57,7 @@ export function createMotionState(position: Vector3Tuple): MotionState {
     moving: false,
     position,
     steppedUp: 0,
+    travelledMeters: 0,
     upperAimRadians: 0,
     velocity: [0, 0, 0],
   }
@@ -127,6 +129,10 @@ export function stepMotionController(input: MotionStepInput): MotionState {
     moving: horizontalSpeed(moved.velocity) > MOVING_SPEED_THRESHOLD,
     position: moved.position,
     steppedUp: moved.steppedUp,
+    travelledMeters: state.travelledMeters + Math.hypot(
+      moved.position[0] - state.position[0],
+      moved.position[2] - state.position[2],
+    ),
     upperAimRadians,
     velocity: moved.velocity,
   }
