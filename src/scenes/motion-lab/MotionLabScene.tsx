@@ -118,6 +118,7 @@ function MotionLabSubject({ animation, profile, readout, rotationMode, showColli
           <MotionMatchedBody
             aimYaw={aimYaw}
             intent={intent}
+            profile={profile}
             rig={rig}
             timeline={timeline}
             topSpeed={profile.maxSpeed}

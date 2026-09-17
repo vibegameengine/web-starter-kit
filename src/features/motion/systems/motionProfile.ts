@@ -20,6 +20,12 @@ export const QUAKE_UNIT_METERS = 1 / 32
 
 export const DEFAULT_DIRECTION_SHARES: DirectionShares = { backward: 0.7, strafe: 0.85 }
 
+/* @important A body that turns to face where it goes never travels sideways or
+   backwards, so the direction shares must not apply to it. They did, and the
+   result was a body strafing at 0.576 m/s while the forward clip it was playing
+   travels 1.633: a stride warp of 0.7 on plain walking. */
+export const FACING_TRAVEL_SHARES: DirectionShares = { backward: 1, strafe: 1 }
+
 export const ARENA_MOTION_PROFILE: MotionProfile = {
   airAcceleration: 1,
   directionShares: DEFAULT_DIRECTION_SHARES,

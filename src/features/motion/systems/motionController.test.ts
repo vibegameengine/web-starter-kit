@@ -106,3 +106,27 @@ describe('stepMotionController', () => {
     expect(Math.abs(state.upperAimRadians)).toBeLessThanOrEqual(HUMAN_TURN_PROFILE.upperAimLimitRadians)
   })
 })
+
+describe('direction speed shares', () => {
+  const strafe: MotionIntent = { ...IDLE_MOTION_INTENT, right: 1 }
+  const forward: MotionIntent = { ...IDLE_MOTION_INTENT, forward: 1 }
+
+  it('leaves a body that faces its travel at its full speed sideways', () => {
+    const settings = settingsFor([FLOOR], 'orient-to-movement')
+    const sideways = drive(standing(), strafe, settings, 90)
+    const ahead = drive(standing(), forward, settings, 90)
+
+    expect(Math.hypot(sideways.velocity[0], sideways.velocity[2]))
+      .toBeCloseTo(Math.hypot(ahead.velocity[0], ahead.velocity[2]), 2)
+  })
+
+  it('still slows a body that keeps facing its aim', () => {
+    const settings = settingsFor([FLOOR], 'follow-aim')
+    const sideways = drive(standing(), strafe, settings, 90)
+    const ahead = drive(standing(), forward, settings, 90)
+    const share = Math.hypot(sideways.velocity[0], sideways.velocity[2])
+      / Math.hypot(ahead.velocity[0], ahead.velocity[2])
+
+    expect(share).toBeCloseTo(GROUNDED_MOTION_PROFILE.directionShares.strafe, 2)
+  })
+})

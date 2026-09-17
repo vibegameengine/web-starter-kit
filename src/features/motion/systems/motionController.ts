@@ -2,7 +2,7 @@ import type { TraceBox, Vector3Tuple } from './boxTrace'
 import { normalizeAngle } from './angles'
 import { locomotionDirectionOf, movementInActorSpace, type LocomotionDirection } from './locomotionDirection'
 import { horizontalSpeed, intentWishDirection, type MotionIntent } from './motionIntent'
-import type { MotionProfile } from './motionProfile'
+import { FACING_TRAVEL_SHARES, type MotionProfile } from './motionProfile'
 import { advanceMotionVelocity, type MotionVelocityStep } from './motionVelocity'
 import { stepSlideMove, type SlideBody } from './slideMove'
 import { stepBodyTurn, stepUpperAim, type TurnProfile } from './turnDynamics'
@@ -71,6 +71,17 @@ function desiredBodyFacing(input: MotionStepInput): number {
   return Math.atan2(wish.x, wish.z)
 }
 
+const travelFacingProfiles = new WeakMap<MotionProfile, MotionProfile>()
+
+function profileFor(settings: MotionSettings): MotionProfile {
+  if (settings.rotationMode === 'follow-aim') return settings.profile
+  const cached = travelFacingProfiles.get(settings.profile)
+  if (cached) return cached
+  const neutral: MotionProfile = { ...settings.profile, directionShares: FACING_TRAVEL_SHARES }
+  travelFacingProfiles.set(settings.profile, neutral)
+  return neutral
+}
+
 function bodyFor(state: MotionState, settings: MotionSettings, velocity: MotionVelocityStep): SlideBody {
   return {
     groundNormal: state.groundNormal,
@@ -92,7 +103,7 @@ export function stepMotionController(input: MotionStepInput): MotionState {
   const accelerated = advanceMotionVelocity({
     delta,
     intent,
-    profile: settings.profile,
+    profile: profileFor(settings),
     state: { jumpHeld: state.jumpHeld, onGround: state.mode === 'walking', velocity: state.velocity },
   })
 
