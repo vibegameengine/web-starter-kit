@@ -12,6 +12,7 @@ export type PosePlayhead = {
 
 export type PoseCrossfade = {
   readonly advance: (deltaSeconds: number, rate: number) => void
+  readonly atPhase: (clipId: LocomotionClipId, phase: number, deltaSeconds: number) => void
   readonly blend: () => number
   readonly durationOf: (clipId: LocomotionClipId) => number
   readonly playing: () => PosePlayhead
@@ -68,6 +69,22 @@ export function usePoseCrossfade(rig: Object3D): PoseCrossfade {
   }
 
   return {
+    atPhase: (clipId, phase, deltaSeconds) => {
+      const wrappedPhase = phase - Math.floor(phase)
+      if (clipId !== playing.current.clipId) {
+        fading.current = { from: { ...playing.current }, share: 0 }
+        playing.current = { clipId, time: wrappedPhase * durationOf(clipId) }
+      } else {
+        playing.current.time = wrappedPhase * durationOf(clipId)
+      }
+      const fade = fading.current
+      if (fade) {
+        fade.from.time = wrappedPhase * durationOf(fade.from.clipId)
+        fade.share = Math.min(1, fade.share + deltaSeconds / CROSSFADE_SECONDS)
+        if (fade.share >= 1) fading.current = null
+      }
+      applyWeights()
+    },
     advance: (deltaSeconds, rate) => {
       playing.current.time = wrapped(playing.current.time + deltaSeconds * rate, durationOf(playing.current.clipId))
       const fade = fading.current

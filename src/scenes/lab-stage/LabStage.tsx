@@ -152,6 +152,11 @@ export type LabStageProps = {
   /** Metres. Also sizes the shadow box, unless `sun.radius` says otherwise. */
   readonly groundSize?: number
   /** Orbit inspection controls, or `false` when the lab drives its own camera. */
+  /**
+   * Render on demand instead of continuously, for a lab that advances its
+   * subject by an exact step and wants one frame per step.
+   */
+  readonly frameloop?: 'always' | 'demand'
   readonly orbit?: false | {
     readonly maxDistance?: number
     readonly minDistance?: number
@@ -183,6 +188,7 @@ export type LabStageProps = {
 
 export function LabStage({
   ambient = 1,
+  frameloop = 'always',
   background = BACKGROUND,
   bounceColor = BOUNCE_COLOR,
   camera,
@@ -223,6 +229,7 @@ export function LabStage({
         position: camera?.position ?? [6.2, 4.2, 8],
       }}
       dpr={graphics.dpr}
+      frameloop={frameloop}
       gl={{ antialias: false, powerPreference: 'high-performance', stencil: false }}
       maxFps={frameRateCap}
       shadows={{ type: PCFShadowMap }}

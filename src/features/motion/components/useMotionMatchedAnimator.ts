@@ -6,10 +6,11 @@ import type { Object3D } from 'three'
 import poseDatabaseData from '../assets/animations/poseDatabase.json'
 import { LOCOMOTION_CLIP_METRICS } from '../catalog/locomotionClips'
 import { horizontalSpeed, intentWishDirection } from '../systems/motionIntent'
-import { splitSpeedRatio } from '../systems/locomotionBlend'
+import { splitSpeedRatio, stridePhase, strideLengthOf } from '../systems/locomotionBlend'
 import { LOCOMOTION_GAIT_SPEEDS } from '../catalog/locomotionClips'
 import type { LocomotionClipId } from '../systems/locomotionPose'
 import { motionMatchQuery, trajectoryFeatureOf, type LocalPose } from '../systems/motionMatchQuery'
+import { lerp } from '../../../shared/lib/simulation/renderInterpolation'
 import { findBestPose, rankedPoses, type PoseDatabase, type PoseMatch } from '../systems/poseSearch'
 import {
   DEFAULT_ACCELERATION_TIME,
@@ -50,7 +51,6 @@ export type MotionMatchedDebug = {
 const DATABASE = poseDatabaseData as unknown as PoseDatabase
 const SEARCH_INTERVAL_SECONDS = 0.1
 const STANDING_SPEED = 0.06
-const REPHASE_SECONDS = 0.25
 
 function clipSpeedOf(clipId: LocomotionClipId): number {
   const metric = LOCOMOTION_CLIP_METRICS[clipId]
@@ -98,6 +98,7 @@ export function useMotionMatchedAnimator(options: MotionMatchedAnimatorOptions):
   const sinceSearch = useRef(SEARCH_INTERVAL_SECONDS)
   const previousPose = useRef<LocalPose | null>(null)
   const match = useRef<PoseMatch | null>(null)
+  const chosen = useRef<LocomotionClipId>('walk-forward')
   const counters = useMemo(() => ({ searches: 0, switches: 0 }), [])
   const debug = useRef<MotionMatchedDebug>({
     best: [],
@@ -143,9 +144,8 @@ export function useMotionMatchedAnimator(options: MotionMatchedAnimatorOptions):
 
     const found = findBestPose(DATABASE, query, { continuing: match.current })
     counters.searches += 1
-    const playing = crossfade.playing()
-    if (found.clipId !== playing.clipId || Math.abs(found.time - playing.time) > REPHASE_SECONDS) {
-      crossfade.switchTo({ clipId: found.clipId as LocomotionClipId, time: found.time })
+    if (found.clipId !== crossfade.playing().clipId) {
+      chosen.current = found.clipId as LocomotionClipId
       counters.switches += 1
     }
     match.current = found
@@ -184,12 +184,17 @@ export function useMotionMatchedAnimator(options: MotionMatchedAnimatorOptions):
       search(elapsed)
     }
 
-    const playing = crossfade.playing()
-    const clipSpeed = clipSpeedOf(playing.clipId)
+    const clipSpeed = clipSpeedOf(chosen.current)
     const split = splitSpeedRatio(speed, clipSpeed)
-    crossfade.advance(delta, split.cadence)
+    const duration = crossfade.durationOf(chosen.current)
+    const strideLength = strideLengthOf(clipSpeed, duration) * Math.max(0.1, split.stride)
+    const phase = stridePhase(
+      lerp(timeline.current.previous.travelledMeters, state.travelledMeters, 1),
+      strideLength,
+    )
+    crossfade.atPhase(chosen.current, phase, delta)
+    const playing = crossfade.playing()
     if (match.current) match.current = { ...match.current, time: playing.time }
-    const duration = crossfade.durationOf(playing.clipId)
     debug.current = {
       ...debug.current,
       ...counters,

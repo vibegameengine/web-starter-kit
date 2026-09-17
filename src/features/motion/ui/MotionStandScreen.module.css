@@ -1,0 +1,39 @@
+.screen {
+  height: 100vh;
+  position: relative;
+  width: 100vw;
+}
+
+.panel {
+  bottom: 14px;
+  display: flex;
+  left: 14px;
+  pointer-events: none;
+  position: absolute;
+  width: min(460px, calc(100vw - 28px));
+}
+
+.panel > * {
+  pointer-events: auto;
+}
+
+.numbers {
+  color: rgb(226 232 240 / 88%);
+  display: grid;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  gap: 2px 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.legend {
+  color: rgb(226 232 240 / 62%);
+  font-size: 11px;
+  margin: 0;
+}
