@@ -20,6 +20,8 @@
    procedural passes off, and its narrowest gap is the floor. */
 import { chromium } from 'playwright'
 
+import { resetStand, stepStand } from './lib/motionStand.mjs'
+
 const BASE = process.argv[2] ?? 'http://localhost:5173'
 
 const SIDE_BY_SIDE_METERS = 0.25
@@ -94,7 +96,7 @@ async function setPasses(wanted) {
 }
 
 async function walkCourse(sprint) {
-  await page.getByTestId('motion-stand-reset').click()
+  await resetStand(page)
   if (sprint !== sprinting) {
     await page.getByTestId('motion-stand-sprint').click()
     sprinting = sprint
@@ -104,7 +106,7 @@ async function walkCourse(sprint) {
     await page.getByTestId(`motion-stand-drive-${leg.drive}`).click()
     const count = index === 0 ? leg.frames + WARMUP_FRAMES : leg.frames
     for (let frame = 0; frame < count; frame += 1) {
-      await page.getByTestId('motion-stand-step-1').click()
+      await stepStand(page)
       if (index === 0 && frame < WARMUP_FRAMES) continue
       frames.push({ drive: leg.drive, ...gapsOf(await readFrame()) })
     }

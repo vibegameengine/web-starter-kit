@@ -22,6 +22,8 @@
                        or every other number here is about flat ground */
 import { chromium } from 'playwright'
 
+import { resetStand, stepStand } from './lib/motionStand.mjs'
+
 const BASE = process.argv[2] ?? 'http://localhost:5173'
 
 const CLIMB_FRAMES = 150
@@ -79,7 +81,7 @@ async function walk(drive, frames) {
   await page.getByTestId(`motion-stand-drive-${drive}`).click()
   const collected = []
   for (let frame = 0; frame < frames; frame += 1) {
-    await page.getByTestId('motion-stand-step-1').click()
+    await stepStand(page)
     collected.push(await readFrame())
   }
   return collected
@@ -159,14 +161,14 @@ function checkFlight(label, frames) {
   )
 }
 
-await page.getByTestId('motion-stand-reset').click()
+await resetStand(page)
 const calibration = await walk('still', 30)
 const standing = calibration[calibration.length - 1].limbs
 restAnkle = standing.reduce((sum, limb) => sum + limb.foot[1] - limb.ankleSurface, 0) / standing.length
 restToe = standing.reduce((sum, limb) => sum + limb.toe[1] - limb.toeSurface, 0) / standing.length
 console.log(`rest heights: ankle ${restAnkle.toFixed(3)} m, toe ${restToe.toFixed(3)} m above the floor`)
 
-await page.getByTestId('motion-stand-reset').click()
+await resetStand(page)
 const climbing = await walk('forward', CLIMB_FRAMES)
 checkFlight('climbing', climbing)
 

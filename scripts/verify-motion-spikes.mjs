@@ -27,6 +27,8 @@
    for. */
 import { chromium } from 'playwright'
 
+import { resetStand, stepStand } from './lib/motionStand.mjs'
+
 const BASE = process.argv[2] ?? 'http://localhost:5173'
 
 const MAX_ANGULAR_JERK_DEGREES = 30
@@ -108,7 +110,7 @@ function jerkOf(frames) {
 
 async function stepFrames(count, collected) {
   for (let frame = 0; frame < count; frame += 1) {
-    await page.getByTestId('motion-stand-step-1').click()
+    await stepStand(page)
     collected.push(await readPose())
   }
 }
@@ -124,7 +126,7 @@ async function setPasses(wanted) {
 }
 
 async function runScenario(scenario) {
-  await page.getByTestId('motion-stand-reset').click()
+  await resetStand(page)
   if (Boolean(scenario.sprint) !== sprinting) {
     await page.getByTestId('motion-stand-sprint').click()
     sprinting = Boolean(scenario.sprint)

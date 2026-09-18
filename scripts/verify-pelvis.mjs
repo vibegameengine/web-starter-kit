@@ -24,6 +24,8 @@
                           allowed to take them down by */
 import { chromium } from 'playwright'
 
+import { resetStand, stepStand } from './lib/motionStand.mjs'
+
 const BASE = process.argv[2] ?? 'http://localhost:5173'
 
 const MAX_OFFSET_METERS = 0.2
@@ -89,7 +91,7 @@ function offsetsOf(frames) {
 async function stepFrames(count) {
   const collected = []
   for (let frame = 0; frame < count; frame += 1) {
-    await page.getByTestId('motion-stand-step-1').click()
+    await stepStand(page)
     collected.push(await readFrame())
   }
   return collected
@@ -116,7 +118,7 @@ function worstJumpOf(offsets) {
 }
 
 async function runScenario(scenario) {
-  await page.getByTestId('motion-stand-reset').click()
+  await resetStand(page)
   if (Boolean(scenario.sprint) !== sprinting) {
     await page.getByTestId('motion-stand-sprint').click()
     sprinting = Boolean(scenario.sprint)

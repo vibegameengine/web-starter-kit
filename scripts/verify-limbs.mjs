@@ -37,6 +37,8 @@
    reported full contact, and the solver hauled both legs at once. */
 import { chromium } from 'playwright'
 
+import { resetStand, stepStand } from './lib/motionStand.mjs'
+
 const BASE = process.argv[2] ?? 'http://localhost:5173'
 const WALK_FRAMES = 80
 const RUN_UP_FRAMES = 40
@@ -296,7 +298,7 @@ const readFrame = () => page.evaluate(() => ({
 async function stepFrames(count) {
   const collected = []
   for (let frame = 0; frame < count; frame += 1) {
-    await page.getByTestId('motion-stand-step-1').click()
+    await stepStand(page)
     const reading = await readFrame()
     if (reading.limbs.length !== 2) continue
     reading.limbs.facingRadians = reading.facingRadians
@@ -310,7 +312,7 @@ async function stepFrames(count) {
 const bends = {}
 for (const drive of DRIVES) {
   console.log(`\n${drive}`)
-  await page.getByTestId('motion-stand-reset').click()
+  await resetStand(page)
   await page.getByTestId(`motion-stand-drive-${drive}`).click()
   const frames = await stepFrames(WALK_FRAMES)
   check(`${drive}: the stand reported a limb pair every frame`, frames.length === WALK_FRAMES, `${frames.length}/${WALK_FRAMES}`)
@@ -326,7 +328,7 @@ for (const drive of DRIVES) {
 }
 
 console.log('\nstanding from a reset')
-await page.getByTestId('motion-stand-reset').click()
+await resetStand(page)
 await page.getByTestId('motion-stand-drive-still').click()
 const standing = await stepFrames(STOP_FRAMES)
 checkBones('standing', standing)
@@ -359,7 +361,7 @@ check(
 )
 
 console.log('\nwalked out from the origin')
-await page.getByTestId('motion-stand-reset').click()
+await resetStand(page)
 await page.getByTestId('motion-stand-drive-forward').click()
 const nearOrigin = await stepFrames(WALK_FRAMES)
 const walkedOut = await stepFrames(FAR_FRAMES)
@@ -375,7 +377,7 @@ check(
 )
 
 console.log('\nstop')
-await page.getByTestId('motion-stand-reset').click()
+await resetStand(page)
 await page.getByTestId('motion-stand-drive-forward').click()
 await stepFrames(RUN_UP_FRAMES)
 await page.getByTestId('motion-stand-drive-still').click()

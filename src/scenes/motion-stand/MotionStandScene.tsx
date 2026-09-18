@@ -2,7 +2,7 @@
    simulation that reads it per tick, not to the render. */
 import { useGLTF } from '@react-three/drei'
 import { useThree } from '@react-three/fiber'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Mesh, MeshStandardMaterial } from 'three'
 import type { Object3D } from 'three'
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js'
@@ -23,7 +23,7 @@ import { FixedTickProvider } from '../../shared/lib/simulation/FixedTick'
 import type { FixedTickBus } from '../../shared/lib/simulation/fixedTickBus'
 import { useOwnedFixedTickBus } from '../../shared/lib/simulation/fixedTickContext'
 import { LabStage } from '../lab-stage/LabStage'
-import { type StandStore } from './motionStandStore'
+import { MOTION_STAND_RESET_EVENT, type StandStore } from './motionStandStore'
 import { STAND_COURSES, surfaceHeightAt, type StandCourseId } from './standCourses'
 import { useStandStepping } from './useStandStepping'
 
@@ -116,9 +116,9 @@ function StandSubject({ bus, course, facing, forward, passes, readout, right, sp
     }),
   }), [])
 
-  const { timeline, warp } = useMotionController({ aimYaw, intent, settings, start: START })
+  const { timeline } = useMotionController({ aimYaw, intent, settings, start: START })
 
-  useStandStepping({ bus, frame, invalidate, readout, rig, start: START, timeline, warp })
+  useStandStepping({ bus, frame, invalidate, readout, rig, timeline })
 
   return (
     <>
@@ -141,8 +141,20 @@ function StandSubject({ bus, course, facing, forward, passes, readout, right, sp
   )
 }
 
+function useResetGeneration(): number {
+  // eslint-disable-next-line no-restricted-syntax -- a reset remounts the subject once per press; nothing here runs per frame.
+  const [generation, setGeneration] = useState(0)
+  useEffect(() => {
+    const onReset = () => setGeneration((current) => current + 1)
+    window.addEventListener(MOTION_STAND_RESET_EVENT, onReset)
+    return () => window.removeEventListener(MOTION_STAND_RESET_EVENT, onReset)
+  }, [])
+  return generation
+}
+
 export function MotionStandScene(props: MotionStandSceneProps) {
   const bus = useOwnedFixedTickBus()
+  const generation = useResetGeneration()
 
   return (
     <LabStage
@@ -152,7 +164,7 @@ export function MotionStandScene(props: MotionStandSceneProps) {
       orbit={{ maxDistance: 8, minDistance: 1, target: [0, 0.9, 0] }}
     >
       <FixedTickProvider bus={bus}>
-        <StandSubject {...props} bus={bus} />
+        <StandSubject key={generation} {...props} bus={bus} />
       </FixedTickProvider>
     </LabStage>
   )
