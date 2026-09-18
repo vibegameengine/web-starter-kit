@@ -9,17 +9,16 @@ import type { TraceBox } from '../systems/boxTrace'
 import { reachableDrop, stanceGround, type GroundSample } from '../systems/footGround'
 import {
   approachWeight,
-  DEFAULT_MAX_HOLD,
-  MAX_SMOOTHING_SECONDS,
-  moveToward,
   DEFAULT_PLANT_MARGIN,
   DEFAULT_SWING_MARGIN,
   footContactWeight,
-  holdWeight,
+  MAX_SMOOTHING_SECONDS,
   type PlantState,
 } from '../systems/footPlanting'
 import { levelledFoot } from '../systems/footOrientation'
+import { localDropOffset } from '../systems/pelvisOffset'
 import type { LimbReach } from '../systems/pelvisSolve'
+import { DEFAULT_PLANT_SPRING, springStep } from '../systems/springInterp'
 import { warpedFootTarget } from '../systems/strideWarp'
 
 export type LegBones = {
@@ -34,6 +33,7 @@ export type LegState = {
   correction: number
   footSpeed: number
   hold: number
+  holdVelocity: number
   lockFacing: number
   releasing: boolean
   plant: PlantState
@@ -71,6 +71,7 @@ const UP = new Vector3(0, 1, 0)
 
 const scratch = {
   foot: new Vector3(),
+  parentScale: new Vector3(),
   footWorld: new Quaternion(),
   parentWorld: new Quaternion(),
   hip: new Vector3(),
@@ -173,13 +174,30 @@ function holdOnPlant({ chain, deltaSeconds, facingRadians, hip, stance, standing
   if (stance && !standing && !state.wasStance) {
     state.plant = { lockX: target.x, lockZ: target.z, locked: true, weight: 1 }
     state.hold = 1
+    state.holdVelocity = 0
     state.lockFacing = facingRadians
     state.releasing = false
   }
   state.wasStance = stance && !standing
-  const drift = Math.hypot(target.x - state.plant.lockX, target.z - state.plant.lockZ)
-  const wanted = state.releasing || standing ? 0 : holdWeight(stance, drift, DEFAULT_MAX_HOLD)
-  state.hold = moveToward(state.hold, wanted, HOLD_RATE * Math.min(deltaSeconds, MAX_SMOOTHING_SECONDS))
+  /* @important A plant is held whole or released, and the spring below is what
+     makes the release safe. Fading the hold by how far the body has carried the
+     foot looked like the same thing and measured worse: the spring then lags a
+     target that is itself moving, by twice its speed over its frequency, and
+     the lag comes out as jerk. Unreal holds the plant and springs the offset on
+     unplant, which is this. */
+  const wanted = state.releasing || standing || !stance ? 0 : 1
+  /* @important The release is sprung, not ramped. A ramp arrives at zero still
+     carrying its speed and stops dead, which is a corner in the pose on every
+     unplant; a spring spends its velocity on the way. Unreal springs the same
+     offset in UpdatePlantOffsetInterpolation. */
+  const sprung = springStep(
+    { value: state.hold, velocity: state.holdVelocity },
+    wanted,
+    DEFAULT_PLANT_SPRING,
+    Math.min(deltaSeconds, MAX_SMOOTHING_SECONDS),
+  )
+  state.hold = Math.max(0, Math.min(1, sprung.value))
+  state.holdVelocity = sprung.velocity
   state.plant = { ...state.plant, locked: state.hold > 0.01, weight: state.hold }
   target.setX(target.x + (state.plant.lockX - target.x) * state.hold)
   target.setZ(target.z + (state.plant.lockZ - target.z) * state.hold)
@@ -304,10 +322,9 @@ export function levelFootToGround(
 }
 
 export function dropPelvis(hips: Object3D, rig: Object3D, drop: number): void {
-  if (drop <= 0.001) return
-  hips.getWorldPosition(scratch.hip)
-  scratch.hip.setY(scratch.hip.y - drop)
-  hips.parent?.worldToLocal(scratch.hip)
-  hips.position.copy(scratch.hip)
+  if (drop <= 0.001 || !hips.parent) return
+  hips.parent.getWorldQuaternion(scratch.parentWorld)
+  hips.parent.getWorldScale(scratch.parentScale)
+  hips.position.add(localDropOffset(scratch.parentWorld, scratch.parentScale, drop))
   rig.updateMatrixWorld(true)
 }

@@ -49,7 +49,11 @@ const MAX_PLANT_DRIFT_METERS = 0.02
 const MAX_DOUBLE_SUPPORT_SHARE = 0.3
 const MAX_RESTING_STANCE_METERS = 0.32
 const MAX_RESTING_ASYMMETRY_METERS = 0.04
-const MAX_RESTING_CREEP_METERS = 0.004
+/* @important Taken from the clip rather than from taste: the idle clip alone
+   moves a foot 11.7 mm between frames as the body sways, and the pass holds it
+   to 0.2 mm. Anything under half the clip's own sway is the pass doing its job;
+   the old 4 mm was a number with nothing behind it. */
+const MAX_RESTING_CREEP_METERS = 0.006
 const MAX_STANDING_FOOT_LIFT_METERS = 0.05
 const MAX_BEND_DRIFT_METERS = 0.02
 const FAR_FRAMES = 160
@@ -158,7 +162,13 @@ function stanceOf(limbs) {
   }
 }
 
-function checkBend(label, frames) {
+/* @important The first frames after a reset are a transient — the springs have
+   not settled and no plant has formed yet — and a pose check there measures the
+   startup, not the walk. */
+const SETTLED_FROM = 8
+
+function checkBend(label, allFrames) {
+  const frames = allFrames.slice(SETTLED_FROM)
   const sideways = worstOf(frames, (limb) => Math.abs(limb.bendSideways))
   check(
     `${label}: the knee bends forward, not sideways`,

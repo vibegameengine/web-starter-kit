@@ -68,6 +68,19 @@ export function useMotionController({
     }
   }, [ticked])
 
+  /* @important The body's own state goes out in DEV because every check that
+     matters measures against the WORLD: where the mesh sits relative to the
+     capsule that drives it is invisible to anything measured in the body's own
+     frame, and that is where a body sliding off its own collider hides. */
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    const target = window as Window & { __motionBody?: () => MotionState }
+    target.__motionBody = () => timeline.current.current
+    return () => {
+      delete target.__motionBody
+    }
+  }, [])
+
   const warp = useCallback((position: Vector3Tuple) => {
     pendingWarp.current = position
   }, [])

@@ -170,6 +170,20 @@ function travelAxisOf(frames) {
   return travel.normalize()
 }
 
+/* @important Every locomotion clip here is played IN PLACE: the capsule owns
+   the travel and the phase follows the distance it covers. A clip that still
+   carries its own root motion slides the whole body off the capsule the moment
+   the directional blend brings it in — measured at 56 cm of lateral drift from
+   the strafe clip, which was the one clip that kept its travel. */
+function checkInPlace(name, frames) {
+  const travelled = new Vector3().subVectors(frames[frames.length - 1].hips, frames[0].hips).setY(0)
+  check(
+    `${name}: the clip stays in place`,
+    travelled.length() <= IN_PLACE_TRAVEL_CM,
+    `${travelled.length().toFixed(1)} cm of travel in the clip itself`,
+  )
+}
+
 function checkDrift(name, frames) {
   const travelled = new Vector3().subVectors(frames[frames.length - 1].hips, frames[0].hips)
   const axis = travelAxisOf(frames)
@@ -277,6 +291,7 @@ for (const file of files) {
     continue
   }
   console.log(`\n${file} — ${sampled.clip.duration.toFixed(3)} s`)
+  checkInPlace(file, sampled.frames)
   checkDrift(file, sampled.frames)
   checkSeam(file, sampled.clip)
   checkStance(file, sampled.frames)

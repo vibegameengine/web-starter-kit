@@ -215,6 +215,30 @@ function levelStance(group, clip) {
   return corrected
 }
 
+/* @important Every clip ships in place: the capsule owns the travel and the
+   phase follows the distance it covers, so a clip that keeps its own root motion
+   slides the body off the capsule the moment the directional blend brings it in.
+   One clip did keep it — the strafe, 86 cm of it — and the pelvis wandered that
+   far sideways whenever a turn pulled it into the blend. The height of the hips
+   is left exactly as captured: that bob is the animation. */
+function holdHipsInPlace(clip) {
+  const track = clip.tracks.find((candidate) => HIPS_POSITION_TRACK.test(candidate.name))
+  if (!track) return 0
+  const keys = track.values.length / 3
+  const startX = track.values[0]
+  const startZ = track.values[2]
+  let travelled = 0
+  for (let key = 0; key < keys; key += 1) {
+    travelled = Math.max(
+      travelled,
+      Math.hypot(track.values[key * 3] - startX, track.values[key * 3 + 2] - startZ),
+    )
+    track.values[key * 3] = startX
+    track.values[key * 3 + 2] = startZ
+  }
+  return travelled
+}
+
 async function exportGlb(group) {
   const exporter = new GLTFExporter()
   return await new Promise((done, failed) => {
@@ -234,6 +258,7 @@ async function convert(file) {
   const travelCentimetres = hipsTravel(clip)
   const measuredToeOut = neutralizeToeOut(group, clip)
   const levelled = levelStance(group, clip)
+  const heldInPlace = holdHipsInPlace(clip)
   const glb = await exportGlb(group)
   writeFileSync(join(TARGET_DIRECTORY, `${name}.glb`), Buffer.from(glb))
 
@@ -242,6 +267,7 @@ async function convert(file) {
     duration: Number(clip.duration.toFixed(3)),
     name,
     speed: Number((travelCentimetres / 100 / clip.duration).toFixed(3)),
+    heldInPlace: heldInPlace > 1 ? heldInPlace.toFixed(0) : '-',
     levelled: levelled.map((entry) => `${/Left/.test(entry.bone) ? 'L' : 'R'}${entry.centimetres.toFixed(0)}`).join('/') || '-',
     toeOut: measuredToeOut.map((entry) => `${/Left/.test(entry.bone) ? 'L' : 'R'}${entry.degrees.toFixed(0)}`).join('/'),
     travel: Number((travelCentimetres / 100).toFixed(3)),
@@ -256,7 +282,7 @@ const report = []
 for (const file of sources) report.push(await convert(file))
 
 const widest = Math.max(...report.map((entry) => entry.name.length))
-console.log(`${'clip'.padEnd(widest)}  seconds  travel m  m/s     KB  toe out  levelled`)
+console.log(`${'clip'.padEnd(widest)}  seconds  travel m  m/s     KB  toe out  levelled  held`)
 for (const entry of report.sort((a, b) => a.name.localeCompare(b.name))) {
   console.log([
     entry.name.padEnd(widest),
@@ -266,5 +292,6 @@ for (const entry of report.sort((a, b) => a.name.localeCompare(b.name))) {
     String(Math.round(entry.bytes / 1024)).padStart(5),
     String(entry.toeOut).padStart(9),
     String(entry.levelled).padStart(8),
+    String(entry.heldInPlace).padStart(4),
   ].join('  '))
 }

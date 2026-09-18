@@ -151,6 +151,7 @@ function freshState(): LegState {
     correction: 0,
     footSpeed: 0,
     hold: 0,
+    holdVelocity: 0,
     lockFacing: 0,
     plant: NO_PLANT,
     previousFoot: null,
