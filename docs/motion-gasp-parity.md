@@ -174,8 +174,22 @@ so a sole was never flattened on the one surface a character lives on.
 means on any rig, and only while standing — the heel-to-toe roll of a stride
 belongs to the clip.
 
-Still missing against UE: `HeelLiftRatio` and the foot pivot around the ball,
-and the spring interpolation of the unplant offset.
+The release of a plant is now **sprung, as Unreal springs it**:
+`UpdatePlantOffsetInterpolation` runs `VectorSpringInterp` on the unplant
+offset, and `systems/springInterp.ts` is the same shape — an implicit damped
+spring, stable at a long frame, which arrives with its velocity spent where the
+linear ramp before it arrived at full speed and stopped dead. Holding the plant
+whole and springing only the release was measured against fading the hold by
+drift; the fade was worse, because a spring lags a target that is itself moving
+and the lag comes out as jerk. Unreal holds the plant and springs the unplant,
+which is what this does now.
+
+The pelvis drop is applied as an offset in the parent's own frame. It used to
+be written through a world round trip, which rewrote the pelvis's X and Z from a
+parent matrix a frame old — a sideways drag on every turn. Unreal works in
+component space throughout and never had the problem to have.
+
+Still missing against UE: `HeelLiftRatio` and the foot pivot around the ball.
 
 ## Blending
 
@@ -213,9 +227,23 @@ for them.
 
 GASP clips carry root motion and `OffsetRootBone` reconciles mesh and capsule.
 
-Here the clips are In Place, their true ground speed measured per clip into
+Here every clip is in place, its true ground speed measured into
 `assets/animations/clipGroundSpeeds.json`, and the capsule owns the motion while
-phase follows distance travelled. **Diverges.**
+phase follows the distance it covers. **Diverges by design**, and the design
+only holds if it holds for every clip: one clip — the strafe — was never made
+in place, carried 86 cm of its own travel, and slid the whole mesh off the
+capsule whenever a turn pulled it into the blend. The converter now holds the
+hips' X and Z at their first key for every clip, and `verify:clips` asserts it.
+
+## Camera
+
+GASP's camera is a spring arm on the actor, and the actor is drawn where it is
+interpolated to be. Here the camera followed the raw simulation tick while the
+mesh was drawn interpolated between ticks: each moved evenly on its own, but the
+body against the camera jumped 3.61 times the median frame, which is the
+ghosting that was visible. **Matches now** — the camera reads the same
+interpolation the mesh does, and `verify:judder` holds the relative speed under
+0.02 m/s, a threshold taken from the defect itself (0.048 broken, 0.005 fixed).
 
 ## Verification
 
@@ -241,7 +269,13 @@ Here:
   difference of every bone's rotation and position: pops, wherever they come
   from — a clip authored with a spike, a blend that switched without matching
   phase, a lock that let go all at once. 13 checks.
-- 247 unit tests over the pure systems.
+- `npm run verify:pelvis` measures where the body IS against the capsule that
+  drives it, in world space: within a hand's width, no jumps, no creep. Every
+  body-relative check before it was blind by construction to anything that moves
+  the body whole. 25 checks.
+- `npm run verify:judder` samples per rendered frame in the lab and asks how
+  fast the body and the camera move apart. 5 checks.
+- 265 unit tests over the pure systems.
 
 **Beyond GASP**, and it is what found every defect above — including the ones
 an earlier version of these checks could not see. Three of those checks used to
