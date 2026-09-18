@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/immutability -- the search counters and the
    playhead are per-frame simulation state, never render input. */
 import { useFrame } from '@react-three/fiber'
-import { useEffect, useMemo, useRef } from 'react'
+import { useContext, useEffect, useMemo, useRef } from 'react'
 import type { MutableRefObject } from 'react'
 import type { Object3D } from 'three'
 
@@ -28,6 +28,7 @@ import { advancePhase, splitSpeedRatio, strideLengthOf } from '../systems/locomo
 import { LOCOMOTION_GAIT_SPEEDS } from '../catalog/locomotionClips'
 import type { LocomotionClipId } from '../systems/locomotionPose'
 import { motionMatchQuery, trajectoryFeatureOf, type LocalPose } from '../systems/motionMatchQuery'
+import { FixedTickContext } from '../../../shared/lib/simulation/fixedTickContext'
 import { lerp } from '../../../shared/lib/simulation/renderInterpolation'
 import { findBestPose, rankedPoses, type PoseDatabase, type PoseMatch } from '../systems/poseSearch'
 import {
@@ -143,6 +144,7 @@ function idleEntry(share: number, idleDuration: number, clock: number): BlendEnt
 
 export function useMotionMatchedAnimator(options: MotionMatchedAnimatorOptions): MutableRefObject<MotionMatchedDebug> {
   const { aimYaw, intent, profile, rig, timeline, topSpeed } = options
+  const bus = useContext(FixedTickContext)
   const crossfade = usePoseCrossfade(rig)
   const readLocalPose = useRigLocalPose(rig)
   const history = useRootHistory()
@@ -278,7 +280,16 @@ export function useMotionMatchedAnimator(options: MotionMatchedAnimatorOptions):
     const split = splitSpeedRatio(speed, clipSpeed)
     const duration = crossfade.durationOf(blend.clips[0].clipId)
     const strideLength = strideLengthOf(clipSpeed, duration) * Math.max(0.1, split.stride)
-    const travelled = lerp(timeline.current.previous.travelledMeters, state.travelledMeters, 1)
+    /* @important The phase advances on the INTERPOLATED distance, the same
+       interpolation the mesh is drawn at. With the alpha fixed at one the pose
+       only moved when a tick ran, so between ticks the body glided and the legs
+       stood still, then caught up: 15 to 18 percent of rendered frames had the
+       legs frozen, which is the ghosting on the legs. */
+    const travelled = lerp(
+      timeline.current.previous.travelledMeters,
+      state.travelledMeters,
+      bus ? bus.alpha() : 1,
+    )
     const travelDelta = Math.max(0, travelled - lastTravelled.current)
     lastTravelled.current = travelled
     const stop = stopMatch({

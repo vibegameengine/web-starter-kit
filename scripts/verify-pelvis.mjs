@@ -28,6 +28,7 @@ const BASE = process.argv[2] ?? 'http://localhost:5173'
 
 const MAX_OFFSET_METERS = 0.2
 const MAX_OFFSET_JUMP_METERS = 0.04
+const MAX_ADDED_JUMP_METERS = 0.01
 const MAX_CREEP_METERS = 0.05
 const MAX_PELVIS_DROP_METERS = 0.2
 const WARMUP_FRAMES = 6
@@ -95,8 +96,26 @@ async function stepFrames(count) {
 }
 
 let sprinting = false
-for (const scenario of SCENARIOS) {
-  console.log(`\n${scenario.name}`)
+let passesOn = true
+
+async function setPasses(wanted) {
+  if (passesOn === wanted) return
+  await page.getByTestId('motion-stand-pass-feet').click()
+  await page.getByTestId('motion-stand-pass-warp').click()
+  passesOn = wanted
+}
+
+function worstJumpOf(offsets) {
+  let worst = 0
+  for (let frame = 1; frame < offsets.length; frame += 1) {
+    const now = offsets[frame]
+    const before = offsets[frame - 1]
+    worst = Math.max(worst, Math.hypot(now.across - before.across, now.lengthwise - before.lengthwise))
+  }
+  return worst
+}
+
+async function runScenario(scenario) {
   await page.getByTestId('motion-stand-reset').click()
   if (Boolean(scenario.sprint) !== sprinting) {
     await page.getByTestId('motion-stand-sprint').click()
@@ -109,8 +128,16 @@ for (const scenario of SCENARIOS) {
     await page.getByTestId(`motion-stand-drive-${scenario.after}`).click()
     frames.push(...await stepFrames(scenario.settle ?? 30))
   }
+  return offsetsOf(frames)
+}
 
-  const offsets = offsetsOf(frames)
+for (const scenario of SCENARIOS) {
+  console.log(`
+${scenario.name}`)
+  await setPasses(false)
+  const bareJump = worstJumpOf(await runScenario(scenario))
+  await setPasses(true)
+  const offsets = await runScenario(scenario)
   const worstAcross = offsets.reduce((worst, offset) => Math.max(worst, Math.abs(offset.across)), 0)
   const worstLengthwise = offsets.reduce((worst, offset) => Math.max(worst, Math.abs(offset.lengthwise)), 0)
   check(
@@ -119,16 +146,15 @@ for (const scenario of SCENARIOS) {
     `worst ${worstAcross.toFixed(3)} m across, ${worstLengthwise.toFixed(3)} m fore and aft`,
   )
 
-  let worstJump = 0
-  for (let frame = 1; frame < offsets.length; frame += 1) {
-    const now = offsets[frame]
-    const before = offsets[frame - 1]
-    worstJump = Math.max(worstJump, Math.hypot(now.across - before.across, now.lengthwise - before.lengthwise))
-  }
+  /* @important Judged against the same scenario with the passes off. A run
+     sways the hips across the capsule by several centimetres a frame all by
+     itself, and a fixed limit either fails the clip for being a run or is too
+     loose to see a pass that adds a jump of its own. */
+  const worstJump = worstJumpOf(offsets)
   check(
-    `${scenario.name}: that offset never jumps`,
-    worstJump <= MAX_OFFSET_JUMP_METERS,
-    `worst ${worstJump.toFixed(4)} m in one frame`,
+    `${scenario.name}: the passes add no jump to that offset`,
+    worstJump <= Math.max(MAX_OFFSET_JUMP_METERS, bareJump + MAX_ADDED_JUMP_METERS),
+    `worst ${worstJump.toFixed(4)} m in one frame against ${bareJump.toFixed(4)} from the clips alone`,
   )
 
   const first = offsets.slice(0, 10)

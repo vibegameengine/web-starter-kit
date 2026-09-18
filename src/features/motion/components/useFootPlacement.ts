@@ -7,20 +7,21 @@ import type { Object3D } from 'three'
 import type { TwoBoneChain } from '../../../shared/lib/animation/twoBoneIk'
 import { LOCOMOTION_STANCE_WINDOWS, RUN_STANCE_WINDOWS } from '../catalog/locomotionClips'
 import type { TraceBox } from '../systems/boxTrace'
+import { groundUnder } from '../systems/footGround'
 import type { LocomotionClipId } from '../systems/locomotionPose'
-import { approachWeight, NO_PLANT } from '../systems/footPlanting'
 import { yawForward } from '../systems/motionIntent'
+import { carryStep } from '../systems/pelvisOffset'
 import { footStance } from '../systems/stanceWindow'
-import { limbOffsetRange, pelvisOffset } from '../systems/pelvisSolve'
 import { strideScaleFor } from '../systems/strideWarp'
 import {
   dropPelvis,
   levelFootToGround,
+  nextHipDrop,
   stepFoot,
   writeLeg,
-  type FootPlacementTuning,
   type LegBones,
   type LegState,
+  type SoleHeights,
 } from './footPlacementPass'
 import type { MotionTimeline } from './useMotionController'
 
@@ -53,6 +54,9 @@ export type LimbReading = {
   readonly hold: number
   readonly knee: readonly [number, number, number]
   readonly lock: readonly [number, number]
+  readonly lowestGap: number
+  readonly target: readonly [number, number, number] | null
+  readonly toe: readonly [number, number, number]
   readonly lowerLength: number
   readonly surfaceY: number | null
   readonly upperLength: number
@@ -69,9 +73,7 @@ export type FootPlacementDebug = {
   readonly surfaceDelta: readonly [number, number]
 }
 
-const PELVIS_RATE = 7
 const MOVING_SPEED = 0.05
-const BODY_GROUND_OFFSET = 0.9
 
 function boneNamed(rig: Object3D, pattern: RegExp): Object3D {
   let found: Object3D | null = null
@@ -92,6 +94,7 @@ function legOf(rig: Object3D, side: 'Left' | 'Right'): LegBones {
     knee: boneNamed(rig, new RegExp(`${side}Leg$`)),
     restFoot: foot.getWorldQuaternion(new Quaternion()),
     thigh: boneNamed(rig, new RegExp(`${side}UpLeg$`)),
+    toe: boneNamed(rig, new RegExp(`${side}ToeBase$`)),
   }
 }
 
@@ -117,11 +120,30 @@ function bendOf(hip: Vector3, knee: Vector3, foot: Vector3, facingRadians: numbe
   return { bendForward: offset.dot(forward), bendSideways: offset.dot(outward) }
 }
 
+/* @important Each point of the foot is measured against the ground under THAT
+   point. Measuring the toe against the tread under the ankle is wrong exactly
+   where it matters — at a nosing, where the ankle is over one step and the ball
+   of the foot over the next — and it read a toe standing properly on the lower
+   step as half a metre in the air. */
+function lowestGapOf(foot: Vector3, toe: Vector3, ankle: number, trace: TraceBox): number {
+  const underAnkle = groundUnder([foot.x, foot.y, foot.z], trace)
+  const underToe = groundUnder([toe.x, toe.y, toe.z], trace)
+  const gaps: number[] = []
+  if (underAnkle) gaps.push(foot.y - ankle - underAnkle.surfaceY)
+  if (underToe) gaps.push(toe.y - underToe.surfaceY)
+  return gaps.length > 0 ? Math.min(...gaps) : Number.POSITIVE_INFINITY
+}
+
 function limbReading(
+  trace: TraceBox,
   ankle: number,
   leg: LegBones,
   chain: TwoBoneChain,
-  step: { readonly contact: number; readonly ground: { readonly surfaceY: number } | null },
+  step: {
+    readonly contact: number
+    readonly ground: { readonly surfaceY: number } | null
+    readonly target?: Vector3
+  },
   state: LegState,
   facingRadians: number,
   side: number,
@@ -129,6 +151,8 @@ function limbReading(
   const hip = leg.thigh.getWorldPosition(new Vector3())
   const knee = leg.knee.getWorldPosition(new Vector3())
   const foot = leg.foot.getWorldPosition(new Vector3())
+  const toeBone = leg.foot.children.find((child) => /Toe/.test(child.name)) ?? leg.foot
+  const toe = toeBone.getWorldPosition(new Vector3())
   return {
     ankleHeight: ankle,
     ...bendOf(hip, knee, foot, facingRadians, side),
@@ -138,7 +162,10 @@ function limbReading(
     hip: [hip.x, hip.y, hip.z],
     hold: state.hold,
     knee: [knee.x, knee.y, knee.z],
-    lock: [state.plant.lockX, state.plant.lockZ],
+    lock: [state.plantX, state.plantZ],
+    lowestGap: lowestGapOf(foot, toe, ankle, trace),
+    target: step.target ? [step.target.x, step.target.y, step.target.z] : null,
+    toe: [toe.x, toe.y, toe.z],
     lowerLength: chain.lowerLength,
     surfaceY: step.ground ? step.ground.surfaceY : null,
     upperLength: chain.upperLength,
@@ -146,33 +173,50 @@ function limbReading(
 }
 
 function freshState(): LegState {
-  return {
-    contact: 0,
-    correction: 0,
-    footSpeed: 0,
-    hold: 0,
-    holdVelocity: 0,
-    lockFacing: 0,
-    plant: NO_PLANT,
-    previousFoot: null,
-    releasing: false,
-    wasStance: false,
-  }
+  return { contact: 0, correction: 0, hold: 0, planted: false, plantX: 0, plantZ: 0 }
+}
+
+/* @important The ankle height is measured from the rig, the way notapain
+   measures it: how far the ankle bone sits above the toe bone in the bind pose,
+   which stands on the floor. A constant typed in by hand was 0.09 against a
+   measured 0.123 on this mannequin, and every contact threshold inherited the
+   error. */
+/* @important How high the ankle and the ball of the foot sit above the sole,
+   read from the bind pose — which stands on the rig's own floor — rather than
+   typed in. Pushing a foot out of the ground needs to know where its sole is,
+   and a guessed constant was 3 cm off on this mannequin. */
+function soleHeightsOf(legs: readonly LegBones[], rig: Object3D): SoleHeights {
+  rig.updateMatrixWorld(true)
+  const floor = rig.getWorldPosition(new Vector3()).y
+  const average = (pick: (leg: LegBones) => Object3D) => legs
+    .map((leg) => pick(leg).getWorldPosition(new Vector3()).y - floor)
+    .reduce((sum, height) => sum + height, 0) / legs.length
+  return { ankle: average((leg) => leg.foot), toe: average((leg) => leg.toe) }
+}
+
+function ankleHeightOf(legs: readonly LegBones[], rig: Object3D): number {
+  const heights = legs.map((leg) => {
+    const toe = leg.foot.children.find((child) => /Toe/.test(child.name))
+    if (!toe) return 0.09
+    rig.updateMatrixWorld(true)
+    return Math.abs(leg.foot.getWorldPosition(new Vector3()).y - toe.getWorldPosition(new Vector3()).y)
+  })
+  return heights.reduce((sum, height) => sum + height, 0) / heights.length
 }
 
 export function useFootPlacement(options: FootPlacementOptions): MutableRefObject<FootPlacementDebug> {
-  const { ankleHeight = 0.09, enabled, gait, rig, timeline, trace } = options
+  const { enabled, gait, rig, timeline, trace } = options
   const legs = useMemo(() => [legOf(rig, 'Left'), legOf(rig, 'Right')], [rig])
   const hips = useMemo(() => boneNamed(rig, /Hips$/), [rig])
   const chains = useMemo(() => legs.map(chainOf), [legs])
-  const tuning = useMemo<FootPlacementTuning>(
-    () => ({ ankleHeight, contactRate: 16, correctionRate: 10, maxStepDrop: 0.55 }),
-    [ankleHeight],
-  )
+  const ankleHeight = useMemo(() => options.ankleHeight ?? ankleHeightOf(legs, rig), [legs, options.ankleHeight, rig])
+  const sole = useMemo(() => soleHeightsOf(legs, rig), [legs, rig])
   const states = useRef<LegState[]>([freshState(), freshState()])
-  const lastTravelled = useRef(0)
   const pelvisDrop = useRef(0)
+  const lastCapsule = useRef<{ grounded: boolean; y: number } | null>(null)
+  const lastElapsed = useRef<number | null>(null)
   const forward = useMemo(() => new Vector3(0, 0, 1), [])
+  const meshFloor = useMemo(() => new Vector3(), [])
   const debug = useRef<FootPlacementDebug>({
     contact: [0, 0],
     enabled: true,
@@ -193,14 +237,22 @@ export function useFootPlacement(options: FootPlacementOptions): MutableRefObjec
     }
   }, [])
 
-  useFrame((_, delta) => {
+  /* @important The pass ages on the SIMULATION clock: the time the body has
+     lived since the last frame this pass ran, not the render delta. Rendered
+     faster than the tick, a frame that saw no tick smooths nothing; on the
+     stepping bench, one click is one sixtieth of a second of smoothing rather
+     than the tenth of a second the render took. */
+  useFrame(() => {
     const body = timeline.current.current
+    const delta = lastElapsed.current === null ? 0 : Math.max(0, body.elapsedSeconds - lastElapsed.current)
+    lastElapsed.current = body.elapsedSeconds
     if (enabled && !enabled()) {
       debug.current = {
         contact: [0, 0],
         enabled: false,
         facingRadians: body.bodyFacingRadians,
         limbs: legs.map((leg, index) => limbReading(
+          trace,
           ankleHeight,
           leg,
           chains[index],
@@ -232,39 +284,43 @@ export function useFootPlacement(options: FootPlacementOptions): MutableRefObjec
       ? strideScaleFor(speed, reading.clipSpeed * Math.max(0.1, reading.stride))
       : 1
 
-    const travelDelta = Math.max(0, body.travelledMeters - lastTravelled.current)
-    lastTravelled.current = body.travelledMeters
+    /* @important Unreal's SuddenMotionOnly compensation: a vertical jump of the
+       capsule that walking along the floor does not explain — a step up or down
+       — is taken straight out of the pelvis offset and out of each leg's ground
+       correction on the frame it happens. The pelvis therefore stays where it
+       was in the world and settles back over the frames that follow, and a foot
+       still standing on the lower tread keeps its height instead of rising with
+       the mesh and hanging over it. */
+    const grounded = body.mode === 'walking'
+    const previousCapsule = lastCapsule.current
+    const rise = previousCapsule && previousCapsule.grounded ? body.position[1] - previousCapsule.y : 0
+    lastCapsule.current = { grounded, y: body.position[1] }
+    const sudden = carryStep(0, rise, grounded)
+    if (sudden !== 0) {
+      pelvisDrop.current += sudden
+      for (const state of states.current) state.correction -= sudden
+    }
+
     const steps = legs.map((leg, index) => stepFoot({
+      ankleHeight,
+      sole,
       bodyForward: forward,
-      bodyPosition: [body.position[0], body.position[2]],
-      bodySpeed: speed,
-      chain: chains[index],
-      facingRadians: body.bodyFacingRadians,
+      bodyPosition: body.position,
       deltaSeconds: delta,
-      groundReference: body.position[1] - BODY_GROUND_OFFSET,
+      groundReference: rig.getWorldPosition(meshFloor).y,
       leg,
       stance: index === 0 ? stance.left : stance.right,
-      standing: stance.standing,
       state: states.current[index],
       strideScale,
       trace,
-      travelDelta,
-      tuning,
     }))
 
-    /* @important The pelvis follows the feet through Unreal's own solver rather
-       than through the deepest drop it can find: each leg says how far the
-       pelvis may travel for it, and the compromise between those ranges is what
-       moves. Taking the deepest demand instead fed the drop its own result back
-       and folded a standing character 41 cm into the floor. */
-    const offset = pelvisOffset(steps.map((step) => limbOffsetRange(step.reach)))
-    pelvisDrop.current = approachWeight(pelvisDrop.current, Math.max(0, -offset), PELVIS_RATE, delta)
+    pelvisDrop.current = nextHipDrop(pelvisDrop.current, steps, delta)
     dropPelvis(hips, rig, pelvisDrop.current)
 
     steps.forEach((step, index) => {
-      if (step.contact < 0.01) return
       writeLeg(legs[index], step.target, chains[index], forward)
-      if (step.ground) levelFootToGround(legs[index], step.ground.normal, step.contact, stance.standing)
+      if (step.ground) levelFootToGround(legs[index], step.ground.normal, step.contact)
     })
 
     debug.current = {
@@ -272,6 +328,7 @@ export function useFootPlacement(options: FootPlacementOptions): MutableRefObjec
       enabled: true,
       facingRadians: body.bodyFacingRadians,
       limbs: legs.map((leg, index) => limbReading(
+        trace,
         ankleHeight,
         leg,
         chains[index],
@@ -280,7 +337,7 @@ export function useFootPlacement(options: FootPlacementOptions): MutableRefObjec
         body.bodyFacingRadians,
         index === 0 ? 1 : -1,
       )),
-      locked: [states.current[0].plant.locked, states.current[1].plant.locked],
+      locked: [states.current[0].planted && states.current[0].hold > 0.01, states.current[1].planted && states.current[1].hold > 0.01],
       pelvisDrop: pelvisDrop.current,
       strideScale,
       surfaceDelta: [steps[0].surfaceDelta, steps[1].surfaceDelta],

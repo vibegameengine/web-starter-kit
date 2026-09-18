@@ -9,11 +9,18 @@ const DOWN = new Vector3(0, -1, 0)
    parent matrix belonging to the frame before, and the pelvis was dragged 38 cm
    sideways through a turn. */
 export function localDropOffset(parentRotation: Quaternion, parentScale: Vector3, drop: number): Vector3 {
-  if (drop <= 0) return new Vector3()
+  if (drop === 0) return new Vector3()
   const offset = DOWN.clone().multiplyScalar(drop).applyQuaternion(parentRotation.clone().invert())
   return offset.divide(new Vector3(
     parentScale.x === 0 ? 1 : parentScale.x,
     parentScale.y === 0 ? 1 : parentScale.y,
     parentScale.z === 0 ? 1 : parentScale.z,
   ))
+}
+
+export const STEP_JUMP_METERS = 0.03
+
+export function carryStep(offset: number, capsuleRise: number, grounded: boolean): number {
+  if (!grounded || Math.abs(capsuleRise) < STEP_JUMP_METERS) return offset
+  return offset + capsuleRise
 }

@@ -130,3 +130,17 @@ describe('direction speed shares', () => {
     expect(share).toBeCloseTo(GROUNDED_MOTION_PROFILE.directionShares.strafe, 2)
   })
 })
+
+describe('simulation time', () => {
+  /* @important The body carries the simulation time it has lived, so every pass
+     that smooths can age on the SIMULATION clock rather than on the render
+     delta. On a bench that steps one tick per click the render delta is a tenth
+     of a second against a sixtieth of simulation, and every smoothing ran six
+     times too fast there — the bench measured a different pass from the one the
+     game runs. */
+  it('advances by exactly the delta of every tick', () => {
+    const settings = settingsFor([FLOOR], 'orient-to-movement')
+    const state = drive(standing(), IDLE_MOTION_INTENT, settings, 30)
+    expect(state.elapsedSeconds).toBeCloseTo(30 * STEP, 9)
+  })
+})

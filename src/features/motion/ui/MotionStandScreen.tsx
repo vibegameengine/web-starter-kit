@@ -17,6 +17,14 @@ const FACING_OPTIONS = [
 
 type FacingId = (typeof FACING_OPTIONS)[number]['id']
 
+const COURSE_OPTIONS = [
+  { id: 'ledge', label: 'Ledge' },
+  { id: 'stairs', label: 'Stairs' },
+  { id: 'flat', label: 'Flat' },
+] as const
+
+type CourseId = (typeof COURSE_OPTIONS)[number]['id']
+
 const DRIVE_OPTIONS = [
   { forward: 0, id: 'still', label: 'Still', right: 0 },
   { forward: 1, id: 'forward', label: 'Forward', right: 0 },
@@ -40,6 +48,7 @@ export function MotionStandScreen() {
   const [sprint, setSprint] = useState(false)
   const [facing, setFacing] = useState<FacingId>('travel')
   const [passes, setPasses] = useState<ProceduralPasses>(ALL_PASSES)
+  const [course, setCourse] = useState<CourseId>('ledge')
   /* eslint-enable no-restricted-syntax */
 
   const readout = useMemo(() => createStandStore(), [])
@@ -55,9 +64,10 @@ export function MotionStandScreen() {
   return (
     <div className={styles.screen}>
       <MotionStandScene
+        course={course}
         facing={facing}
         forward={drive.forward}
-        key={facing}
+        key={`${facing}-${course}`}
         passes={passes}
         readout={readout}
         right={drive.right}
@@ -75,6 +85,17 @@ export function MotionStandScreen() {
             }}
             options={DRIVE_OPTIONS.map((option) => ({ id: option.id, label: option.label }))}
             testIdPrefix="motion-stand-drive"
+          />
+          <ControlChoice
+            activeId={course}
+            label="Course"
+            onSelect={(id) => {
+              const focused = document.activeElement
+              if (focused instanceof HTMLElement) focused.blur()
+              setCourse(id as CourseId)
+            }}
+            options={COURSE_OPTIONS.map((option) => ({ id: option.id, label: option.label }))}
+            testIdPrefix="motion-stand-course"
           />
           <ControlChoice
             activeId={facing}

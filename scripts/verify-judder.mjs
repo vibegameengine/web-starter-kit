@@ -37,6 +37,9 @@ const SAMPLE_FRAMES = 240
 const MAX_UNEVENNESS = 1.9
 const MAX_VARIATION = 0.35
 const MAX_RELATIVE_SPEED = 0.02
+const MAX_FROZEN_SHARE = 0.08
+const LONG_WINDOW_FRAMES = 120
+const LONG_WINDOWS = 10
 
 const results = []
 const check = (name, pass, detail) => {
@@ -64,16 +67,25 @@ async function sampleWhileWalking(frames) {
   const samples = await page.evaluate((count) => new Promise((done) => {
     const collected = []
     let hips = null
+    let left = null
+    let right = null
     window.__labScene.traverse((node) => {
       if (!hips && /Hips$/.test(node.name)) hips = node
+      if (!left && /LeftFoot$/.test(node.name)) left = node
+      if (!right && /RightFoot$/.test(node.name)) right = node
     })
     const camera = window.__labCamera
     const Vector = Object.getPrototypeOf(hips.position).constructor
+    const at = (bone) => {
+      const world = bone.getWorldPosition(new Vector())
+      return [world.x, world.y, world.z]
+    }
     const take = () => {
-      const world = hips.getWorldPosition(new Vector())
       collected.push({
         camera: [camera.position.x, camera.position.y, camera.position.z],
-        hips: [world.x, world.y, world.z],
+        hips: at(hips),
+        left: at(left),
+        right: at(right),
         time: performance.now(),
       })
       if (collected.length >= count) {
@@ -110,6 +122,37 @@ function evenness(steps) {
   return { median, ratio: sorted[Math.floor(sorted.length * 0.98)] / median, variation: deviation / mean }
 }
 
+/* @important Ghosting was reported as arriving "not at once, but after a
+   while", and a three-second sample cannot see that. So the walk is long — it
+   crosses the course's steps and blocks, where the camera's spring arm starts
+   touching geometry — and it is judged in windows, worst window first. */
+async function longWalkWindows(windowFrames, windows) {
+  await page.keyboard.down('KeyW')
+  await page.waitForTimeout(1600)
+  const collected = []
+  for (let window = 0; window < windows; window += 1) {
+    const part = await page.evaluate((count) => new Promise((done) => {
+      const taken = []
+      let hips = null
+      window.__labScene.traverse((node) => {
+        if (!hips && /Hips$/.test(node.name)) hips = node
+      })
+      const camera = window.__labCamera
+      const Vector = Object.getPrototypeOf(hips.position).constructor
+      const take = () => {
+        const world = hips.getWorldPosition(new Vector())
+        taken.push({ camera: [camera.position.x, camera.position.y, camera.position.z], hips: [world.x, world.y, world.z], time: performance.now() })
+        if (taken.length >= count) done(taken)
+        else requestAnimationFrame(take)
+      }
+      requestAnimationFrame(take)
+    }), windowFrames)
+    collected.push(part)
+  }
+  await page.keyboard.up('KeyW')
+  return collected
+}
+
 const samples = await sampleWhileWalking(SAMPLE_FRAMES)
 check('the lab rendered every frame that was asked for', samples.length === SAMPLE_FRAMES, `${samples.length}/${SAMPLE_FRAMES}`)
 
@@ -137,11 +180,60 @@ check(
   `${relativeSpeeds.length} frames, worst ${worstRelative.toFixed(4)} m/s apart`,
 )
 
+/* @important The legs are sampled per rendered frame as well, relative to the
+   hips. Measuring only the hips passed while the legs still ghosted: the body
+   was interpolated between ticks and glided smoothly, but the animation phase
+   only advanced when a tick ran, so the pose froze for a frame or two and then
+   caught up — a staircase of leg motion laid over a smooth body. The signature
+   is frames where a foot, relative to the hips, does not move at all between
+   frames where it moves twice as far. */
+function staircaseShare(samples, pick) {
+  const steps = stepsOf(samples, (sample) => {
+    const foot = pick(sample)
+    return [foot[0] - sample.hips[0], foot[1] - sample.hips[1], foot[2] - sample.hips[2]]
+  })
+  const moving = steps.filter((step) => step > 0.02)
+  if (moving.length < 20) return { frozen: 0, share: 0 }
+  const median = [...moving].sort((a, b) => a - b)[Math.floor(moving.length / 2)]
+  const frozen = steps.filter((step) => step < median * 0.15).length
+  return { frozen, share: frozen / steps.length }
+}
+
+for (const [label, pick] of [['left', (sample) => sample.left], ['right', (sample) => sample.right]]) {
+  const stairs = staircaseShare(samples, pick)
+  check(
+    `the ${label} leg moves every frame, not once a tick`,
+    stairs.share <= MAX_FROZEN_SHARE,
+    `${stairs.frozen} frozen frames, ${(stairs.share * 100).toFixed(1)}% of the walk`,
+  )
+}
+
 const cameraSteps = evenness(stepsOf(samples, (sample) => sample.camera))
 check(
   'the camera moves evenly',
   cameraSteps.ratio <= MAX_UNEVENNESS && cameraSteps.variation <= MAX_VARIATION,
   `worst frame ${cameraSteps.ratio.toFixed(2)}x the median, variation ${cameraSteps.variation.toFixed(3)}`,
+)
+
+await page.getByTestId('motion-reset').click().catch(() => undefined)
+await page.keyboard.press('KeyH')
+await page.getByTestId('motion-reset').click().catch(() => undefined)
+await page.keyboard.press('KeyH')
+await page.waitForTimeout(800)
+const windows = await longWalkWindows(LONG_WINDOW_FRAMES, LONG_WINDOWS)
+const perWindow = windows.map((part) => {
+  const speeds = stepsOf(part, (sample) => [
+    sample.hips[0] - sample.camera[0],
+    sample.hips[1] - sample.camera[1],
+    sample.hips[2] - sample.camera[2],
+  ]).sort((left, right) => left - right)
+  return speeds[Math.floor(speeds.length * 0.98)] ?? 0
+})
+const worstWindow = perWindow.reduce((worst, value, index) => (value > worst.value ? { index, value } : worst), { index: -1, value: 0 })
+check(
+  'the body holds still against the camera through a long walk, window by window',
+  worstWindow.value <= MAX_RELATIVE_SPEED * 3,
+  `worst window ${worstWindow.index} of ${perWindow.length}: ${worstWindow.value.toFixed(4)} m/s apart; all: ${perWindow.map((value) => value.toFixed(3)).join(' ')}`,
 )
 
 check('the page raised no errors', pageErrors.length === 0, pageErrors[0] ?? '')

@@ -17,6 +17,7 @@ export type MotionState = {
   readonly aimFacingRadians: number
   readonly bodyFacingRadians: number
   readonly bodyTurnVelocity: number
+  readonly elapsedSeconds: number
   readonly groundNormal: Vector3Tuple
   readonly jumpHeld: boolean
   readonly locomotionDirection: LocomotionDirection
@@ -57,6 +58,7 @@ export function createMotionState(position: Vector3Tuple): MotionState {
     moving: false,
     position,
     steppedUp: 0,
+    elapsedSeconds: 0,
     travelledMeters: 0,
     upperAimRadians: 0,
     velocity: [0, 0, 0],
@@ -133,6 +135,7 @@ export function stepMotionController(input: MotionStepInput): MotionState {
     aimFacingRadians: normalizeAngle(turned.facingRadians + upperAimRadians),
     bodyFacingRadians: turned.facingRadians,
     bodyTurnVelocity: turned.turnVelocity,
+    elapsedSeconds: state.elapsedSeconds + delta,
     groundNormal: moved.groundNormal,
     jumpHeld: accelerated.jumpHeld,
     locomotionDirection: locomotionOf(moved.velocity, turned.facingRadians),
