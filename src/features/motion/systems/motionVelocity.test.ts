@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import type { Vector3Tuple } from './boxTrace'
 import { IDLE_MOTION_INTENT, type MotionIntent } from './motionIntent'
-import { ARENA_MOTION_PROFILE, GROUNDED_MOTION_PROFILE, profileAtSpeed, SPRINT_SPEED_MULTIPLIER } from './motionProfile'
+import { ARENA_MOTION_PROFILE, CLIP_SPRINT_MULTIPLIER, GROUNDED_MOTION_PROFILE, profileAtSpeed, SPRINT_SPEED_MULTIPLIER } from './motionProfile'
+import { wishSpeed } from './motionVelocity'
 import { advanceMotionVelocity, type MotionVelocityState } from './motionVelocity'
 
 const STEP = 1 / 60
@@ -122,5 +123,24 @@ describe('advanceMotionVelocity', () => {
 
     expect(Math.hypot(air.velocity[0], air.velocity[2]))
       .toBeLessThan(Math.hypot(ground.velocity[0], ground.velocity[2]))
+  })
+})
+
+/* @important A body whose walk is paced by the walk clip used to sprint at
+   1.625 times that walk, 2.65 m/s — slower than the run clip itself travels,
+   so a sprint played as a run slowed down. notapain sprints at three times its
+   walk (movement_tuning.gd, walk 2.0, run 6.0), and the animator splits the
+   excess between cadence and stride. */
+describe('sprinting on a clip-paced profile', () => {
+  const walkSpeed = 1.633
+  const profile = profileAtSpeed(GROUNDED_MOTION_PROFILE, walkSpeed, undefined, CLIP_SPRINT_MULTIPLIER)
+
+  it('sprints at notapain\'s run-to-walk ratio', () => {
+    expect(wishSpeed({ ...IDLE_MOTION_INTENT, forward: 1, sprint: true }, profile)).toBeCloseTo(walkSpeed * 3, 6)
+  })
+
+  it('leaves the profiles that are not clip-paced sprinting as they did', () => {
+    const grounded = wishSpeed({ ...IDLE_MOTION_INTENT, forward: 1, sprint: true }, GROUNDED_MOTION_PROFILE)
+    expect(grounded).toBeCloseTo(GROUNDED_MOTION_PROFILE.maxSpeed * SPRINT_SPEED_MULTIPLIER, 6)
   })
 })

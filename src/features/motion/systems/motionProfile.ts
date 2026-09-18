@@ -12,6 +12,7 @@ export type MotionProfile = {
   readonly jumpVelocity: number
   readonly maxSpeed: number
   readonly maxStepHeight: number
+  readonly sprintMultiplier: number
   readonly stopSpeed: number
   readonly walkableFloorNormalY: number
 }
@@ -35,6 +36,7 @@ export const ARENA_MOTION_PROFILE: MotionProfile = {
   jumpVelocity: 270 * QUAKE_UNIT_METERS,
   maxSpeed: 320 * QUAKE_UNIT_METERS,
   maxStepHeight: 18 * QUAKE_UNIT_METERS,
+  sprintMultiplier: 1.625,
   stopSpeed: 100 * QUAKE_UNIT_METERS,
   walkableFloorNormalY: 0.7,
 }
@@ -48,6 +50,7 @@ export const GROUNDED_MOTION_PROFILE: MotionProfile = {
   jumpVelocity: 4.2,
   maxSpeed: 3.2,
   maxStepHeight: 0.45,
+  sprintMultiplier: 1.625,
   stopSpeed: 1.2,
   walkableFloorNormalY: 0.7,
 }
@@ -58,11 +61,14 @@ export function profileAtSpeed(
   profile: MotionProfile,
   maxSpeed: number,
   directionShares: DirectionShares = profile.directionShares,
+  sprintMultiplier: number = profile.sprintMultiplier,
 ): MotionProfile {
-  return { ...profile, directionShares, maxSpeed, stopSpeed: maxSpeed * STOP_SPEED_SHARE }
+  return { ...profile, directionShares, maxSpeed, sprintMultiplier, stopSpeed: maxSpeed * STOP_SPEED_SHARE }
 }
 
 export const SPRINT_SPEED_MULTIPLIER = 1.625
+
+export const CLIP_SPRINT_MULTIPLIER = 3
 
 export const STRAFE_SPEED_MULTIPLIER = 0.85
 

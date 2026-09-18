@@ -6,9 +6,9 @@ import { MOTION_LAB_STATIONS, MOTION_LAB_WARP_EVENT } from '../../../scenes/moti
 import { createMotionReadoutStore } from '../../../scenes/motion-lab/motionReadoutStore'
 import type { RotationMode } from '../systems/motionController'
 import { DIRECTION_SPEED_SHARES, WALK_CLIP_SPEED } from '../catalog/locomotionClips'
-import { ARENA_MOTION_PROFILE, GROUNDED_MOTION_PROFILE, profileAtSpeed } from '../systems/motionProfile'
+import { ARENA_MOTION_PROFILE, CLIP_SPRINT_MULTIPLIER, GROUNDED_MOTION_PROFILE, profileAtSpeed } from '../systems/motionProfile'
 
-const WALK_ONLY_PROFILE = profileAtSpeed(GROUNDED_MOTION_PROFILE, WALK_CLIP_SPEED, DIRECTION_SPEED_SHARES)
+const WALK_ONLY_PROFILE = profileAtSpeed(GROUNDED_MOTION_PROFILE, WALK_CLIP_SPEED, DIRECTION_SPEED_SHARES, CLIP_SPRINT_MULTIPLIER)
 import styles from './MotionLabScreen.module.css'
 
 const PROFILE_OPTIONS = [

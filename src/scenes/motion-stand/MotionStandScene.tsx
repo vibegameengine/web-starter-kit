@@ -14,7 +14,7 @@ import { MotionBody } from '../../features/motion/entities/MotionBody'
 import { useMotionController } from '../../features/motion/components/useMotionController'
 import { createBoxWorldTrace, type Vector3Tuple } from '../../features/motion/systems/boxTrace'
 import type { MotionSettings } from '../../features/motion/systems/motionController'
-import { GROUNDED_MOTION_PROFILE, profileAtSpeed } from '../../features/motion/systems/motionProfile'
+import { CLIP_SPRINT_MULTIPLIER, GROUNDED_MOTION_PROFILE, profileAtSpeed } from '../../features/motion/systems/motionProfile'
 import { DIRECTION_SPEED_SHARES, WALK_CLIP_SPEED } from '../../features/motion/catalog/locomotionClips'
 import { HUMAN_TURN_PROFILE } from '../../features/motion/systems/turnDynamics'
 import type { MotionIntent } from '../../features/motion/systems/motionIntent'
@@ -96,7 +96,7 @@ function StandSubject({ bus, course, facing, forward, passes, readout, right, sp
   const invalidate = useThree((state) => state.invalidate)
   const settings = useMemo<MotionSettings>(() => ({
     halfExtents: BODY_HALF_EXTENTS,
-    profile: profileAtSpeed(GROUNDED_MOTION_PROFILE, WALK_CLIP_SPEED, DIRECTION_SPEED_SHARES),
+    profile: profileAtSpeed(GROUNDED_MOTION_PROFILE, WALK_CLIP_SPEED, DIRECTION_SPEED_SHARES, CLIP_SPRINT_MULTIPLIER),
     rotationMode: facing === 'aim' ? 'follow-aim' : 'orient-to-movement',
     trace: createBoxWorldTrace(STAND_COURSES[course]),
     turnProfile: HUMAN_TURN_PROFILE,

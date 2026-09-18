@@ -1,6 +1,6 @@
 import type { Vector3Tuple } from './boxTrace'
 import { intentDeflection, intentWishDirection, type MotionIntent, type PlaneVector } from './motionIntent'
-import { SPRINT_SPEED_MULTIPLIER, type MotionProfile } from './motionProfile'
+import type { MotionProfile } from './motionProfile'
 
 export type MotionVelocityInput = {
   readonly delta: number
@@ -34,7 +34,7 @@ export function directionSpeedMultiplier(intent: MotionIntent, shares: Direction
 }
 
 export function wishSpeed(intent: MotionIntent, profile: MotionProfile): number {
-  const sprint = intent.sprint && !intent.crouch ? SPRINT_SPEED_MULTIPLIER : 1
+  const sprint = intent.sprint && !intent.crouch ? profile.sprintMultiplier : 1
   const direction = directionSpeedMultiplier(intent, profile.directionShares)
   return profile.maxSpeed * sprint * direction * intentDeflection(intent)
 }
