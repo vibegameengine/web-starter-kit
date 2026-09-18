@@ -12,6 +12,7 @@ import {
   LOCOMOTION_STANCE_WINDOWS,
 } from '../catalog/locomotionClips'
 import { phaseScaleToPlant, stopDistance, STOP_MATCH_DISTANCE_METERS } from '../systems/stopMatching'
+import { chooseGait, DEFAULT_GAIT_HYSTERESIS, type Gait } from '../systems/gaitChooser'
 import { approachWeight } from '../systems/footPlanting'
 import { wrapPhase } from '../systems/phaseAlign'
 import { alignedPhase } from '../systems/phaseAlign'
@@ -153,6 +154,7 @@ export function useMotionMatchedAnimator(options: MotionMatchedAnimatorOptions):
   const phaseOffset = useRef(0)
   const lastTravelled = useRef(0)
   const idleShare = useRef(1)
+  const gait = useRef<Gait>('walk')
   const debug = useRef<MotionMatchedDebug>({
     best: [],
     idleShare: 1,
@@ -263,7 +265,14 @@ export function useMotionMatchedAnimator(options: MotionMatchedAnimatorOptions):
       { x: state.velocity[0], z: state.velocity[2] },
       state.bodyFacingRadians,
     )
-    const blend = directionalBlend(travelAngle, chosen.current.startsWith('run') ? RUN_SET : WALK_SET)
+    gait.current = chooseGait({
+      hysteresis: DEFAULT_GAIT_HYSTERESIS,
+      previous: gait.current,
+      runSpeed: LOCOMOTION_GAIT_SPEEDS.runSpeed,
+      speed,
+      walkSpeed: LOCOMOTION_GAIT_SPEEDS.walkSpeed,
+    })
+    const blend = directionalBlend(travelAngle, gait.current === 'run' ? RUN_SET : WALK_SET)
     const clipSpeed = blend.speed
     const split = splitSpeedRatio(speed, clipSpeed)
     const duration = crossfade.durationOf(blend.clips[0].clipId)

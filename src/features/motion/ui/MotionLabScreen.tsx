@@ -160,7 +160,10 @@ export function MotionLabScreen() {
               Reset
             </ControlButton>
           </div>
-          <p className={styles.legend}>WASD move · Shift sprint · Space jump · Ctrl crouch · H hides this panel</p>
+          <p className={styles.legend}>
+            Click the scene to take the mouse · WASD move · mouse turns the camera · wheel zooms ·
+            Shift sprint · Space jump · Ctrl crouch · Esc releases the mouse · H hides this panel
+          </p>
         </ControlPanel>
       </div>
     </div>

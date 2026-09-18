@@ -3,12 +3,14 @@ import type { MutableRefObject } from 'react'
 import { Vector3 } from 'three'
 
 import type { TraceBox, Vector3Tuple } from '../systems/boxTrace'
+import { orbitOffset, type OrbitState } from '../systems/cameraOrbit'
 import type { MotionTimeline } from './useMotionController'
 
 export type ThirdPersonCameraOptions = {
   readonly followRate: number
   readonly lookHeight: number
   readonly offset: readonly [number, number, number]
+  readonly orbit?: MutableRefObject<OrbitState>
   readonly trace?: TraceBox
 }
 
@@ -40,11 +42,8 @@ export function useThirdPersonCamera(
   useFrame(({ camera }, delta) => {
     const { position } = timeline.current.current
     focus.set(position[0], position[1] + options.lookHeight, position[2])
-    wanted.set(
-      position[0] + options.offset[0],
-      position[1] + options.offset[1],
-      position[2] + options.offset[2],
-    )
+    const offset = options.orbit ? orbitOffset(options.orbit.current) : options.offset
+    wanted.set(position[0] + offset[0], position[1] + offset[1], position[2] + offset[2])
     if (options.trace) springArmLimit(focus, wanted, options.trace)
     camera.position.lerp(wanted, Math.min(1, options.followRate * delta))
     camera.lookAt(focus)

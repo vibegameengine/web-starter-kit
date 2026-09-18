@@ -9,6 +9,7 @@ import { MotionMatchedBody } from '../../features/motion/entities/MotionMatchedB
 
 import { MotionBody } from '../../features/motion/entities/MotionBody'
 import { useKeyboardMotionIntent } from '../../features/motion/components/useKeyboardMotionIntent'
+import { useMouseLook } from '../../features/motion/components/useMouseLook'
 import { useMotionController } from '../../features/motion/components/useMotionController'
 import { DEFAULT_THIRD_PERSON_CAMERA, useThirdPersonCamera } from '../../features/motion/components/useThirdPersonCamera'
 import { createBoxWorldTrace, type Vector3Tuple } from '../../features/motion/systems/boxTrace'
@@ -85,7 +86,7 @@ function useWarpStations(warp: (position: Vector3Tuple) => void): void {
 
 function MotionLabSubject({ animation, profile, readout, rotationMode, showCollider }: Omit<MotionLabSceneProps, 'paused'>) {
   const intent = useKeyboardMotionIntent()
-  const aimYaw = useRef(0)
+  const look = useMouseLook()
   const settings = useMemo<MotionSettings>(() => ({
     halfExtents: BODY_HALF_EXTENTS,
     profile,
@@ -95,7 +96,12 @@ function MotionLabSubject({ animation, profile, readout, rotationMode, showColli
   }), [profile, rotationMode])
 
   const rig = useMannequinRig()
-  const { timeline, warp } = useMotionController({ aimYaw, intent, settings, start: MOTION_LAB_START })
+  const { timeline, warp } = useMotionController({
+    aimYaw: look.yaw,
+    intent,
+    settings,
+    start: MOTION_LAB_START,
+  })
   useWarpStations(warp)
 
   const sinceReadout = useRef(0)
@@ -107,8 +113,8 @@ function MotionLabSubject({ animation, profile, readout, rotationMode, showColli
   })
 
   useThirdPersonCamera(timeline, useMemo(
-    () => ({ ...DEFAULT_THIRD_PERSON_CAMERA, trace: settings.trace }),
-    [settings.trace],
+    () => ({ ...DEFAULT_THIRD_PERSON_CAMERA, orbit: look.orbit, trace: settings.trace }),
+    [look.orbit, settings.trace],
   ))
 
   return (
@@ -116,7 +122,7 @@ function MotionLabSubject({ animation, profile, readout, rotationMode, showColli
       <MotionBody collider={showCollider ? BODY_HALF_EXTENTS : undefined} timeline={timeline}>
         {animation === 'matching' ? (
           <MotionMatchedBody
-            aimYaw={aimYaw}
+            aimYaw={look.yaw}
             intent={intent}
             profile={profile}
             rig={rig}
