@@ -379,18 +379,26 @@ export function LabStage({
 
 declare global {
   interface Window {
+    __labCamera?: unknown
     __labScene?: unknown
   }
 }
 
+/* @important The camera goes out with the scene so a visual check can project a
+   bone onto the canvas and frame the crop around it. Every attempt to shoot a
+   close-up of the legs by guessing pixel offsets landed on the torso or on empty
+   floor, and a screenshot of the wrong thing reads as a pass. */
 function LabSceneSeam() {
   const scene = useThree((state) => state.scene)
+  const camera = useThree((state) => state.camera)
   useEffect(() => {
     if (!import.meta.env.DEV) return
     window.__labScene = scene
+    window.__labCamera = camera
     return () => {
       if (window.__labScene === scene) window.__labScene = undefined
+      if (window.__labCamera === camera) window.__labCamera = undefined
     }
-  }, [scene])
+  }, [camera, scene])
   return null
 }
