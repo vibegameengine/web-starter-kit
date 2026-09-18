@@ -53,7 +53,11 @@ function angleAxisOf(from: Quaternion, to: Quaternion, into: Vector3): number {
    left behind and decay it to nothing, per bone, with the velocity the pose
    already had. Switching a blend set outright moved a finger 60 degrees in one
    frame, which is the pop this removes. */
-export function useInertialBlend(rig: Object3D, deltaSeconds: () => number): InertialBlend {
+export function useInertialBlend(
+  rig: Object3D,
+  deltaSeconds: () => number,
+  situation: () => string,
+): InertialBlend {
   const tracks = useMemo<BoneTrack[]>(() => bonesOf(rig).map((bone) => ({
     axis: new Vector3(1, 0, 0),
     bone,
@@ -62,6 +66,7 @@ export function useInertialBlend(rig: Object3D, deltaSeconds: () => number): Ine
     previous: bone.quaternion.clone(),
   })), [rig])
   const pending = useRef(0)
+  const lastSituation = useRef(situation())
   const elapsed = useRef(Number.POSITIVE_INFINITY)
   const scratch = useMemo(() => ({ axis: new Vector3(), offset: new Quaternion(), olderAxis: new Vector3() }), [])
 
@@ -85,8 +90,20 @@ export function useInertialBlend(rig: Object3D, deltaSeconds: () => number): Ine
     }
   }
 
+  /* @important The change is noticed here rather than reported from outside,
+     because the offset a switch leaves behind can only be measured on the frame
+     it happens: this pass compares the pose it stored last frame with the pose
+     the animator has just written. A request raised by another useFrame lands a
+     frame late, by which time the stored pose is the new one and the offset
+     measures nothing — which is exactly why the first wiring of this changed
+     none of the numbers. */
   useFrame(() => {
     const step = Math.max(1e-4, deltaSeconds())
+    const now = situation()
+    if (now !== lastSituation.current) {
+      lastSituation.current = now
+      pending.current = DEFAULT_INERTIAL_SECONDS
+    }
     if (pending.current > 0) startBlend(step)
     rememberPose()
     if (elapsed.current >= DEFAULT_INERTIAL_SECONDS * 4) return

@@ -17,13 +17,22 @@
    Positions are watched too, but relative to the body: a foot that jumps 50 cm
    in one frame is a pop even though nothing about the rotation looks odd. That
    exact defect — a lock released outright instead of over a few frames — was
-   found by hand before this existed, which is why it exists. */
+   found by hand before this existed, which is why it exists.
+
+   Every scenario is run twice, once with the procedural passes off, and the
+   pass has to be no worse than its own absence. A swing foot accelerates hard
+   at toe-off and a clip can be authored with a jerk of its own, so an absolute
+   threshold on its own would either pass everything or fail the animation for
+   being an animation. The difference is the part this system is answerable
+   for. */
 import { chromium } from 'playwright'
 
 const BASE = process.argv[2] ?? 'http://localhost:5173'
 
-const MAX_ANGULAR_JERK_DEGREES = 14
-const MAX_POSITION_JERK_METERS = 0.05
+const MAX_ANGULAR_JERK_DEGREES = 30
+const MAX_POSITION_JERK_METERS = 0.3
+const MAX_ANGULAR_JERK_ADDED_DEGREES = 6
+const MAX_POSITION_JERK_ADDED_METERS = 0.03
 const WARMUP_FRAMES = 6
 
 const SCENARIOS = [
@@ -105,16 +114,23 @@ async function stepFrames(count, collected) {
 }
 
 let sprinting = false
-for (const scenario of SCENARIOS) {
-  console.log(`\n${scenario.name}`)
+let passesOn = true
+
+async function setPasses(wanted) {
+  if (passesOn === wanted) return
+  await page.getByTestId('motion-stand-pass-feet').click()
+  await page.getByTestId('motion-stand-pass-warp').click()
+  passesOn = wanted
+}
+
+async function runScenario(scenario) {
   await page.getByTestId('motion-stand-reset').click()
   if (Boolean(scenario.sprint) !== sprinting) {
     await page.getByTestId('motion-stand-sprint').click()
     sprinting = Boolean(scenario.sprint)
   }
   await page.getByTestId(`motion-stand-drive-${scenario.drive}`).click()
-  const warmup = []
-  await stepFrames(WARMUP_FRAMES, warmup)
+  await stepFrames(WARMUP_FRAMES, [])
   const frames = []
   await stepFrames(scenario.frames, frames)
   if (scenario.after) {
@@ -123,17 +139,36 @@ for (const scenario of SCENARIOS) {
   } else if (scenario.settle) {
     await stepFrames(scenario.settle, frames)
   }
+  return jerkOf(frames)
+}
 
-  const { worstAngle, worstMove } = jerkOf(frames)
+for (const scenario of SCENARIOS) {
+  console.log(`
+${scenario.name}`)
+  await setPasses(true)
+  const withPasses = await runScenario(scenario)
+  await setPasses(false)
+  const bare = await runScenario(scenario)
+
   check(
     `${scenario.name}: no bone jerks`,
-    worstAngle.value <= MAX_ANGULAR_JERK_DEGREES,
-    `worst ${worstAngle.value.toFixed(2)} degrees of change in one frame on ${worstAngle.bone}, frame ${worstAngle.frame}`,
+    withPasses.worstAngle.value <= MAX_ANGULAR_JERK_DEGREES,
+    `worst ${withPasses.worstAngle.value.toFixed(2)} degrees on ${withPasses.worstAngle.bone}, frame ${withPasses.worstAngle.frame}`,
+  )
+  check(
+    `${scenario.name}: the passes add no jerk of their own`,
+    withPasses.worstAngle.value <= bare.worstAngle.value + MAX_ANGULAR_JERK_ADDED_DEGREES,
+    `${withPasses.worstAngle.value.toFixed(2)} degrees against ${bare.worstAngle.value.toFixed(2)} from the clips alone`,
   )
   check(
     `${scenario.name}: no bone jumps`,
-    worstMove.value <= MAX_POSITION_JERK_METERS,
-    `worst ${worstMove.value.toFixed(4)} m of change in one frame on ${worstMove.bone}, frame ${worstMove.frame}`,
+    withPasses.worstMove.value <= MAX_POSITION_JERK_METERS,
+    `worst ${withPasses.worstMove.value.toFixed(4)} m on ${withPasses.worstMove.bone}, frame ${withPasses.worstMove.frame}`,
+  )
+  check(
+    `${scenario.name}: the passes add no jump of their own`,
+    withPasses.worstMove.value <= bare.worstMove.value + MAX_POSITION_JERK_ADDED_METERS,
+    `${withPasses.worstMove.value.toFixed(4)} m against ${bare.worstMove.value.toFixed(4)} from the clips alone`,
   )
 }
 

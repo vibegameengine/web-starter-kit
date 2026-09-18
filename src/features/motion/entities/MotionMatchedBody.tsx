@@ -1,5 +1,3 @@
-/* eslint-disable react-hooks/immutability -- the gait watched here is per-frame
-   simulation state read through a ref, never render input. */
 import { useFrame } from '@react-three/fiber'
 import { useRef } from 'react'
 import type { MutableRefObject } from 'react'
@@ -39,15 +37,20 @@ export function MotionMatchedBody({
   trace,
 }: MotionMatchedBodyProps) {
   const animator = useMotionMatchedAnimator({ aimYaw, intent, profile, rig, timeline, topSpeed })
-  const lastGait = useRef(animator.current.gait)
-  const inertial = useInertialBlend(rig, () => lastDelta.current)
   const lastDelta = useRef(1 / 60)
   useFrame((_, delta) => {
     lastDelta.current = delta
-    if (animator.current.gait === lastGait.current) return
-    lastGait.current = animator.current.gait
-    inertial.request()
   })
+  /* @important The gait and the handover to idle get the transition; the clip
+     the directional blend happens to lead with does not. Including it was
+     measured and made things worse — that crossover is already continuous in
+     weight, and starting a blend in the middle of it perturbs a pose that was
+     fine. */
+  useInertialBlend(
+    rig,
+    () => lastDelta.current,
+    () => `${animator.current.gait}:${animator.current.idleShare > 0.5 ? 'idle' : 'move'}`,
+  )
   useOrientationWarp({ enabled: () => (passes ? passes().warp : true), rig, timeline })
   useFootPlacement({
     ankleHeight,

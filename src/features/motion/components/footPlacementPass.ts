@@ -245,6 +245,13 @@ export function stepFoot(input: FootStepInput): FootStep {
     state,
     target,
   })
+  /* @important The contact weight is applied to the TARGET, not to the bones.
+     Slerping a leg between the pose the clip gave it and the pose the solver
+     wants passes through orientations whose knee sits outside the plane of the
+     leg — measured at 10 cm sideways through a turn — because the two
+     rotations turn about different axes. Moving the target instead keeps one
+     consistent solve and still brings the correction in gradually. */
+  target.lerp(scratch.foot, 1 - state.contact)
 
   return {
     contact: state.contact,
