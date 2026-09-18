@@ -17,12 +17,17 @@ divergence below.
 
 | | GASP | here |
 | --- | --- | --- |
-| choice of database | chooser table on ~17 inputs picks ONE of 161 databases | none — the gait comes from the search result, the direction from a blend space |
-| choice of clip | pose search inside that database | angular blend of the nearest two directional clips |
-| choice of frame | pose search returns clip AND time | phase from distance travelled; the search never moves the playhead |
+| choice of database | chooser table on ~17 inputs picks ONE of 161 databases | a chooser on one input: the speed the body actually carries, with a band around the crossover |
+| choice of clip | pose search inside that database | angular blend of the nearest two directional clips of the chosen gait |
+| choice of frame | pose search returns clip AND time | phase integrated from distance travelled; the search never moves the playhead |
 
-**Diverges, structurally.** GASP narrows the search space with a chooser
-(stance, gait, movement state, direction, LOD) and only then compares poses.
+**Diverges in breadth, matches in shape.** GASP narrows the search space with a
+chooser (stance, gait, movement state, direction, LOD) and only then compares
+poses; `systems/gaitChooser.ts` does the same job from speed alone. It had to
+exist: leaving the gait to the pose search meant a body at 2.65 m/s still
+played the walk clip, whose own travel is 1.633, with the stride warp stretched
+to 1.27 to cover the difference. The same sprint now plays the run at a warp of
+0.967.
 Here the space is small enough that narrowing is unnecessary, and moving the
 playhead by search was actively harmful: it froze the walk cycle at phase 0.36
 for 30 frames because every search re-seeked to the matched pose's own time.
@@ -38,6 +43,11 @@ schema than to `PSS_Default`.
 GASP bakes a phase curve per clip from the footstep notifies
 (`AM_BakePhaseCurveFromFootstepNotifies`) and feeds it to the search as a
 feature, so a switch or a blend lands in phase.
+
+The phase is a RATE here, not a position: it is integrated as distance over the
+current stride length. Recomputing it each frame as a division looked equivalent
+and was not — the stride length moves with speed, so every change of the warp
+dragged the phase backwards and the pose jerked up to 33 degrees in a frame.
 
 Here the same information is **measured** off the clip rather than authored:
 `scripts/measure-animations.mjs` samples 64 frames per foot, takes the longest
@@ -145,13 +155,41 @@ metre. The twist limit comes from the ragdoll's own measured joint table, now
 shared at `shared/lib/animation/jointLimits.ts` so both sides read the same
 degrees.
 
-Still missing against UE: the per-limb pelvis offset range with `HeelLiftRatio`,
+The pelvis is now **Unreal's own solver, ported**: `systems/pelvisSolve.ts`
+follows `FindPelvisOffsetRangeForLimb` and `SolvePelvis` — Rune Johansen's
+sphere-line construction per limb (7.4.2), the compromise between the two legs'
+ranges, and the clamp whose argument order decides whether a foot that cannot be
+reached drags the body down with it. What was there before took the deepest drop
+it could find plus whatever a leg was short by, which fed its own result back:
+a body standing astride a 20 cm ledge folded 41 cm into the floor. The same
+ledge now measures a drop of 0.001 m with both feet on the ground.
+
+Two more that were missing entirely. A stance foot is pulled back over solid
+ground by the leg's own reach rather than by a fixed step limit — the fixed
+limit allowed a 32 cm drop while the hip sat 82 cm above the foot, and the foot
+hung over the pit. And the orientation of the foot is owned at last: nothing
+set it, and the tilt that was meant to catch it returned early on level ground,
+so a sole was never flattened on the one surface a character lives on.
+`systems/footOrientation.ts` levels it from the bind pose, which is what flat
+means on any rig, and only while standing — the heel-to-toe roll of a stride
+belongs to the clip.
+
+Still missing against UE: `HeelLiftRatio` and the foot pivot around the ball,
 and the spring interpolation of the unplant offset.
 
 ## Blending
 
-GASP inertializes every transition. Here it is a weighted crossfade at a shared
-phase. **Diverges; an inertialization stack is pending.**
+GASP inertializes every transition through the `Inertialization` node.
+
+Here `systems/inertialBlend.ts` is the same curve — David Bollo's quintic, which
+starts at the offset the switch left behind carrying the velocity the pose
+already had, and reaches zero with zero velocity and zero acceleration — and
+`useInertialBlend` decays that offset per bone over the rig.
+
+**Partial.** It runs on the gait switch, which is where the measured pop was: a
+finger moved 60 degrees in one frame when the blend set changed outright. GASP
+runs it on every transition, including the ones this system does not have yet
+(starts, pivots, stance changes).
 
 ## Starts, stops, pivots
 
@@ -196,6 +234,18 @@ Here:
 - the motion stand (`/labs/motion-stand`) steps one simulated frame at a time,
   renders on demand so the picture matches the numbers, and can switch the foot
   IK and the orientation warp off independently to isolate a pass.
-- 154 unit tests over the pure systems.
+- `npm run verify:clips` measures the assets themselves: drift across their own
+  travel axis, vertical and yaw drift, the loop seam read from raw keyframes,
+  toe-out, floor contact and gait symmetry. 54 checks.
+- `npm run verify:spikes` steps the bench frame by frame and reports the second
+  difference of every bone's rotation and position: pops, wherever they come
+  from — a clip authored with a spike, a blend that switched without matching
+  phase, a lock that let go all at once. 13 checks.
+- 247 unit tests over the pure systems.
 
-**Beyond GASP**, and it is what found every defect above.
+**Beyond GASP**, and it is what found every defect above — including the ones
+an earlier version of these checks could not see. Three of those checks used to
+be tautologies: bone length measured against the length the same code computed,
+reach measured against the clamp constant the same code applied, and a knee
+"range" taken from an unsigned angle that reads a backwards knee as a good one.
+A check that cannot fail is worse than no check, because it is counted.
