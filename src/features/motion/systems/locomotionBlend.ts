@@ -61,6 +61,17 @@ export function strideLengthOf(clipTravelSpeed: number, clipDurationSeconds: num
   return clipTravelSpeed * clipDurationSeconds
 }
 
+/* @important The phase is INTEGRATED, never recomputed as a distance divided by
+   the stride length: the stride length moves with speed, so recomputing dragged
+   the phase backwards every time the warp settled, and the pose jerked up to 33
+   degrees in a single frame. As a rate, the stride length only decides how fast
+   the cycle runs — which is all it ever meant. */
+export function advancePhase(phase: number, travelDelta: number, strideLength: number): number {
+  if (strideLength <= 1e-6) return phase
+  const advanced = phase + travelDelta / strideLength
+  return advanced - Math.floor(advanced)
+}
+
 export function stridePhase(travelledMeters: number, strideLengthMeters: number): number {
   if (strideLengthMeters <= 0) return 0
   const phase = (travelledMeters / strideLengthMeters) % 1

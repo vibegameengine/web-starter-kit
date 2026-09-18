@@ -6,10 +6,11 @@ import { PLANT_RELEASE_TWIST_RADIANS } from '../../../shared/lib/animation/joint
 import { shortestAngle } from '../systems/angles'
 import { solveTwoBoneIk, type TwoBoneChain } from '../../../shared/lib/animation/twoBoneIk'
 import type { TraceBox } from '../systems/boxTrace'
-import { stanceGround, type GroundSample } from '../systems/footGround'
+import { reachableDrop, stanceGround, type GroundSample } from '../systems/footGround'
 import {
   approachWeight,
   DEFAULT_MAX_HOLD,
+  MAX_SMOOTHING_SECONDS,
   moveToward,
   DEFAULT_PLANT_MARGIN,
   DEFAULT_SWING_MARGIN,
@@ -17,11 +18,14 @@ import {
   holdWeight,
   type PlantState,
 } from '../systems/footPlanting'
+import { levelledFoot } from '../systems/footOrientation'
+import type { LimbReach } from '../systems/pelvisSolve'
 import { warpedFootTarget } from '../systems/strideWarp'
 
 export type LegBones = {
   readonly foot: Object3D
   readonly knee: Object3D
+  readonly restFoot: Quaternion
   readonly thigh: Object3D
 }
 
@@ -52,11 +56,10 @@ export type FootPlacementTuning = {
 export type FootStep = {
   readonly contact: number
   readonly ground: GroundHit | null
+  readonly reach: LimbReach
   readonly surfaceDelta: number
   readonly target: Vector3
 }
-
-export const KNEE_POLE_DISTANCE = 0.8
 
 export const HOLD_RATE = 9
 
@@ -68,6 +71,8 @@ const UP = new Vector3(0, 1, 0)
 
 const scratch = {
   foot: new Vector3(),
+  footWorld: new Quaternion(),
+  parentWorld: new Quaternion(),
   hip: new Vector3(),
   knee: new Vector3(),
   pole: new Vector3(),
@@ -92,6 +97,17 @@ export function footSpeedOf(state: LegState, foot: Vector3, travel: number, body
   return (drift / travel) * bodySpeed
 }
 
+/* @important The pole is a DIRECTION the knee bends toward, not a place it
+   should aim at. Handing the solver the knee's world position plus a forward
+   step read as "bend toward the world origin", and the further the body walked
+   from the origin the more completely that swamped the forward it was meant to
+   carry: at two metres out the bend direction was already twice as much toward
+   the origin as forward, and the knee turned inward or backward. Near the
+   origin it looks right, which is why nothing caught it for so long. */
+export function kneePole(bodyForward: Vector3): Vector3 {
+  return scratch.pole.copy(bodyForward)
+}
+
 /* @important The solver must never be handed a target the leg cannot reach:
    that is what stretched a shin through the floor at a ledge. Pull the target
    in along the line from the hip until it sits inside the leg span. */
@@ -112,6 +128,7 @@ export type FootStepInput = {
   readonly groundReference: number
   readonly leg: LegBones
   readonly stance: boolean
+  readonly standing: boolean
   readonly state: LegState
   readonly strideScale: number
   readonly trace: TraceBox
@@ -130,6 +147,7 @@ type HoldInput = {
   readonly facingRadians: number
   readonly hip: Vector3
   readonly stance: boolean
+  readonly standing: boolean
   readonly state: LegState
   readonly target: Vector3
 }
@@ -150,18 +168,18 @@ function twistedOff(state: LegState, facingRadians: number): boolean {
    metre to wherever the clip had carried it. While releasing, the lock is not
    renewed and the weight runs down at the same rate it would fade on drift, so
    the foot rejoins the animation instead of teleporting onto it. */
-function holdOnPlant({ chain, deltaSeconds, facingRadians, hip, stance, state, target }: HoldInput): void {
-  if (outOfReach(hip, state, chain) || twistedOff(state, facingRadians)) state.releasing = true
-  if (stance && !state.wasStance) {
+function holdOnPlant({ chain, deltaSeconds, facingRadians, hip, stance, standing, state, target }: HoldInput): void {
+  if (outOfReach(hip, state, chain) || twistedOff(state, facingRadians) || standing) state.releasing = true
+  if (stance && !standing && !state.wasStance) {
     state.plant = { lockX: target.x, lockZ: target.z, locked: true, weight: 1 }
     state.hold = 1
     state.lockFacing = facingRadians
     state.releasing = false
   }
-  state.wasStance = stance
+  state.wasStance = stance && !standing
   const drift = Math.hypot(target.x - state.plant.lockX, target.z - state.plant.lockZ)
-  const wanted = state.releasing ? 0 : holdWeight(stance, drift, DEFAULT_MAX_HOLD)
-  state.hold = moveToward(state.hold, wanted, HOLD_RATE * deltaSeconds)
+  const wanted = state.releasing || standing ? 0 : holdWeight(stance, drift, DEFAULT_MAX_HOLD)
+  state.hold = moveToward(state.hold, wanted, HOLD_RATE * Math.min(deltaSeconds, MAX_SMOOTHING_SECONDS))
   state.plant = { ...state.plant, locked: state.hold > 0.01, weight: state.hold }
   target.setX(target.x + (state.plant.lockX - target.x) * state.hold)
   target.setZ(target.z + (state.plant.lockZ - target.z) * state.hold)
@@ -189,8 +207,12 @@ export function stepFoot(input: FootStepInput): FootStep {
     [scratch.foot.x, scratch.foot.y, scratch.foot.z],
     bodyPosition,
     trace,
-    tuning.maxStepDrop,
+    Math.min(tuning.maxStepDrop, reachableDrop(chain, scratch.hip.y - scratch.foot.y)),
   )
+  /* @important Standing on the lip of a ledge is exactly when a foot has to be
+     pulled back over solid ground: the leg cannot reach the pit beside the
+     block, and leaving the target out there hangs the foot in the air. Unreal
+     does the same adjustment horizontally before it moves the pelvis at all. */
   if (stance) scratch.foot.setX(found.pulledX).setZ(found.pulledZ)
   const ground = hitOf(found.ground)
   state.footSpeed = footSpeedOf(state, scratch.foot, travelDelta, bodySpeed)
@@ -213,17 +235,37 @@ export function stepFoot(input: FootStepInput): FootStep {
   if (Math.abs(strideScale - 1) > 0.01) {
     warpedFootTarget(target, scratch.hip, bodyForward, strideScale, target)
   }
-  holdOnPlant({ chain, deltaSeconds, facingRadians: input.facingRadians, hip: scratch.hip, stance, state, target })
+  holdOnPlant({
+    chain,
+    deltaSeconds,
+    facingRadians: input.facingRadians,
+    hip: scratch.hip,
+    stance,
+    standing: input.standing,
+    state,
+    target,
+  })
 
-  return { contact: state.contact, ground, surfaceDelta, target: withinReach(scratch.hip, target, chain) }
+  return {
+    contact: state.contact,
+    ground,
+    reach: {
+      desiredExtension: scratch.hip.distanceTo(scratch.foot),
+      hipHeight: scratch.hip.y,
+      horizontalToPlant: Math.hypot(target.x - scratch.hip.x, target.z - scratch.hip.z),
+      limbLength: chain.lowerLength + chain.upperLength,
+      plantHeight: target.y,
+    },
+    surfaceDelta,
+    target: withinReach(scratch.hip, target, chain),
+  }
 }
 
 export function writeLeg(leg: LegBones, target: Vector3, chain: TwoBoneChain, bodyForward: Vector3): void {
   leg.thigh.getWorldPosition(scratch.hip)
   leg.knee.getWorldPosition(scratch.knee)
-  scratch.pole.copy(scratch.knee).addScaledVector(bodyForward, KNEE_POLE_DISTANCE)
   const reached = withinReach(scratch.hip, target, chain)
-  const solved = solveTwoBoneIk(scratch.hip, scratch.knee, reached, chain, scratch.pole)
+  const solved = solveTwoBoneIk(scratch.hip, scratch.knee, reached, chain, kneePole(bodyForward))
 
   aimBoneAlong(leg.thigh, scratch.knee.clone().sub(scratch.hip), solved.mid.clone().sub(scratch.hip))
   leg.thigh.updateMatrixWorld(true)
@@ -233,15 +275,25 @@ export function writeLeg(leg: LegBones, target: Vector3, chain: TwoBoneChain, bo
   leg.knee.updateMatrixWorld(true)
 }
 
-export function tiltFootToGround(leg: LegBones, normal: Vector3, contact: number): void {
-  if (contact < 0.01 || normal.dot(UP) > 0.999) return
+/* @important The clip rolls the foot heel to toe through a stride and that roll
+   is the animation, so it is left alone while the body walks. Standing is the
+   case nothing owned: there the sole is put flat on whatever is under it, which
+   is why the character no longer stands on its toes. On a slope the levelling
+   applies either way — a sole cannot lie flat on a hill by accident. */
+export function levelFootToGround(
+  leg: LegBones,
+  normal: Vector3,
+  contact: number,
+  standing: boolean,
+): void {
   const parent = leg.foot.parent
-  if (!parent) return
-  scratch.tilt.setFromUnitVectors(UP, normal)
-  const world = leg.foot.getWorldQuaternion(new Quaternion())
-  const tilted = scratch.tilt.clone().multiply(world)
-  const inverseParent = parent.getWorldQuaternion(new Quaternion()).invert()
-  leg.foot.quaternion.slerp(inverseParent.multiply(tilted), contact)
+  const onSlope = normal.dot(UP) <= 0.999
+  if (contact < 0.01 || !parent || (!standing && !onSlope)) return
+  const world = leg.foot.getWorldQuaternion(scratch.footWorld)
+  const levelled = levelledFoot(world, leg.restFoot, normal, contact)
+  const inverseParent = parent.getWorldQuaternion(scratch.parentWorld).invert()
+  leg.foot.quaternion.copy(inverseParent.multiply(levelled))
+  leg.foot.updateMatrixWorld(true)
 }
 
 export function dropPelvis(hips: Object3D, rig: Object3D, drop: number): void {

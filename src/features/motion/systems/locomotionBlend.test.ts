@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  advancePhase,
   gaitWeights,
   MAX_CADENCE,
   MAX_STRIDE,
@@ -137,5 +138,40 @@ describe('strideScaleForSpeed', () => {
   it('bounds how far a step may be stretched or squashed', () => {
     expect(strideScaleForSpeed(3.2, 1.6, 1.5)).toBeCloseTo(1.5, 6)
     expect(strideScaleForSpeed(0.2, 1.6, 1.5)).toBeCloseTo(1 / 1.5, 6)
+  })
+})
+
+describe('advancePhase', () => {
+  /* @important The phase has to be integrated, never recomputed from a distance
+     divided by the stride length, because the stride length itself moves with
+     speed: recomputing it meant every change of the stride warp dragged the
+     phase backwards or forwards, and the pose jerked up to 33 degrees in one
+     frame while the warp settled. As a rate it only changes how fast the cycle
+     runs, which is what a stride length means. */
+  it('advances by the share of a stride that was travelled', () => {
+    expect(advancePhase(0.25, 0.5, 1)).toBeCloseTo(0.75)
+  })
+
+  it('wraps round the cycle', () => {
+    expect(advancePhase(0.9, 0.2, 1)).toBeCloseTo(0.1)
+  })
+
+  it('does not move the phase when the stride length changes', () => {
+    const still = advancePhase(0.42, 0, 1.9)
+    expect(still).toBeCloseTo(0.42)
+  })
+
+  it('runs slower through a longer stride', () => {
+    const short = advancePhase(0, 0.2, 0.8)
+    const long = advancePhase(0, 0.2, 1.6)
+    expect(long).toBeLessThan(short)
+  })
+
+  it('holds still for a stride length of nothing rather than exploding', () => {
+    expect(advancePhase(0.3, 0.2, 0)).toBeCloseTo(0.3)
+  })
+
+  it('never runs backwards on forward travel', () => {
+    expect(advancePhase(0.3, 0.1, 1)).toBeGreaterThan(0.3)
   })
 })

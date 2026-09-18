@@ -41,9 +41,15 @@ export type StanceLookup = {
   readonly walkWindows: FootStanceWindows
 }
 
-export function footStance(lookup: StanceLookup): { readonly left: boolean; readonly right: boolean } {
-  if (!lookup.grounded) return { left: false, right: false }
-  if (Math.abs(lookup.blendShare) < STANDING_BLEND_SHARE) return { left: true, right: true }
+export type FootStance = {
+  readonly left: boolean
+  readonly right: boolean
+  readonly standing: boolean
+}
+
+export function footStance(lookup: StanceLookup): FootStance {
+  if (!lookup.grounded) return { left: false, right: false, standing: false }
+  if (Math.abs(lookup.blendShare) < STANDING_BLEND_SHARE) return { left: true, right: true, standing: true }
 
   const share = (Math.abs(lookup.blendShare) - RUN_BLEND_SHARE) / (1 - RUN_BLEND_SHARE)
   const windows = Math.abs(lookup.blendShare) < RUN_BLEND_SHARE
@@ -56,5 +62,6 @@ export function footStance(lookup: StanceLookup): { readonly left: boolean; read
   return {
     left: isInWindow(lookup.phase, windows.left),
     right: isInWindow(lookup.phase, windows.right),
+    standing: false,
   }
 }

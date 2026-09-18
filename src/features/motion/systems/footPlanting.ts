@@ -86,8 +86,15 @@ export function moveToward(current: number, wanted: number, step: number): numbe
   return current + Math.sign(gap) * step
 }
 
+export const MAX_SMOOTHING_SECONDS = 0.1
+
+/* @important The delta is clamped before it smooths anything. A render frame is
+   not a simulation tick: on a bench that steps one tick per click the render
+   delta is a tenth of a second and every eased value arrives in a single frame,
+   and after a hitch in the game the same thing happens on screen. notapain
+   clamps the same way, for the same reason. */
 export function approachWeight(current: number, wanted: number, rate: number, deltaSeconds: number): number {
-  const share = clampNumber(rate * deltaSeconds, 0, 1)
+  const share = clampNumber(rate * Math.min(deltaSeconds, MAX_SMOOTHING_SECONDS), 0, 1)
   return current + (wanted - current) * share
 }
 

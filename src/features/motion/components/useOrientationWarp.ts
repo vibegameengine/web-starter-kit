@@ -4,6 +4,7 @@ import type { MutableRefObject } from 'react'
 import { Quaternion, Vector3 } from 'three'
 import type { Object3D } from 'three'
 
+import { MAX_SMOOTHING_SECONDS } from '../systems/footPlanting'
 import { travelAngleOf } from '../systems/locomotionDirection'
 import { horizontalSpeed } from '../systems/motionIntent'
 import { easedWarp, orientationWarpFor, type OrientationWarp } from '../systems/orientationWarp'
@@ -42,7 +43,11 @@ export function useOrientationWarp({ enabled, rig, timeline, warpRate = 8 }: Ori
 
   useFrame((_, delta) => {
     if (!hips || spine.length === 0 || (enabled && !enabled())) return
-    warp.current = easedWarp(warp.current, orientationWarpFor(travelAngle(timeline)), warpRate * delta)
+    warp.current = easedWarp(
+      warp.current,
+      orientationWarpFor(travelAngle(timeline)),
+      warpRate * Math.min(delta, MAX_SMOOTHING_SECONDS),
+    )
     if (Math.abs(warp.current.pelvisYawRadians) < 1e-4) return
 
     turn.setFromAxisAngle(UP, warp.current.pelvisYawRadians)

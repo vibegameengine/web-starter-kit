@@ -24,7 +24,7 @@ import {
 } from '../systems/directionalBlend'
 import { travelAngleOf } from '../systems/locomotionDirection'
 import { horizontalSpeed, intentWishDirection } from '../systems/motionIntent'
-import { splitSpeedRatio, stridePhase, strideLengthOf } from '../systems/locomotionBlend'
+import { advancePhase, splitSpeedRatio, strideLengthOf } from '../systems/locomotionBlend'
 import { LOCOMOTION_GAIT_SPEEDS } from '../catalog/locomotionClips'
 import type { LocomotionClipId } from '../systems/locomotionPose'
 import { motionMatchQuery, trajectoryFeatureOf, type LocalPose } from '../systems/motionMatchQuery'
@@ -53,6 +53,7 @@ export type MotionMatchedAnimatorOptions = {
 }
 
 export type MotionMatchedDebug = {
+  readonly gait: Gait
   readonly idleShare: number
   readonly stopIn: number
   readonly stopScale: number
@@ -151,12 +152,13 @@ export function useMotionMatchedAnimator(options: MotionMatchedAnimatorOptions):
   const match = useRef<PoseMatch | null>(null)
   const chosen = useRef<LocomotionClipId>('walk-forward')
   const counters = useMemo(() => ({ searches: 0, switches: 0 }), [])
-  const phaseOffset = useRef(0)
+  const phase = useRef(0)
   const lastTravelled = useRef(0)
   const idleShare = useRef(1)
   const gait = useRef<Gait>('walk')
   const debug = useRef<MotionMatchedDebug>({
     best: [],
+    gait: 'walk',
     idleShare: 1,
     stopIn: 0,
     stopScale: 1,
@@ -239,7 +241,6 @@ export function useMotionMatchedAnimator(options: MotionMatchedAnimatorOptions):
     )
     if (speed < STANDING_SPEED && idleShare.current > 0.99) {
       crossfade.playIdle(clock.current)
-      phaseOffset.current = 0
       lastTravelled.current = state.travelledMeters
       debug.current = {
         ...debug.current,
@@ -278,21 +279,21 @@ export function useMotionMatchedAnimator(options: MotionMatchedAnimatorOptions):
     const duration = crossfade.durationOf(blend.clips[0].clipId)
     const strideLength = strideLengthOf(clipSpeed, duration) * Math.max(0.1, split.stride)
     const travelled = lerp(timeline.current.previous.travelledMeters, state.travelledMeters, 1)
+    const travelDelta = Math.max(0, travelled - lastTravelled.current)
+    lastTravelled.current = travelled
     const stop = stopMatch({
       leadingClip: blend.clips[0].clipId,
-      phase: stridePhase(travelled + phaseOffset.current, strideLength),
+      phase: phase.current,
       speed,
       profile,
       stopping,
       strideLength,
     })
-    phaseOffset.current += (stop.phaseScale - 1) * Math.max(0, travelled - lastTravelled.current)
-    lastTravelled.current = travelled
-    const phase = stridePhase(travelled + phaseOffset.current, strideLength)
+    phase.current = advancePhase(phase.current, travelDelta * stop.phaseScale, strideLength)
     crossfade.blendAtPhase(idleEntry(idleShare.current, crossfade.durationOf('idle'), clock.current).concat(
       blend.clips.map((entry) => ({
         clipId: entry.clipId,
-        phase: alignedPhase(phase, LOCOMOTION_PHASE_OFFSETS[entry.clipId]),
+        phase: alignedPhase(phase.current, LOCOMOTION_PHASE_OFFSETS[entry.clipId]),
         weight: entry.weight * (1 - idleShare.current),
       })),
     ))
@@ -303,6 +304,7 @@ export function useMotionMatchedAnimator(options: MotionMatchedAnimatorOptions):
       ...counters,
       blend: crossfade.blend(),
       blendShare: Math.min(1, speed / LOCOMOTION_GAIT_SPEEDS.runSpeed),
+      gait: gait.current,
       idleShare: idleShare.current,
       stopIn: stop.remaining,
       stopScale: stop.phaseScale,

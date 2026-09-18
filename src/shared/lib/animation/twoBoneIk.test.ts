@@ -97,3 +97,45 @@ describe('solveTwoBoneIk', () => {
     expect(first.tip.equals(second.tip)).toBe(true)
   })
 })
+
+describe('the pole is a direction, not a place', () => {
+  const OFF_ORIGIN = new Vector3(-2.13, 0.93, 4.7)
+  const forwardPole = new Vector3(0, 0, 1)
+
+  function bendOffset(hip: Vector3, pole: Vector3) {
+    const knee = hip.clone().add(new Vector3(0, -0.4, 0.05))
+    const target = hip.clone().add(new Vector3(0, -0.78, 0.12))
+    const solved = solveTwoBoneIk(hip, knee, target, LEG, pole)
+    return solved.mid.clone().sub(hip)
+  }
+
+  it('bends the knee the same way wherever the body stands', () => {
+    const atOrigin = bendOffset(new Vector3(0, 0, 0), forwardPole)
+    const faraway = bendOffset(OFF_ORIGIN, forwardPole)
+
+    expect(faraway.x).toBeCloseTo(atOrigin.x, 6)
+    expect(faraway.y).toBeCloseTo(atOrigin.y, 6)
+    expect(faraway.z).toBeCloseTo(atOrigin.z, 6)
+  })
+
+  it('bends the knee forward, not toward the world origin', () => {
+    const bend = bendOffset(OFF_ORIGIN, forwardPole)
+    expect(bend.z).toBeGreaterThan(0)
+    expect(Math.abs(bend.x)).toBeLessThan(0.01)
+  })
+
+  /* @important This is the defect this pair exists for: handing the solver the
+     knee's world POSITION as its pole reads as "bend toward the origin", and the
+     further the body walks from the origin the more completely that swamps the
+     forward it was meant to carry. Near the origin it looks correct, which is
+     why a fixture with the hip at the origin can never see it. */
+  it('is pulled off course when a world position is handed to it instead', () => {
+    const knee = OFF_ORIGIN.clone().add(new Vector3(0, -0.4, 0.05))
+    const asPosition = knee.clone().addScaledVector(forwardPole, 0.8)
+    const wrong = bendOffset(OFF_ORIGIN, asPosition)
+    const right = bendOffset(OFF_ORIGIN, forwardPole)
+
+    expect(Math.abs(wrong.x - right.x)).toBeGreaterThan(0.02)
+    expect(wrong.z).toBeLessThan(right.z)
+  })
+})

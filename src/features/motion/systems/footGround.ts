@@ -1,4 +1,5 @@
 import type { TraceBox, Vector3Tuple } from './boxTrace'
+import { PELVIS_MAX_OFFSET_METERS } from './pelvisSolve'
 
 export type GroundSample = {
   readonly normal: Vector3Tuple
@@ -18,6 +19,18 @@ export const GROUND_PROBE_RISE = 0.5
 export const GROUND_PROBE_DROP = 0.8
 
 export const PULL_STEPS = 4
+
+const REACH_SHARE = 0.985
+
+/* @important How far below its own foot a leg can still find ground: what is
+   left of the leg's span once the hip is already that far above the foot, plus
+   the help the pelvis can give by dropping. A fixed step limit cannot answer
+   this — it said yes to a 32 cm drop beside a block with the hip 82 cm up, and
+   the foot hung over the pit for ever. */
+export function reachableDrop(chain: { readonly lowerLength: number; readonly upperLength: number }, hipAboveFoot: number): number {
+  const span = (chain.lowerLength + chain.upperLength) * REACH_SHARE + PELVIS_MAX_OFFSET_METERS
+  return Math.max(0, span - Math.max(0, hipAboveFoot))
+}
 
 export function groundUnder(point: Vector3Tuple, trace: TraceBox): GroundSample | null {
   const from: Vector3Tuple = [point[0], point[1] + GROUND_PROBE_RISE, point[2]]

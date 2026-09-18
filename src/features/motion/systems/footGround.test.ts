@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { TraceBox, BoxTraceResult, Vector3Tuple } from './boxTrace'
-import { groundUnder, stanceGround } from './footGround'
+import { groundUnder, reachableDrop, stanceGround } from './footGround'
 
 const miss: BoxTraceResult = { fraction: 1, hit: false, normal: [0, 0, 0], startSolid: false }
 
@@ -54,5 +54,30 @@ describe('stanceGround', () => {
     const found = stanceGround([0, 0.1, 0], [0, 0], () => miss, 0.55)
     expect(found.ground).toBeNull()
     expect(found.pulledX).toBeCloseTo(0)
+  })
+})
+
+describe('reachableDrop', () => {
+  const chain = { lowerLength: 0.42, upperLength: 0.41 }
+
+  /* @important The question a stance foot asks is not "is this drop small" but
+     "can this leg still reach the ground it is standing over". A fixed step
+     limit answered yes to a 32 cm drop beside a block while the hip sat 82 cm
+     above the foot, and the foot hung in the air over the pit for ever. */
+  it('allows a drop the leg can still cover', () => {
+    expect(reachableDrop(chain, 0.6)).toBeGreaterThan(0.2)
+  })
+
+  it('refuses a drop the leg cannot cover once it is already extended', () => {
+    expect(reachableDrop(chain, 0.82)).toBeLessThan(0.2)
+  })
+
+  it('never answers a negative drop', () => {
+    expect(reachableDrop(chain, 2)).toBeGreaterThanOrEqual(0)
+  })
+
+  it('counts the help the pelvis can give', () => {
+    const tight = reachableDrop(chain, 0.8)
+    expect(tight).toBeGreaterThan(0)
   })
 })

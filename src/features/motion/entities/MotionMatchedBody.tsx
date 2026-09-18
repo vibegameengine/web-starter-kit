@@ -1,9 +1,14 @@
+/* eslint-disable react-hooks/immutability -- the gait watched here is per-frame
+   simulation state read through a ref, never render input. */
+import { useFrame } from '@react-three/fiber'
+import { useRef } from 'react'
 import type { MutableRefObject } from 'react'
 import type { Object3D } from 'three'
 
 import type { MotionIntentSource } from '../components/useKeyboardMotionIntent'
 import { useMotionMatchedAnimator } from '../components/useMotionMatchedAnimator'
 import type { MotionTimeline } from '../components/useMotionController'
+import { useInertialBlend } from '../components/useInertialBlend'
 import { useOrientationWarp } from '../components/useOrientationWarp'
 import { useFootPlacement } from '../components/useFootPlacement'
 import type { TraceBox } from '../systems/boxTrace'
@@ -34,6 +39,15 @@ export function MotionMatchedBody({
   trace,
 }: MotionMatchedBodyProps) {
   const animator = useMotionMatchedAnimator({ aimYaw, intent, profile, rig, timeline, topSpeed })
+  const lastGait = useRef(animator.current.gait)
+  const inertial = useInertialBlend(rig, () => lastDelta.current)
+  const lastDelta = useRef(1 / 60)
+  useFrame((_, delta) => {
+    lastDelta.current = delta
+    if (animator.current.gait === lastGait.current) return
+    lastGait.current = animator.current.gait
+    inertial.request()
+  })
   useOrientationWarp({ enabled: () => (passes ? passes().warp : true), rig, timeline })
   useFootPlacement({
     ankleHeight,

@@ -1,7 +1,7 @@
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import type { MutableRefObject } from 'react'
-import { Vector3 } from 'three'
+import { Quaternion, Vector3 } from 'three'
 import type { Object3D } from 'three'
 
 import type { TwoBoneChain } from '../../../shared/lib/animation/twoBoneIk'
@@ -11,11 +11,12 @@ import type { LocomotionClipId } from '../systems/locomotionPose'
 import { approachWeight, NO_PLANT } from '../systems/footPlanting'
 import { yawForward } from '../systems/motionIntent'
 import { footStance } from '../systems/stanceWindow'
+import { limbOffsetRange, pelvisOffset } from '../systems/pelvisSolve'
 import { strideScaleFor } from '../systems/strideWarp'
 import {
   dropPelvis,
+  levelFootToGround,
   stepFoot,
-  tiltFootToGround,
   writeLeg,
   type FootPlacementTuning,
   type LegBones,
@@ -43,6 +44,8 @@ export type FootPlacementOptions = {
 
 export type LimbReading = {
   readonly ankleHeight: number
+  readonly bendForward: number
+  readonly bendSideways: number
   readonly contact: number
   readonly foot: readonly [number, number, number]
   readonly groundGap: number
@@ -57,6 +60,8 @@ export type LimbReading = {
 
 export type FootPlacementDebug = {
   readonly contact: readonly [number, number]
+  readonly enabled: boolean
+  readonly facingRadians: number
   readonly limbs: readonly LimbReading[]
   readonly locked: readonly [boolean, boolean]
   readonly pelvisDrop: number
@@ -77,10 +82,15 @@ function boneNamed(rig: Object3D, pattern: RegExp): Object3D {
   return found
 }
 
+/* @important The rest orientation of the foot is captured before any clip has
+   been played, because it is the definition of a flat sole on this rig: the
+   bind pose stands on the ground. A frame later the mixer has overwritten it. */
 function legOf(rig: Object3D, side: 'Left' | 'Right'): LegBones {
+  const foot = boneNamed(rig, new RegExp(`${side}Foot$`))
   return {
-    foot: boneNamed(rig, new RegExp(`${side}Foot$`)),
+    foot,
     knee: boneNamed(rig, new RegExp(`${side}Leg$`)),
+    restFoot: foot.getWorldQuaternion(new Quaternion()),
     thigh: boneNamed(rig, new RegExp(`${side}UpLeg$`)),
   }
 }
@@ -92,18 +102,36 @@ function chainOf(leg: LegBones): TwoBoneChain {
   return { lowerLength: knee.distanceTo(foot), upperLength: hip.distanceTo(knee) }
 }
 
+/* @important The bend of the knee is reported in the BODY's frame, not the
+   world's: where the knee sits relative to the hip-to-ankle line, split into
+   how far forward and how far sideways. A defect that turns the knee inward
+   leaves every world position, bone length and joint angle perfectly legal, so
+   nothing else here can see it. Sideways is signed outward for each leg. */
+function bendOf(hip: Vector3, knee: Vector3, foot: Vector3, facingRadians: number, side: number) {
+  const axis = foot.clone().sub(hip)
+  const along = axis.lengthSq() > 1e-9 ? axis.clone().normalize() : new Vector3(0, -1, 0)
+  const offset = knee.clone().sub(hip)
+  offset.addScaledVector(along, -offset.dot(along))
+  const forward = new Vector3(Math.sin(facingRadians), 0, Math.cos(facingRadians))
+  const outward = new Vector3(-Math.cos(facingRadians), 0, Math.sin(facingRadians)).multiplyScalar(side)
+  return { bendForward: offset.dot(forward), bendSideways: offset.dot(outward) }
+}
+
 function limbReading(
   ankle: number,
   leg: LegBones,
   chain: TwoBoneChain,
   step: { readonly contact: number; readonly ground: { readonly surfaceY: number } | null },
   state: LegState,
+  facingRadians: number,
+  side: number,
 ): LimbReading {
   const hip = leg.thigh.getWorldPosition(new Vector3())
   const knee = leg.knee.getWorldPosition(new Vector3())
   const foot = leg.foot.getWorldPosition(new Vector3())
   return {
     ankleHeight: ankle,
+    ...bendOf(hip, knee, foot, facingRadians, side),
     contact: step.contact,
     foot: [foot.x, foot.y, foot.z],
     groundGap: step.ground ? foot.y - step.ground.surfaceY : Number.POSITIVE_INFINITY,
@@ -146,6 +174,8 @@ export function useFootPlacement(options: FootPlacementOptions): MutableRefObjec
   const forward = useMemo(() => new Vector3(0, 0, 1), [])
   const debug = useRef<FootPlacementDebug>({
     contact: [0, 0],
+    enabled: true,
+    facingRadians: 0,
     limbs: [],
     locked: [false, false],
     pelvisDrop: 0,
@@ -163,8 +193,28 @@ export function useFootPlacement(options: FootPlacementOptions): MutableRefObjec
   }, [])
 
   useFrame((_, delta) => {
-    if (enabled && !enabled()) return
     const body = timeline.current.current
+    if (enabled && !enabled()) {
+      debug.current = {
+        contact: [0, 0],
+        enabled: false,
+        facingRadians: body.bodyFacingRadians,
+        limbs: legs.map((leg, index) => limbReading(
+          ankleHeight,
+          leg,
+          chains[index],
+          { contact: 0, ground: null },
+          states.current[index],
+          body.bodyFacingRadians,
+          index === 0 ? 1 : -1,
+        )),
+        locked: [false, false],
+        pelvisDrop: 0,
+        strideScale: 1,
+        surfaceDelta: [0, 0],
+      }
+      return
+    }
     const reading = gait()
     const windows = LOCOMOTION_STANCE_WINDOWS[reading.clipId] ?? LOCOMOTION_STANCE_WINDOWS['walk-forward']
     const stance = footStance({
@@ -193,6 +243,7 @@ export function useFootPlacement(options: FootPlacementOptions): MutableRefObjec
       groundReference: body.position[1] - BODY_GROUND_OFFSET,
       leg,
       stance: index === 0 ? stance.left : stance.right,
+      standing: stance.standing,
       state: states.current[index],
       strideScale,
       trace,
@@ -200,27 +251,34 @@ export function useFootPlacement(options: FootPlacementOptions): MutableRefObjec
       tuning,
     }))
 
-    const deepest = steps.reduce(
-      (lowest, step) => (step.ground && step.contact > 0.2 ? Math.min(lowest, step.surfaceDelta) : lowest),
-      0,
-    )
-    pelvisDrop.current = approachWeight(
-      pelvisDrop.current,
-      Math.min(tuning.maxStepDrop, Math.max(0, -deepest)),
-      PELVIS_RATE,
-      delta,
-    )
+    /* @important The pelvis follows the feet through Unreal's own solver rather
+       than through the deepest drop it can find: each leg says how far the
+       pelvis may travel for it, and the compromise between those ranges is what
+       moves. Taking the deepest demand instead fed the drop its own result back
+       and folded a standing character 41 cm into the floor. */
+    const offset = pelvisOffset(steps.map((step) => limbOffsetRange(step.reach)))
+    pelvisDrop.current = approachWeight(pelvisDrop.current, Math.max(0, -offset), PELVIS_RATE, delta)
     dropPelvis(hips, rig, pelvisDrop.current)
 
     steps.forEach((step, index) => {
       if (step.contact < 0.01) return
       writeLeg(legs[index], step.target, chains[index], forward)
-      if (step.ground) tiltFootToGround(legs[index], step.ground.normal, step.contact)
+      if (step.ground) levelFootToGround(legs[index], step.ground.normal, step.contact, stance.standing)
     })
 
     debug.current = {
       contact: [steps[0].contact, steps[1].contact],
-      limbs: legs.map((leg, index) => limbReading(ankleHeight, leg, chains[index], steps[index], states.current[index])),
+      enabled: true,
+      facingRadians: body.bodyFacingRadians,
+      limbs: legs.map((leg, index) => limbReading(
+        ankleHeight,
+        leg,
+        chains[index],
+        steps[index],
+        states.current[index],
+        body.bodyFacingRadians,
+        index === 0 ? 1 : -1,
+      )),
       locked: [states.current[0].plant.locked, states.current[1].plant.locked],
       pelvisDrop: pelvisDrop.current,
       strideScale,
