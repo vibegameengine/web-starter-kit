@@ -181,9 +181,15 @@ notapain has nothing or measured worse:
   those turned legs sideways, and on a diagonal run one knee swung 15 cm in
   across the other. The ankle-to-toe line was tried first and rejected: at
   toe-off the toe hangs under the ankle and the line flips.
-- **foot orientation** — still levelled toward the bind pose on the ground
-  normal, not notapain's `FootRotate` (which tilts the current foot by up→normal
-  and skips flat ground). **Divergence, open.**
+- **foot orientation** — notapain's `FootRotate`, as written: the solved foot
+  is tilted by up→normal, weighted by contact, and level ground leaves it as the
+  clip rolled it. Before it the foot was levelled toward the bind pose on every
+  surface, which flattened a foot rolling onto its toes and lifted the whole
+  sole off the tread. And the foot now keeps the world rotation the clip gave it
+  through the leg solve, as Unreal's foot placement writes it back: left to
+  inherit the shin's turn it tipped its toe into the step below the height the
+  push-out had checked. Together, on the staircase: floating planted feet 28.6%
+  → 13.6% climbing, sunk 1.4% → 0%. **Matches.**
 - **joint limits** — notapain clamps the knee as a hinge after everything else;
   the table exists here (`shared/lib/animation/jointLimits.ts`) and is not yet
   applied. **Divergence, open.**
@@ -196,8 +202,9 @@ Measured on the stand, world space, skeleton read directly:
 - the passes still bring running feet closer than the clips do (ankles 7 cm
   against 15.5 cm at the start of a sideways or diagonal run; knees 12–18 cm
   against 20 cm). Not crossing, but not the clip either. **Open.**
-- stairs (`verify:stairs`, 15 cm rise, 32 cm run): floating planted feet 28.6% of
-  climbing frames (37.6% before), descending p95 0.23 m. One descent case is
+- stairs (`verify:stairs`, 15 cm rise, 32 cm run): floating planted feet 13.6% of
+  climbing frames (37.6% at the start of this work), none sunk; descending
+  16.4% floating, p95 0.23 m. One descent case is
   open: a foot locked with its toe inside the riser is lifted whole by the
   push-out and held there until it unplants — 27 cm in the air.
 
@@ -280,7 +287,7 @@ Here:
   and running, with the passes on and off: the legs never cross, and the passes
   bring them no closer than the clips do. 9 checks, 7 passing.
 - `npm run verify:stairs` walks a real staircase against the course geometry
-  itself, never the pass's own probe. 11 checks, 8 passing.
+  itself, never the pass's own probe. 11 checks, 9 passing.
 - the motion stand (`/labs/motion-stand`) steps one simulated frame at a time,
   renders on demand so the picture matches the numbers, and can switch the foot
   IK and the orientation warp off independently to isolate a pass.

@@ -5,7 +5,7 @@ import { aimBoneAlong } from '../../../shared/lib/animation/boneAim'
 import { KNEE_POLE_DISTANCE, poleThroughKnee, solveTwoBoneIk, type TwoBoneChain } from '../../../shared/lib/animation/twoBoneIk'
 import type { TraceBox } from '../systems/boxTrace'
 import { groundUnder, restingGround, type GroundSample } from '../systems/footGround'
-import { levelledFoot } from '../systems/footOrientation'
+import { tiltedFoot } from '../systems/footOrientation'
 import type { SeparationState } from '../systems/footSeparation'
 import { smoothStep } from '../systems/footPlanting'
 import { localDropOffset } from '../systems/pelvisOffset'
@@ -21,7 +21,6 @@ import { footYaw, radiusHold, shouldReplant, twistHold, yawBetween } from '../sy
 export type LegBones = {
   readonly foot: Object3D
   readonly knee: Object3D
-  readonly restFoot: Quaternion
   readonly thigh: Object3D
   readonly toe: Object3D
 }
@@ -240,12 +239,16 @@ export function pushOutOfGround(input: FootStepInput, target: Vector3): number |
 
 /* @important The knee pole is notapain's — 0.8 m in front of the animated
    knee — with "in front" the way the pelvis faces, since the legs have already
-   been warped toward the travel by the time this runs, as in Unreal. */
+   been warped toward the travel by the time this runs, as in Unreal. The foot
+   keeps the world rotation the clip gave it, as Unreal's foot placement writes
+   it back: left to inherit the shin's turn it tipped its toe into the step,
+   under the height the push-out had just checked. */
 export function writeLeg(leg: LegBones, target: Vector3, chain: TwoBoneChain, legForward: Vector3): void {
   leg.thigh.getWorldPosition(scratch.hip)
   leg.knee.getWorldPosition(scratch.knee)
   const pole = poleThroughKnee(scratch.hip, scratch.knee, legForward, KNEE_POLE_DISTANCE)
   const solved = solveTwoBoneIk(scratch.hip, scratch.knee, target, chain, pole)
+  const footWorld = leg.foot.getWorldQuaternion(new Quaternion())
 
   aimBoneAlong(leg.thigh, scratch.knee.clone().sub(scratch.hip), solved.mid.clone().sub(scratch.hip))
   leg.thigh.updateMatrixWorld(true)
@@ -253,18 +256,19 @@ export function writeLeg(leg: LegBones, target: Vector3, chain: TwoBoneChain, le
   leg.foot.getWorldPosition(scratch.tip)
   aimBoneAlong(leg.knee, scratch.tip.clone().sub(scratch.knee), solved.tip.clone().sub(scratch.knee))
   leg.knee.updateMatrixWorld(true)
+  leg.foot.quaternion.copy(leg.knee.getWorldQuaternion(scratch.parentWorld).invert().multiply(footWorld))
+  leg.foot.updateMatrixWorld(true)
 }
 
-/* @important notapain's FootRotate: the sole is turned onto the ground normal,
-   weighted by contact — on level ground too, which is how a foot the clip left
-   pitched ends up flat under a standing body. */
-export function levelFootToGround(leg: LegBones, normal: Vector3, contact: number): void {
+/* @important notapain's FootRotate, as written: the solved foot is turned by
+   the tilt from up onto the ground normal, weighted by contact, and level ground
+   leaves it exactly as the clip rolled it. */
+export function tiltFootToGround(leg: LegBones, normal: Vector3, contact: number): void {
   const parent = leg.foot.parent
-  if (contact < 0.01 || !parent) return
+  if (!parent) return
   const world = leg.foot.getWorldQuaternion(scratch.footWorld)
-  const levelled = levelledFoot(world, leg.restFoot, normal.lengthSq() > 0 ? normal : UP, contact)
-  const inverseParent = parent.getWorldQuaternion(scratch.parentWorld).invert()
-  leg.foot.quaternion.copy(inverseParent.multiply(levelled))
+  const tilted = tiltedFoot(world, normal.lengthSq() > 0 ? normal : UP, contact)
+  leg.foot.quaternion.copy(parent.getWorldQuaternion(scratch.parentWorld).invert().multiply(tilted))
   leg.foot.updateMatrixWorld(true)
 }
 

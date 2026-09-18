@@ -1,7 +1,7 @@
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import type { MutableRefObject } from 'react'
-import { Quaternion, Vector3 } from 'three'
+import { Vector3 } from 'three'
 import type { Object3D } from 'three'
 
 import { pelvisForward, type TwoBoneChain } from '../../../shared/lib/animation/twoBoneIk'
@@ -16,10 +16,10 @@ import { footStance } from '../systems/stanceWindow'
 import { strideScaleFor } from '../systems/strideWarp'
 import {
   dropPelvis,
-  levelFootToGround,
   nextHipDrop,
   pushOutOfGround,
   stepFoot,
+  tiltFootToGround,
   writeLeg,
   type FootStep,
   type LegBones,
@@ -94,15 +94,11 @@ function boneNamed(rig: Object3D, pattern: RegExp): Object3D {
   return found
 }
 
-/* @important The rest orientation of the foot is captured before any clip has
-   been played, because it is the definition of a flat sole on this rig: the
-   bind pose stands on the ground. A frame later the mixer has overwritten it. */
 function legOf(rig: Object3D, side: 'Left' | 'Right'): LegBones {
   const foot = boneNamed(rig, new RegExp(`${side}Foot$`))
   return {
     foot,
     knee: boneNamed(rig, new RegExp(`${side}Leg$`)),
-    restFoot: foot.getWorldQuaternion(new Quaternion()),
     thigh: boneNamed(rig, new RegExp(`${side}UpLeg$`)),
     toe: boneNamed(rig, new RegExp(`${side}ToeBase$`)),
   }
@@ -395,7 +391,7 @@ function placeFeet(feet: FootRig, memory: FootMemory, body: BodyReading, reading
   const legForward = pelvisForward(feet.legs[0].thigh.getWorldPosition(new Vector3()), feet.legs[1].thigh.getWorldPosition(new Vector3()), forward)
   steps.forEach((step, index) => {
     writeLeg(feet.legs[index], step.target, feet.chains[index], legForward)
-    if (step.ground) levelFootToGround(feet.legs[index], step.ground.normal, step.contact)
+    if (step.ground) tiltFootToGround(feet.legs[index], step.ground.normal, step.contact)
   })
 
   const held = (state: LegState) => state.planted && state.hold > 0.01
