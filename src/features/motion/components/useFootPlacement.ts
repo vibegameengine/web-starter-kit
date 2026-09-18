@@ -11,7 +11,7 @@ import { groundUnder } from '../systems/footGround'
 import type { LocomotionClipId } from '../systems/locomotionPose'
 import { yawForward } from '../systems/motionIntent'
 import { crossingRelease, mutualSeparation, RESTING_SEPARATION, springSeparation, type FeetPair } from '../systems/footSeparation'
-import { followSupport, SUPPORT_MAX_OFFSET, supportHeight } from '../systems/supportHeight'
+import { followSupport, supportHeight, teleported } from '../systems/supportHeight'
 import { footStance } from '../systems/stanceWindow'
 import { strideScaleFor } from '../systems/strideWarp'
 import {
@@ -59,6 +59,7 @@ export type LimbReading = {
   readonly animated: readonly [number, number, number]
   readonly lock: readonly [number, number]
   readonly plantYaw: number
+  readonly floorHeight: number | null
   readonly released: boolean
   readonly separation: readonly [number, number]
   readonly lowestGap: number
@@ -199,6 +200,7 @@ function limbReading(
     animated: [step.animated.x, step.animated.y, step.animated.z],
     lock: [state.plantX, state.plantZ],
     plantYaw: state.plantYaw,
+    floorHeight: state.floor ? state.floor.height : null,
     released: state.released,
     separation: [state.separation.offset[0], state.separation.offset[1]],
     lowestGap: lowestGapOf(foot, toe, ankle, trace),
@@ -222,7 +224,7 @@ function restHeightOf(rig: Object3D): number {
 }
 
 function freshState(): LegState {
-  return { contact: 0, correction: 0, hold: 0, planted: false, plantX: 0, plantYaw: 0, plantZ: 0, released: false, separation: RESTING_SEPARATION }
+  return { contact: 0, correction: 0, hold: 0, planted: false, floor: null, lastToe: null, plantX: 0, plantYaw: 0, plantZ: 0, released: false, separation: RESTING_SEPARATION }
 }
 
 /* @important The ankle height is measured from the rig, the way notapain
@@ -265,7 +267,7 @@ type FootRig = {
 }
 
 type FootMemory = {
-  lastColliderFloor: number | null
+  lastCollider: readonly [number, number, number] | null
   lastElapsed: number | null
   lastSupport: number | null
   pelvisDrop: number
@@ -320,6 +322,14 @@ function stanceOf(reading: GaitReading) {
   })
 }
 
+/* @important A warp leaves everything the legs remembered about where they
+   stood behind: locks, supports, floors, the pelvis drop. */
+function forgetPlace(memory: FootMemory): void {
+  memory.lastSupport = null
+  memory.pelvisDrop = 0
+  memory.states.splice(0, memory.states.length, ...memory.states.map(freshState))
+}
+
 /* @important The character is primary and the collider secondary: the drawn
    body stands on the ground its lowest planted foot finally rests on, carried
    between supports by Unreal's damper, and the collider only bounds how far
@@ -327,12 +337,12 @@ function stanceOf(reading: GaitReading) {
    edge is over it; the character rises when its trailing foot lifts off the
    lower tread, which is when a person does. */
 function standCharacter(feet: FootRig, memory: FootMemory, deltaSeconds: number) {
-  const colliderFloor = (feet.rig.parent ? feet.rig.parent.getWorldPosition(new Vector3()).y : 0) + feet.rigRestY
-  const teleported = memory.lastColliderFloor !== null
-    && Math.abs(colliderFloor - memory.lastColliderFloor) > SUPPORT_MAX_OFFSET
-  memory.lastColliderFloor = colliderFloor
-  if (teleported) memory.lastSupport = null
-  memory.standingOn = memory.standingOn === null || teleported
+  const collider = feet.rig.parent ? feet.rig.parent.getWorldPosition(new Vector3()) : new Vector3()
+  const colliderFloor = collider.y + feet.rigRestY
+  const warped = teleported(memory.lastCollider, [collider.x, collider.y, collider.z])
+  memory.lastCollider = [collider.x, collider.y, collider.z]
+  if (warped) forgetPlace(memory)
+  memory.standingOn = memory.standingOn === null || warped
     ? colliderFloor
     : followSupport(memory.standingOn, memory.lastSupport ?? colliderFloor, colliderFloor, deltaSeconds)
   const characterFloor = memory.standingOn
@@ -385,7 +395,11 @@ function placeFeet(feet: FootRig, memory: FootMemory, body: BodyReading, reading
   const steps = inputs.map(stepFoot)
   separateFeet(feet.legs, steps, memory.states, deltaSeconds)
   const resting = steps.map((step, index) => pushOutOfGround(inputs[index], step.target))
-  memory.lastSupport = supportHeight(resting.map((groundY, index) => ({ groundY, hold: memory.states[index].hold })), colliderFloor)
+  memory.lastSupport = supportHeight(
+    resting.map((groundY, index) => ({ groundY, hold: memory.states[index].hold })),
+    colliderFloor,
+    memory.lastSupport,
+  )
   settlePelvis(feet, memory, steps, resting, deltaSeconds)
 
   const legForward = pelvisForward(feet.legs[0].thigh.getWorldPosition(new Vector3()), feet.legs[1].thigh.getWorldPosition(new Vector3()), forward)
@@ -428,7 +442,7 @@ export function useFootPlacement(options: FootPlacementOptions): MutableRefObjec
   const { ankleHeight, enabled, gait, rig, timeline, trace } = options
   const feet = useMemo(() => footRigOf(rig, trace, ankleHeight), [ankleHeight, rig, trace])
   const memory = useRef<FootMemory>({
-    lastColliderFloor: null,
+    lastCollider: null,
     lastElapsed: null,
     lastSupport: null,
     pelvisDrop: 0,

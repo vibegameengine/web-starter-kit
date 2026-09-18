@@ -181,6 +181,22 @@ notapain has nothing or measured worse:
   those turned legs sideways, and on a diagonal run one knee swung 15 cm in
   across the other. The ankle-to-toe line was tried first and rejected: at
   toe-off the toe hangs under the ankle and the line flips.
+- **planting plane** — Unreal's `UpdatePlantingPlaneInterpolation`: each foot
+  pushes out of its own plane, whose height is sprung toward the ground
+  (`FloorLinearStiffness` 1000, damping 1) and held no more than
+  `MaxGroundPenetration`, 10 cm, under the ground beneath the foot. Pushed out of
+  the traced ground directly, a foot whose toe crossed the edge of a 20 cm ledge
+  was lifted 10 cm in one frame: a 47° snap of the shin on a walk start, 45° on
+  a stop; with the plane both are gone. Two changes to Unreal's version, both
+  measured: a foot in stance gets no penetration allowance, because Unreal's
+  planted foot never slides over new ground and ours does while its lock fades
+  in (it sank a heel 8 cm into a tread); and a foot in the air reads the ground
+  0.15 s ahead of its toe — the time the floor spring takes to rise — so it lifts
+  over an edge before reaching it (invented; neither reference has it).
+- **support between footfalls** — while neither foot is planted the body keeps
+  the ground it last stood on, and the collider only bounds where the body is
+  heading, not where it is. Falling back to the collider, and clamping to it
+  outright, lifted a body climbing stairs 10 cm in a frame.
 - **foot orientation** — notapain's `FootRotate`, as written: the solved foot
   is tilted by up→normal, weighted by contact, and level ground leaves it as the
   clip rolled it. Before it the foot was levelled toward the bind pose on every
@@ -202,9 +218,13 @@ Measured on the stand, world space, skeleton read directly:
 - the passes still bring running feet closer than the clips do (ankles 7 cm
   against 15.5 cm at the start of a sideways or diagonal run; knees 12–18 cm
   against 20 cm). Not crossing, but not the clip either. **Open.**
-- stairs (`verify:stairs`, 15 cm rise, 32 cm run): floating planted feet 13.6% of
-  climbing frames (37.6% at the start of this work), none sunk; descending
-  16.4% floating, p95 0.23 m. One descent case is
+- stairs (`verify:stairs`, 15 cm rise, 32 cm run): floating planted feet 16.8% of
+  climbing frames (37.6% at the start of this work; 13.9% without the planting
+  plane spring, which costs this much and buys the 47° snaps back), none sunk;
+  descending 15.7% floating, p95 0.23 m. The staircase is also out of reach of
+  the walk clip itself: its step is 0.86 m against a 0.32 m tread, so a foot
+  goes from the floor straight onto the third step and the body has to rise
+  45 cm in one double support. A stair gait is missing, not a smoother. One descent case is
   open: a foot locked with its toe inside the riser is lifted whole by the
   push-out and held there until it unplants — 27 cm in the air.
 
@@ -285,9 +305,19 @@ Here:
 - `npm run verify:crossing` reads the two ankles and knees off the skeleton,
   across the line of the hip joints, over a course of direction changes walking
   and running, with the passes on and off: the legs never cross, and the passes
-  bring them no closer than the clips do. 9 checks, 7 passing.
+  bring them no closer than the clips do. 9 checks, 6 passing — all crossing
+  checks pass; the narrowing ones do not.
+- every bench check steps through `scripts/lib/motionStand.mjs`, which waits for
+  the frame a step asked for before reading it. Reading straight after the click
+  read the previous frame about one time in seven — 9 of 60 frames repeated, two
+  runs of the same course 24.7 cm apart — and the jerk check reported those as
+  pops. A reset remounts the subject, so the animator and the legs start from
+  nothing: two runs now agree to 0.08 mm.
 - `npm run verify:stairs` walks a real staircase against the course geometry
   itself, never the pass's own probe. 11 checks, 9 passing.
+- `npm run verify:spikes`, on the deterministic bench: 16 of 25. Walking and
+  strafing pass; diagonal, backing up, stopping and the break into a run still
+  carry jerk the passes add.
 - the motion stand (`/labs/motion-stand`) steps one simulated frame at a time,
   renders on demand so the picture matches the numbers, and can switch the foot
   IK and the orientation warp off independently to isolate a pass.

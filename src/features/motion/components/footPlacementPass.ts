@@ -6,6 +6,7 @@ import { KNEE_POLE_DISTANCE, poleThroughKnee, solveTwoBoneIk, type TwoBoneChain 
 import type { TraceBox } from '../systems/boxTrace'
 import { groundUnder, restingGround, type GroundSample } from '../systems/footGround'
 import { tiltedFoot } from '../systems/footOrientation'
+import { followFloor, MAX_GROUND_PENETRATION, pointAhead, type FloorState } from '../systems/floorPlane'
 import type { SeparationState } from '../systems/footSeparation'
 import { smoothStep } from '../systems/footPlanting'
 import { localDropOffset } from '../systems/pelvisOffset'
@@ -38,6 +39,8 @@ export type LegState = {
   plantX: number
   plantYaw: number
   plantZ: number
+  floor: FloorState | null
+  lastToe: readonly [number, number] | null
   released: boolean
   separation: SeparationState
 }
@@ -217,7 +220,24 @@ export function stepFoot(input: FootStepInput): FootStep {
    Unreal measures DistanceToPlant, against the floor the pose was authored on,
    which is the character's own. Measured against the tread under the foot it
    excused any depth at all once the character stood lower than that tread.
-   What it returns is the ground the foot finally rests on. */
+   Both points push out of the foot's planting plane, whose height Unreal
+   springs toward the ground rather than setting it: a toe that crossed the edge
+   of a ledge lifted the whole foot 10 cm in a frame. What it returns is the
+   ground the foot finally rests on. */
+/* @important Invented, since neither Unreal nor notapain has it: a foot in
+   the air reads the ground where its toe is heading, far enough ahead for the
+   floor spring to have risen by the time it gets there, so it lifts over the
+   edge of a step the way a person's foot does rather than being popped onto it. */
+function groundAhead(input: FootStepInput, toe: Vector3, deltaSeconds: number): number | null {
+  const { state } = input
+  const previous = state.lastToe
+  state.lastToe = [scratch.tip.x, scratch.tip.z]
+  if (input.stance) return null
+  const [x, z] = pointAhead([scratch.tip.x, scratch.tip.z], previous, deltaSeconds)
+  const hit = groundRay(new Vector3(x, toe.y, z), input.trace)
+  return hit ? hit.surfaceY : null
+}
+
 export function pushOutOfGround(input: FootStepInput, target: Vector3): number | null {
   const { leg, sole, trace } = input
   leg.foot.getWorldPosition(scratch.foot)
@@ -226,11 +246,12 @@ export function pushOutOfGround(input: FootStepInput, target: Vector3): number |
   const toeTarget = target.clone().add(toeOffset)
   const underAnkle = groundRay(target, trace)
   const underToe = groundRay(toeTarget, trace)
-  const distances: number[] = []
-  if (underAnkle) distances.push(target.y - sole.ankle - underAnkle.surfaceY)
-  if (underToe) distances.push(toeTarget.y - sole.toe - underToe.surfaceY)
   const resting = restingGround([underAnkle ? underAnkle.surfaceY : null, underToe ? underToe.surfaceY : null])
-  if (distances.length === 0) return resting
+  const deltaSeconds = Math.min(Math.max(input.deltaSeconds, 0), MAX_FRAME_SECONDS)
+  input.state.floor = followFloor(input.state.floor, restingGround([resting, groundAhead(input, toeTarget, deltaSeconds)]), deltaSeconds, resting, input.stance ? 0 : MAX_GROUND_PENETRATION)
+  if (resting === null || !input.state.floor) return resting
+  const plane = input.state.floor.height
+  const distances = [target.y - sole.ankle - plane, toeTarget.y - sole.toe - plane]
   const allowed = Math.min(0, scratch.foot.y - sole.ankle - input.groundReference)
   const lowest = Math.min(...distances) - allowed
   if (lowest < 0) target.setY(target.y - lowest)
