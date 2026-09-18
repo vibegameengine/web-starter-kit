@@ -193,6 +193,16 @@ notapain has nothing or measured worse:
   in (it sank a heel 8 cm into a tread); and a foot in the air reads the ground
   0.15 s ahead of its toe — the time the floor spring takes to rise — so it lifts
   over an edge before reaching it (invented; neither reference has it).
+- **the unplant is still notapain's linear fade, not Unreal's spring.** Porting
+  `UpdatePlantOffsetInterpolation` (the held offset sprung back to the clip,
+  stiffness 250) was measured and reverted: it cut the snap on breaking into a
+  run from 59.8° to 45.8°, but the foot then replanted and let go again and
+  again within one stance, and a planted foot skated 25 cm on a strafe (limbs
+  72/72 → 68/72). The cause is upstream of the plant: on strafing and backing up
+  the clip's stance foot travels across the ground, so a lock taken on it is
+  carried out of its radius within a few frames. Unreal does not meet this
+  because its clips match the capsule; the fix belongs in the stride warp,
+  which here scales only along the body's facing. **Divergence, open.**
 - **support between footfalls** — while neither foot is planted the body keeps
   the ground it last stood on, and the collider only bounds where the body is
   heading, not where it is. Falling back to the collider, and clamping to it
