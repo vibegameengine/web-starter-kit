@@ -21,6 +21,12 @@ export function clipHipsHeight(clip: AnimationClip): number {
   return track.values[1]
 }
 
+export function unitScaleFor(reference: AnimationClip, rigHipsHeight: number): number {
+  const clipHeight = clipHipsHeight(reference)
+  if (clipHeight === 0) throw new Error(`clip "${reference.name}" holds a hips height of zero`)
+  return rigHipsHeight / clipHeight
+}
+
 export function clipToRigScale(clip: AnimationClip, root: Object3D): number {
   const clipHeight = clipHipsHeight(clip)
   if (clipHeight === 0) throw new Error(`clip "${clip.name}" holds a hips height of zero`)

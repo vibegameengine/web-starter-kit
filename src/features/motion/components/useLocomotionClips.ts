@@ -3,7 +3,7 @@ import { useMemo } from 'react'
 import type { AnimationClip, Object3D } from 'three'
 
 import { LOCOMOTION_CLIP_SOURCES } from '../catalog/locomotionClips'
-import { clipToRigScale, scaleClipPositions } from '../systems/clipScale'
+import { hipsRestHeight, scaleClipPositions, unitScaleFor } from '../systems/clipScale'
 import type { LocomotionClipId } from '../systems/locomotionPose'
 import { mirrorClip } from '../systems/mirrorClip'
 
@@ -25,14 +25,19 @@ function sourceClip(loaded: readonly { animations: AnimationClip[] }[], url: str
 export function useLocomotionClips(rig: Object3D): LocomotionClips {
   const loaded = useGLTF(CLIP_URLS) as unknown as readonly { animations: AnimationClip[] }[]
 
+  /* @important One scale for every clip, taken from the standing one: the scale
+     is a change of units between the skeleton the clips were cut from and this
+     rig, and a crouched gait must not be allowed to vote on it. */
   return useMemo(() => {
     const clips = {} as Record<LocomotionClipId, AnimationClip>
+    const reference = sourceClip(loaded, LOCOMOTION_CLIP_SOURCES.idle.url)
+    const scale = unitScaleFor(reference, hipsRestHeight(rig))
     for (const id of CLIP_IDS) {
       const source = LOCOMOTION_CLIP_SOURCES[id]
       const base = sourceClip(loaded, source.url)
       const clip = source.mirrored ? mirrorClip(base, id) : base.clone()
       clip.name = id
-      clips[id] = scaleClipPositions(clip, clipToRigScale(clip, rig))
+      clips[id] = scaleClipPositions(clip, scale)
     }
     return clips
   }, [loaded, rig])
