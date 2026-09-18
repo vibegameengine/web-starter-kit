@@ -108,3 +108,25 @@ function fallbackPole(axis: Readonly<Vector3>): Vector3 {
   const away = Math.abs(axis.y) < 0.9 ? new Vector3(0, 1, 0) : new Vector3(1, 0, 0)
   return new Vector3().crossVectors(axis, away)
 }
+
+export const KNEE_POLE_DISTANCE = 0.8
+
+export function poleThroughKnee(
+  root: Readonly<Vector3>,
+  knee: Readonly<Vector3>,
+  forward: Readonly<Vector3>,
+  distance: number,
+): Vector3 {
+  return new Vector3().copy(knee).addScaledVector(forward, distance).sub(root)
+}
+
+export function pelvisForward(
+  leftHip: Readonly<Vector3>,
+  rightHip: Readonly<Vector3>,
+  hint: Readonly<Vector3>,
+): Vector3 {
+  const forward = new Vector3(rightHip.z - leftHip.z, 0, leftHip.x - rightHip.x)
+  if (forward.lengthSq() < 1e-10) return new Vector3(hint.x, 0, hint.z).normalize()
+  forward.normalize()
+  return forward.dot(hint) < 0 ? forward.negate() : forward
+}

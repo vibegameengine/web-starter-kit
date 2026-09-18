@@ -167,15 +167,42 @@ function stanceOf(limbs) {
    startup, not the walk. */
 const SETTLED_FROM = 8
 
+/* @important The knee's bend is measured against the PELVIS, the line between
+   the two hip joints read off the skeleton, not against the body's facing.
+   Orientation warping turns the legs toward the travel on purpose, and against
+   the body's facing the clips alone read a knee 17 cm sideways on a strafe; the
+   same knee is 3 cm off the way its own pelvis faces. */
+function withPelvisBend(limbs) {
+  const [left, right] = limbs
+  let sideX = left.hip[0] - right.hip[0]
+  let sideZ = left.hip[2] - right.hip[2]
+  const length = Math.hypot(sideX, sideZ) || 1
+  sideX /= length
+  sideZ /= length
+  const hint = [Math.sin(limbs.facingRadians), Math.cos(limbs.facingRadians)]
+  const forward = -sideZ * hint[0] + sideX * hint[1] >= 0 ? [-sideZ, sideX] : [sideZ, -sideX]
+  limbs.forEach((limb, leg) => {
+    const axis = [0, 1, 2].map((index) => limb.foot[index] - limb.hip[index])
+    const axisLength = Math.hypot(...axis) || 1
+    const unit = axis.map((value) => value / axisLength)
+    const offset = [0, 1, 2].map((index) => limb.knee[index] - limb.hip[index])
+    const along = offset[0] * unit[0] + offset[1] * unit[1] + offset[2] * unit[2]
+    const across = offset.map((value, index) => value - along * unit[index])
+    const outward = leg === 0 ? 1 : -1
+    limb.pelvisBendForward = across[0] * forward[0] + across[2] * forward[1]
+    limb.pelvisBendSideways = (across[0] * sideX + across[2] * sideZ) * outward
+  })
+}
+
 function checkBend(label, allFrames) {
   const frames = allFrames.slice(SETTLED_FROM)
-  const sideways = worstOf(frames, (limb) => Math.abs(limb.bendSideways))
+  const sideways = worstOf(frames, (limb) => Math.abs(limb.pelvisBendSideways))
   check(
     `${label}: the knee bends forward, not sideways`,
     sideways.value <= 0.05,
     `worst ${sideways.value.toFixed(4)} m sideways, leg ${sideways.leg}, frame ${sideways.frame}`,
   )
-  const backward = worstOf(frames, (limb) => MIN_FORWARD_BEND_METERS - limb.bendForward)
+  const backward = worstOf(frames, (limb) => MIN_FORWARD_BEND_METERS - limb.pelvisBendForward)
   check(
     `${label}: no knee bends backwards`,
     backward.value <= 0,
@@ -273,6 +300,7 @@ async function stepFrames(count) {
     const reading = await readFrame()
     if (reading.limbs.length !== 2) continue
     reading.limbs.facingRadians = reading.facingRadians
+    withPelvisBend(reading.limbs)
     collected.push(reading.limbs)
     collected.matched = reading.matched
   }
@@ -294,7 +322,7 @@ for (const drive of DRIVES) {
   checkBones(drive, frames)
   checkPlants(drive, frames, false)
   checkBend(drive, frames)
-  bends[drive] = frames.map((limbs) => limbs.map((limb) => limb.bendSideways))
+  bends[drive] = frames.map((limbs) => limbs.map((limb) => limb.pelvisBendSideways))
 }
 
 console.log('\nstanding from a reset')
@@ -322,8 +350,8 @@ check(
   passLift.value <= bareLift.value + 0.01,
   `pass ${passLift.value.toFixed(4)} m against ${bareLift.value.toFixed(4)} m without it`,
 )
-const bareBend = worstOf(bare.slice(-8), (limb) => Math.abs(limb.bendSideways))
-const passBend = worstOf(standing.slice(-8), (limb) => Math.abs(limb.bendSideways))
+const bareBend = worstOf(bare.slice(-8), (limb) => Math.abs(limb.pelvisBendSideways))
+const passBend = worstOf(standing.slice(-8), (limb) => Math.abs(limb.pelvisBendSideways))
 check(
   'the pass bends a standing knee no further sideways than its own absence does',
   passBend.value <= bareBend.value + 0.01,
@@ -336,7 +364,7 @@ await page.getByTestId('motion-stand-drive-forward').click()
 const nearOrigin = await stepFrames(WALK_FRAMES)
 const walkedOut = await stepFrames(FAR_FRAMES)
 const meanBend = (collected) => {
-  const values = collected.flatMap((limbs) => limbs.map((limb) => limb.bendSideways))
+  const values = collected.flatMap((limbs) => limbs.map((limb) => limb.pelvisBendSideways))
   return values.reduce((sum, value) => sum + value, 0) / values.length
 }
 const drift = Math.abs(meanBend(walkedOut.slice(-40)) - meanBend(nearOrigin.slice(-40)))

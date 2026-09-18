@@ -2,12 +2,14 @@ import { Quaternion, Vector3 } from 'three'
 import type { Object3D } from 'three'
 
 import { aimBoneAlong } from '../../../shared/lib/animation/boneAim'
-import { solveTwoBoneIk, type TwoBoneChain } from '../../../shared/lib/animation/twoBoneIk'
+import { KNEE_POLE_DISTANCE, poleThroughKnee, solveTwoBoneIk, type TwoBoneChain } from '../../../shared/lib/animation/twoBoneIk'
 import type { TraceBox } from '../systems/boxTrace'
-import { groundUnder, type GroundSample } from '../systems/footGround'
+import { groundUnder, restingGround, type GroundSample } from '../systems/footGround'
 import { levelledFoot } from '../systems/footOrientation'
+import type { SeparationState } from '../systems/footSeparation'
 import { smoothStep } from '../systems/footPlanting'
 import { localDropOffset } from '../systems/pelvisOffset'
+import { footYaw, radiusHold, shouldReplant, twistHold, yawBetween } from '../systems/plantTwist'
 
 /* @important This pass is a port of notapain's foot_ik_prep.gd, algorithm and
    constants both, and it is meant to stay one. The version before it grew its
@@ -35,7 +37,10 @@ export type LegState = {
   hold: number
   planted: boolean
   plantX: number
+  plantYaw: number
   plantZ: number
+  released: boolean
+  separation: SeparationState
 }
 
 export type GroundHit = {
@@ -44,6 +49,7 @@ export type GroundHit = {
 }
 
 export type FootStep = {
+  readonly animated: Vector3
   readonly contact: number
   readonly ground: GroundHit | null
   readonly surfaceDelta: number
@@ -56,7 +62,6 @@ export const HIP_DROP_RATE = 7
 export const PLANT_MARGIN = 0.05
 export const SWING_MARGIN = 0.22
 export const MAX_STEP_DROP = 0.55
-export const MAX_HOLD = 0.9
 export const PLANT_BLEND_RATE = 9
 export const PULL_STEPS = 6
 export const MAX_FRAME_SECONDS = 0.1
@@ -139,20 +144,46 @@ function contactOf(input: FootStepInput, ground: GroundHit | null): number {
   return 1 - smoothStep(input.ankleHeight + PLANT_MARGIN, input.ankleHeight + SWING_MARGIN, gap)
 }
 
+function animatedFootYaw(leg: LegBones): number {
+  leg.toe.getWorldPosition(scratch.tip)
+  return footYaw([scratch.foot.x, scratch.foot.y, scratch.foot.z], [scratch.tip.x, scratch.tip.y, scratch.tip.z])
+}
+
+/* @important Unreal's Replanted: the foot plants again exactly where it is
+   drawn now, fully held, so nothing moves on the frame it happens. */
+function replant(state: LegState, target: Vector3, yaw: number): void {
+  state.plantX = target.x + (state.plantX - target.x) * state.hold
+  state.plantZ = target.z + (state.plantZ - target.z) * state.hold
+  state.plantYaw = yaw
+  state.hold = 1
+  state.released = false
+}
+
 /* @important Planting by stance phase, as notapain does it: the world XZ is
    locked on the rising edge of the stance window — here, never a stale point —
    and the hold fades as the body carries the animated foot away from the lock,
-   so the foot eases back onto the clip instead of snapping. */
+   so the foot eases back onto the clip instead of snapping. How far and how
+   much turn the hold survives are Unreal's unplant radius and angle, not
+   notapain's 90 cm and no angle at all: with those a body stepping sideways or
+   turning on the spot left its locked foot under the other leg. As in Unreal a
+   foot that has let go stays let go until it plants again — gripping the old
+   lock the moment the gap closed would snap it back. The lock is taken where
+   the foot was separated to, so planting does not undo it. */
 function plantByStance(input: FootStepInput, target: Vector3, deltaSeconds: number): void {
   const { stance, state } = input
   const was = state.planted
   state.planted = stance
+  const yaw = animatedFootYaw(input.leg)
   if (state.planted && !was) {
-    state.plantX = target.x
-    state.plantZ = target.z
+    state.plantX = target.x + state.separation.offset[0]
+    state.plantZ = target.z + state.separation.offset[1]
+    state.plantYaw = yaw
+    state.released = false
   }
   const gap = Math.hypot(scratch.foot.x - state.plantX, scratch.foot.z - state.plantZ)
-  const wanted = (state.planted ? 1 : 0) * (1 - smoothStep(MAX_HOLD * 0.5, MAX_HOLD, gap))
+  if (radiusHold(gap) * twistHold(yawBetween(state.plantYaw, yaw)) === 0) state.released = true
+  else if (state.released && state.planted && shouldReplant(gap, state.hold)) replant(state, target, yaw)
+  const wanted = state.planted && !state.released ? 1 : 0
   state.hold = moveToward(state.hold, wanted, PLANT_BLEND_RATE * deltaSeconds)
   target.setX(target.x + (state.plantX - target.x) * state.hold)
   target.setZ(target.z + (state.plantZ - target.z) * state.hold)
@@ -175,8 +206,7 @@ export function stepFoot(input: FootStepInput): FootStep {
     target.addScaledVector(bodyForward, fore * (strideScale - 1))
   }
   plantByStance(input, target, deltaSeconds)
-  pushOutOfGround(input, target)
-  return { contact: state.contact, ground, surfaceDelta, target }
+  return { animated: scratch.foot.clone(), contact: state.contact, ground, surfaceDelta, target }
 }
 
 /* @important Unreal's FinalizeFootAlignment: once the foot has its target, it is
@@ -184,9 +214,14 @@ export function stepFoot(input: FootStepInput): FootStep {
    checked, each against the surface beneath it, the lower one deciding — and
    nothing else moves. The body stays where it stands; only the pose of the foot
    changes. As much penetration as the clip itself had is allowed, so a toe the
-   animation deliberately rolls into the floor is not fought. */
-function pushOutOfGround(input: FootStepInput, target: Vector3): void {
+   animation deliberately rolls into the floor is not fought — measured, as
+   Unreal measures DistanceToPlant, against the floor the pose was authored on,
+   which is the character's own. Measured against the tread under the foot it
+   excused any depth at all once the character stood lower than that tread.
+   What it returns is the ground the foot finally rests on. */
+export function pushOutOfGround(input: FootStepInput, target: Vector3): number | null {
   const { leg, sole, trace } = input
+  leg.foot.getWorldPosition(scratch.foot)
   leg.toe.getWorldPosition(scratch.tip)
   const toeOffset = scratch.tip.clone().sub(scratch.foot)
   const toeTarget = target.clone().add(toeOffset)
@@ -195,16 +230,22 @@ function pushOutOfGround(input: FootStepInput, target: Vector3): void {
   const distances: number[] = []
   if (underAnkle) distances.push(target.y - sole.ankle - underAnkle.surfaceY)
   if (underToe) distances.push(toeTarget.y - sole.toe - underToe.surfaceY)
-  if (distances.length === 0) return
-  const allowed = Math.min(0, scratch.foot.y - sole.ankle - (underAnkle ? underAnkle.surfaceY : scratch.foot.y))
+  const resting = restingGround([underAnkle ? underAnkle.surfaceY : null, underToe ? underToe.surfaceY : null])
+  if (distances.length === 0) return resting
+  const allowed = Math.min(0, scratch.foot.y - sole.ankle - input.groundReference)
   const lowest = Math.min(...distances) - allowed
   if (lowest < 0) target.setY(target.y - lowest)
+  return resting
 }
 
-export function writeLeg(leg: LegBones, target: Vector3, chain: TwoBoneChain, bodyForward: Vector3): void {
+/* @important The knee pole is notapain's — 0.8 m in front of the animated
+   knee — with "in front" the way the pelvis faces, since the legs have already
+   been warped toward the travel by the time this runs, as in Unreal. */
+export function writeLeg(leg: LegBones, target: Vector3, chain: TwoBoneChain, legForward: Vector3): void {
   leg.thigh.getWorldPosition(scratch.hip)
   leg.knee.getWorldPosition(scratch.knee)
-  const solved = solveTwoBoneIk(scratch.hip, scratch.knee, target, chain, bodyForward)
+  const pole = poleThroughKnee(scratch.hip, scratch.knee, legForward, KNEE_POLE_DISTANCE)
+  const solved = solveTwoBoneIk(scratch.hip, scratch.knee, target, chain, pole)
 
   aimBoneAlong(leg.thigh, scratch.knee.clone().sub(scratch.hip), solved.mid.clone().sub(scratch.hip))
   leg.thigh.updateMatrixWorld(true)

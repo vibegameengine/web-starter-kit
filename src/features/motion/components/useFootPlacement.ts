@@ -4,21 +4,24 @@ import type { MutableRefObject } from 'react'
 import { Quaternion, Vector3 } from 'three'
 import type { Object3D } from 'three'
 
-import type { TwoBoneChain } from '../../../shared/lib/animation/twoBoneIk'
+import { pelvisForward, type TwoBoneChain } from '../../../shared/lib/animation/twoBoneIk'
 import { LOCOMOTION_STANCE_WINDOWS, RUN_STANCE_WINDOWS } from '../catalog/locomotionClips'
 import type { TraceBox } from '../systems/boxTrace'
 import { groundUnder } from '../systems/footGround'
 import type { LocomotionClipId } from '../systems/locomotionPose'
 import { yawForward } from '../systems/motionIntent'
-import { carryStep } from '../systems/pelvisOffset'
+import { crossingRelease, mutualSeparation, RESTING_SEPARATION, springSeparation, type FeetPair } from '../systems/footSeparation'
+import { followSupport, SUPPORT_MAX_OFFSET, supportHeight } from '../systems/supportHeight'
 import { footStance } from '../systems/stanceWindow'
 import { strideScaleFor } from '../systems/strideWarp'
 import {
   dropPelvis,
   levelFootToGround,
   nextHipDrop,
+  pushOutOfGround,
   stepFoot,
   writeLeg,
+  type FootStep,
   type LegBones,
   type LegState,
   type SoleHeights,
@@ -53,7 +56,11 @@ export type LimbReading = {
   readonly hip: readonly [number, number, number]
   readonly hold: number
   readonly knee: readonly [number, number, number]
+  readonly animated: readonly [number, number, number]
   readonly lock: readonly [number, number]
+  readonly plantYaw: number
+  readonly released: boolean
+  readonly separation: readonly [number, number]
   readonly lowestGap: number
   readonly target: readonly [number, number, number] | null
   readonly toe: readonly [number, number, number]
@@ -63,7 +70,10 @@ export type LimbReading = {
 }
 
 export type FootPlacementDebug = {
+  readonly characterFloor: number
+  readonly colliderFloor: number
   readonly contact: readonly [number, number]
+  readonly support: number | null
   readonly enabled: boolean
   readonly facingRadians: number
   readonly limbs: readonly LimbReading[]
@@ -105,6 +115,33 @@ function chainOf(leg: LegBones): TwoBoneChain {
   return { lowerLength: knee.distanceTo(foot), upperLength: hip.distanceTo(knee) }
 }
 
+/* @important Mutual foot placement. Unreal keeps a swing foot off a plane at
+   the midpoint of the animated feet (SeparatingDistance); that plane cannot see
+   a planted foot the body has walked away from, and a swing foot kept on its
+   own side of it still walks into that foot. So the gap is measured between
+   where the two feet are actually going, across the line of the hip joints,
+   and the feet free to move are sprung apart by Unreal's floor spring until it
+   is as wide as the clip had it. A foot still locked where the body has carried
+   it in under the other leg is let go, and Unreal's unplant eases it back. */
+function separateFeet(legs: readonly LegBones[], steps: readonly FootStep[], states: LegState[], deltaSeconds: number): void {
+  const left = legs[0].thigh.getWorldPosition(new Vector3())
+  const right = legs[1].thigh.getWorldPosition(new Vector3())
+  const feet: FeetPair = {
+    animated: [[steps[0].animated.x, steps[0].animated.z], [steps[1].animated.x, steps[1].animated.z]],
+    holds: [states[0].hold, states[1].hold],
+    side: [left.x - right.x, left.z - right.z],
+    solved: [[steps[0].target.x, steps[0].target.z], [steps[1].target.x, steps[1].target.z]],
+  }
+  const wanted = mutualSeparation(feet)
+  const release = crossingRelease(feet)
+  steps.forEach((step, index) => {
+    if (release[index]) states[index].released = true
+    states[index].separation = springSeparation(states[index].separation, wanted[index], deltaSeconds)
+    step.target.setX(step.target.x + states[index].separation.offset[0])
+    step.target.setZ(step.target.z + states[index].separation.offset[1])
+  })
+}
+
 /* @important The bend of the knee is reported in the BODY's frame, not the
    world's: where the knee sits relative to the hip-to-ankle line, split into
    how far forward and how far sideways. A defect that turns the knee inward
@@ -140,6 +177,7 @@ function limbReading(
   leg: LegBones,
   chain: TwoBoneChain,
   step: {
+    readonly animated: Vector3
     readonly contact: number
     readonly ground: { readonly surfaceY: number } | null
     readonly target?: Vector3
@@ -162,7 +200,11 @@ function limbReading(
     hip: [hip.x, hip.y, hip.z],
     hold: state.hold,
     knee: [knee.x, knee.y, knee.z],
+    animated: [step.animated.x, step.animated.y, step.animated.z],
     lock: [state.plantX, state.plantZ],
+    plantYaw: state.plantYaw,
+    released: state.released,
+    separation: [state.separation.offset[0], state.separation.offset[1]],
     lowestGap: lowestGapOf(foot, toe, ankle, trace),
     target: step.target ? [step.target.x, step.target.y, step.target.z] : null,
     toe: [toe.x, toe.y, toe.z],
@@ -172,8 +214,19 @@ function limbReading(
   }
 }
 
+/* @important The rig's rest height is kept on the rig itself, the first time
+   anything asks for it. This pass moves the rig up and down every frame to
+   stand the character on its feet, so reading rig.position.y a second time —
+   which a hot reload or a re-render does — captured an already-shifted height
+   and left the character running a few centimetres in the air for good. */
+function restHeightOf(rig: Object3D): number {
+  const data = rig.userData as { standRestY?: number }
+  if (data.standRestY === undefined) data.standRestY = rig.position.y
+  return data.standRestY
+}
+
 function freshState(): LegState {
-  return { contact: 0, correction: 0, hold: 0, planted: false, plantX: 0, plantZ: 0 }
+  return { contact: 0, correction: 0, hold: 0, planted: false, plantX: 0, plantYaw: 0, plantZ: 0, released: false, separation: RESTING_SEPARATION }
 }
 
 /* @important The ankle height is measured from the rig, the way notapain
@@ -204,29 +257,189 @@ function ankleHeightOf(legs: readonly LegBones[], rig: Object3D): number {
   return heights.reduce((sum, height) => sum + height, 0) / heights.length
 }
 
-export function useFootPlacement(options: FootPlacementOptions): MutableRefObject<FootPlacementDebug> {
-  const { enabled, gait, rig, timeline, trace } = options
-  const legs = useMemo(() => [legOf(rig, 'Left'), legOf(rig, 'Right')], [rig])
-  const hips = useMemo(() => boneNamed(rig, /Hips$/), [rig])
-  const chains = useMemo(() => legs.map(chainOf), [legs])
-  const ankleHeight = useMemo(() => options.ankleHeight ?? ankleHeightOf(legs, rig), [legs, options.ankleHeight, rig])
-  const sole = useMemo(() => soleHeightsOf(legs, rig), [legs, rig])
-  const states = useRef<LegState[]>([freshState(), freshState()])
-  const pelvisDrop = useRef(0)
-  const lastCapsule = useRef<{ grounded: boolean; y: number } | null>(null)
-  const lastElapsed = useRef<number | null>(null)
-  const forward = useMemo(() => new Vector3(0, 0, 1), [])
-  const meshFloor = useMemo(() => new Vector3(), [])
-  const debug = useRef<FootPlacementDebug>({
-    contact: [0, 0],
-    enabled: true,
-    facingRadians: 0,
-    limbs: [],
-    locked: [false, false],
-    pelvisDrop: 0,
-    strideScale: 1,
-    surfaceDelta: [0, 0],
+type FootRig = {
+  readonly ankleHeight: number
+  readonly chains: readonly TwoBoneChain[]
+  readonly hips: Object3D
+  readonly legs: readonly LegBones[]
+  readonly rig: Object3D
+  readonly rigRestY: number
+  readonly sole: SoleHeights
+  readonly trace: TraceBox
+}
+
+type FootMemory = {
+  lastColliderFloor: number | null
+  lastElapsed: number | null
+  lastSupport: number | null
+  pelvisDrop: number
+  standingOn: number | null
+  readonly states: LegState[]
+}
+
+type BodyReading = MotionTimeline['current']
+
+type LimbStep = Parameters<typeof limbReading>[4]
+
+const STILL_DEBUG: FootPlacementDebug = {
+  characterFloor: 0,
+  colliderFloor: 0,
+  contact: [0, 0],
+  enabled: true,
+  facingRadians: 0,
+  limbs: [],
+  locked: [false, false],
+  pelvisDrop: 0,
+  strideScale: 1,
+  support: null,
+  surfaceDelta: [0, 0],
+}
+
+function readingsOf(feet: FootRig, memory: FootMemory, steps: readonly LimbStep[], facingRadians: number): LimbReading[] {
+  return feet.legs.map((leg, index) => limbReading(
+    feet.trace,
+    feet.ankleHeight,
+    leg,
+    feet.chains[index],
+    steps[index],
+    memory.states[index],
+    facingRadians,
+    index === 0 ? 1 : -1,
+  ))
+}
+
+function disabledDebug(feet: FootRig, memory: FootMemory, body: BodyReading): FootPlacementDebug {
+  const steps = feet.legs.map((leg) => ({ animated: leg.foot.getWorldPosition(new Vector3()), contact: 0, ground: null }))
+  return { ...STILL_DEBUG, enabled: false, facingRadians: body.bodyFacingRadians, limbs: readingsOf(feet, memory, steps, body.bodyFacingRadians) }
+}
+
+function stanceOf(reading: GaitReading) {
+  const windows = LOCOMOTION_STANCE_WINDOWS[reading.clipId] ?? LOCOMOTION_STANCE_WINDOWS['walk-forward']
+  return footStance({
+    blendShare: reading.blendShare,
+    grounded: reading.grounded,
+    phase: reading.phase,
+    runWindows: reading.clipId.startsWith('run') ? windows : RUN_STANCE_WINDOWS,
+    walkWindows: windows,
   })
+}
+
+/* @important The character is primary and the collider secondary: the drawn
+   body stands on the ground its lowest planted foot finally rests on, carried
+   between supports by Unreal's damper, and the collider only bounds how far
+   the two may drift apart. The collider climbs a step as soon as its front
+   edge is over it; the character rises when its trailing foot lifts off the
+   lower tread, which is when a person does. */
+function standCharacter(feet: FootRig, memory: FootMemory, deltaSeconds: number) {
+  const colliderFloor = (feet.rig.parent ? feet.rig.parent.getWorldPosition(new Vector3()).y : 0) + feet.rigRestY
+  const teleported = memory.lastColliderFloor !== null
+    && Math.abs(colliderFloor - memory.lastColliderFloor) > SUPPORT_MAX_OFFSET
+  memory.lastColliderFloor = colliderFloor
+  if (teleported) memory.lastSupport = null
+  memory.standingOn = memory.standingOn === null || teleported
+    ? colliderFloor
+    : followSupport(memory.standingOn, memory.lastSupport ?? colliderFloor, colliderFloor, deltaSeconds)
+  const characterFloor = memory.standingOn
+  feet.rig.position.y = feet.rigRestY + (characterFloor - colliderFloor)
+  feet.rig.updateMatrixWorld(true)
+  return { characterFloor, colliderFloor }
+}
+
+function settlePelvis(
+  feet: FootRig,
+  memory: FootMemory,
+  steps: readonly FootStep[],
+  resting: readonly (number | null)[],
+  deltaSeconds: number,
+): void {
+  const reference = memory.standingOn ?? 0
+  const restingSteps = steps.map((step, index) => {
+    const groundY = resting[index]
+    return groundY === null ? step : { ...step, surfaceDelta: groundY - reference }
+  })
+  memory.pelvisDrop = nextHipDrop(memory.pelvisDrop, restingSteps, deltaSeconds)
+  dropPelvis(feet.hips, feet.rig, memory.pelvisDrop)
+}
+
+function strideScaleOf(body: BodyReading, reading: GaitReading): number {
+  const speed = Math.hypot(body.velocity[0], body.velocity[2])
+  return speed > MOVING_SPEED ? strideScaleFor(speed, reading.clipSpeed * Math.max(0.1, reading.stride)) : 1
+}
+
+function placeFeet(feet: FootRig, memory: FootMemory, body: BodyReading, reading: GaitReading, deltaSeconds: number): FootPlacementDebug {
+  const stance = stanceOf(reading)
+  const facing = yawForward(body.bodyFacingRadians)
+  const forward = new Vector3(facing.x, 0, facing.z)
+  const strideScale = strideScaleOf(body, reading)
+  const { characterFloor, colliderFloor } = standCharacter(feet, memory, deltaSeconds)
+
+  const inputs = feet.legs.map((leg, index) => ({
+    ankleHeight: feet.ankleHeight,
+    bodyForward: forward,
+    bodyPosition: body.position,
+    deltaSeconds,
+    groundReference: characterFloor,
+    leg,
+    sole: feet.sole,
+    stance: index === 0 ? stance.left : stance.right,
+    state: memory.states[index],
+    strideScale,
+    trace: feet.trace,
+  }))
+  const steps = inputs.map(stepFoot)
+  separateFeet(feet.legs, steps, memory.states, deltaSeconds)
+  const resting = steps.map((step, index) => pushOutOfGround(inputs[index], step.target))
+  memory.lastSupport = supportHeight(resting.map((groundY, index) => ({ groundY, hold: memory.states[index].hold })), colliderFloor)
+  settlePelvis(feet, memory, steps, resting, deltaSeconds)
+
+  const legForward = pelvisForward(feet.legs[0].thigh.getWorldPosition(new Vector3()), feet.legs[1].thigh.getWorldPosition(new Vector3()), forward)
+  steps.forEach((step, index) => {
+    writeLeg(feet.legs[index], step.target, feet.chains[index], legForward)
+    if (step.ground) levelFootToGround(feet.legs[index], step.ground.normal, step.contact)
+  })
+
+  const held = (state: LegState) => state.planted && state.hold > 0.01
+  return {
+    characterFloor,
+    colliderFloor,
+    contact: [steps[0].contact, steps[1].contact],
+    enabled: true,
+    facingRadians: body.bodyFacingRadians,
+    limbs: readingsOf(feet, memory, steps, body.bodyFacingRadians),
+    locked: [held(memory.states[0]), held(memory.states[1])],
+    pelvisDrop: memory.pelvisDrop,
+    strideScale,
+    support: memory.lastSupport,
+    surfaceDelta: [steps[0].surfaceDelta, steps[1].surfaceDelta],
+  }
+}
+
+function footRigOf(rig: Object3D, trace: TraceBox, ankleHeight: number | undefined): FootRig {
+  const legs = [legOf(rig, 'Left'), legOf(rig, 'Right')]
+  return {
+    ankleHeight: ankleHeight ?? ankleHeightOf(legs, rig),
+    chains: legs.map(chainOf),
+    hips: boneNamed(rig, /Hips$/),
+    legs,
+    rig,
+    rigRestY: restHeightOf(rig),
+    sole: soleHeightsOf(legs, rig),
+    trace,
+  }
+}
+
+export function useFootPlacement(options: FootPlacementOptions): MutableRefObject<FootPlacementDebug> {
+  const { ankleHeight, enabled, gait, rig, timeline, trace } = options
+  const feet = useMemo(() => footRigOf(rig, trace, ankleHeight), [ankleHeight, rig, trace])
+  const memory = useRef<FootMemory>({
+    lastColliderFloor: null,
+    lastElapsed: null,
+    lastSupport: null,
+    pelvisDrop: 0,
+    standingOn: null,
+    states: [freshState(), freshState()],
+  })
+  const debug = useRef<FootPlacementDebug>(STILL_DEBUG)
 
   useEffect(() => {
     if (!import.meta.env.DEV) return
@@ -244,104 +457,12 @@ export function useFootPlacement(options: FootPlacementOptions): MutableRefObjec
      than the tenth of a second the render took. */
   useFrame(() => {
     const body = timeline.current.current
-    const delta = lastElapsed.current === null ? 0 : Math.max(0, body.elapsedSeconds - lastElapsed.current)
-    lastElapsed.current = body.elapsedSeconds
-    if (enabled && !enabled()) {
-      debug.current = {
-        contact: [0, 0],
-        enabled: false,
-        facingRadians: body.bodyFacingRadians,
-        limbs: legs.map((leg, index) => limbReading(
-          trace,
-          ankleHeight,
-          leg,
-          chains[index],
-          { contact: 0, ground: null },
-          states.current[index],
-          body.bodyFacingRadians,
-          index === 0 ? 1 : -1,
-        )),
-        locked: [false, false],
-        pelvisDrop: 0,
-        strideScale: 1,
-        surfaceDelta: [0, 0],
-      }
-      return
-    }
-    const reading = gait()
-    const windows = LOCOMOTION_STANCE_WINDOWS[reading.clipId] ?? LOCOMOTION_STANCE_WINDOWS['walk-forward']
-    const stance = footStance({
-      blendShare: reading.blendShare,
-      grounded: reading.grounded,
-      phase: reading.phase,
-      runWindows: reading.clipId.startsWith('run') ? windows : RUN_STANCE_WINDOWS,
-      walkWindows: windows,
-    })
-    const speed = Math.hypot(body.velocity[0], body.velocity[2])
-    const facing = yawForward(body.bodyFacingRadians)
-    forward.set(facing.x, 0, facing.z)
-    const strideScale = speed > MOVING_SPEED
-      ? strideScaleFor(speed, reading.clipSpeed * Math.max(0.1, reading.stride))
-      : 1
-
-    /* @important Unreal's SuddenMotionOnly compensation: a vertical jump of the
-       capsule that walking along the floor does not explain — a step up or down
-       — is taken straight out of the pelvis offset and out of each leg's ground
-       correction on the frame it happens. The pelvis therefore stays where it
-       was in the world and settles back over the frames that follow, and a foot
-       still standing on the lower tread keeps its height instead of rising with
-       the mesh and hanging over it. */
-    const grounded = body.mode === 'walking'
-    const previousCapsule = lastCapsule.current
-    const rise = previousCapsule && previousCapsule.grounded ? body.position[1] - previousCapsule.y : 0
-    lastCapsule.current = { grounded, y: body.position[1] }
-    const sudden = carryStep(0, rise, grounded)
-    if (sudden !== 0) {
-      pelvisDrop.current += sudden
-      for (const state of states.current) state.correction -= sudden
-    }
-
-    const steps = legs.map((leg, index) => stepFoot({
-      ankleHeight,
-      sole,
-      bodyForward: forward,
-      bodyPosition: body.position,
-      deltaSeconds: delta,
-      groundReference: rig.getWorldPosition(meshFloor).y,
-      leg,
-      stance: index === 0 ? stance.left : stance.right,
-      state: states.current[index],
-      strideScale,
-      trace,
-    }))
-
-    pelvisDrop.current = nextHipDrop(pelvisDrop.current, steps, delta)
-    dropPelvis(hips, rig, pelvisDrop.current)
-
-    steps.forEach((step, index) => {
-      writeLeg(legs[index], step.target, chains[index], forward)
-      if (step.ground) levelFootToGround(legs[index], step.ground.normal, step.contact)
-    })
-
-    debug.current = {
-      contact: [steps[0].contact, steps[1].contact],
-      enabled: true,
-      facingRadians: body.bodyFacingRadians,
-      limbs: legs.map((leg, index) => limbReading(
-        trace,
-        ankleHeight,
-        leg,
-        chains[index],
-        steps[index],
-        states.current[index],
-        body.bodyFacingRadians,
-        index === 0 ? 1 : -1,
-      )),
-      locked: [states.current[0].planted && states.current[0].hold > 0.01, states.current[1].planted && states.current[1].hold > 0.01],
-      pelvisDrop: pelvisDrop.current,
-      strideScale,
-      surfaceDelta: [steps[0].surfaceDelta, steps[1].surfaceDelta],
-    }
+    const state = memory.current
+    const delta = state.lastElapsed === null ? 0 : Math.max(0, body.elapsedSeconds - state.lastElapsed)
+    state.lastElapsed = body.elapsedSeconds
+    debug.current = enabled && !enabled()
+      ? disabledDebug(feet, state, body)
+      : placeFeet(feet, state, body, gait(), delta)
   })
 
   return debug

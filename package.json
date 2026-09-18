@@ -24,6 +24,8 @@
     "labs:previews": "node scripts/shot-lab-previews.mjs",
     "verify:spikes": "node scripts/verify-motion-spikes.mjs",
     "verify:stairs": "node scripts/verify-stairs.mjs",
+    "verify:crossing": "node scripts/verify-crossing.mjs",
+    "verify:clips": "node scripts/verify-clips.mjs",
     "verify:judder": "node scripts/verify-judder.mjs",
     "verify:pelvis": "node scripts/verify-pelvis.mjs",
     "verify:limbs": "node scripts/verify-limbs.mjs",

@@ -89,6 +89,12 @@ clamped to [0.85, 1.6] and stride `ratio / cadence` clamped to [0.7, 1.9] — th
 split is notapain's rule, not GASP's — and `systems/strideWarp.ts` then warps
 the foot targets the way the Unreal node does.
 
+The sprint used to be 1.625 × the walk, 2.65 m/s — slower than the run clip's
+own 2.84 m/s, so a sprint played as a run slowed down. On the clip-paced
+profiles it is now notapain's ratio, three times the walk (`movement_tuning.gd`,
+walk 2.0, run 6.0): 4.9 m/s, the excess split between cadence and stride as
+above. GASP's own gait speeds live in binary assets and were not read.
+
 **Diverges in policy, matches in mechanism.** GASP leans on play rate and clip
 count; here a real walk lengthens its stride as well as quickening its cadence,
 because there is no second clip to switch to.
@@ -118,78 +124,86 @@ the asset folder so nothing can pick them up.
 ## Feet
 
 UE's `AnimNode_FootPlacement` plants on **speed and distance**: `WantsToPlant`
-(`:706`) asks for near-ground AND slow, `DeterminePlantType` (`:601`) applies a
-two-radius hysteresis, `GetAlignmentAlpha` (`:727`) fades by foot speed,
-`FindPelvisOffsetRangeForLimb` (`:280`) and `SolvePelvis` (`:1911`) solve the
-pelvis against sphere-line intersections per Rune Johansen's thesis, and
-`UpdatePlantOffsetInterpolation` (`:473`) springs the unplant offset.
+(`:706`) asks for near-ground AND slow, `DeterminePlantType` (`:601`) unplants
+past `UnplantRadius` (35 cm) or `UnplantAngle` (45°) and replants within 0.35 and
+0.5 of those, `FinalizeFootAlignment` (`:855`) pushes the foot out of the ground,
+`SuddenMotionOnly` (`:1599`) separates a capsule's sudden step from the pelvis,
+`SeparatingDistance` (`:1800`) keeps swing feet apart, and
+`UpdatePlantOffsetInterpolation` springs every offset.
 
-Here, after this session's rewrite, the rules are **notapain's**, not UE's:
+Here the pass (`components/footPlacementPass.ts`) is a port of notapain's
+`foot_ik_prep.gd`, constants included, with Unreal's pieces added where
+notapain has nothing or measured worse:
 
-- contact comes from the stance window and the gap to the ground, never from a
-  measured foot speed (`footContactWeight`). A stance foot holds full contact
-  until its ground is further than the leg can reach; a swing foot fades out by
-  height.
-- the lock takes hold at once on the rising edge of stance, at the point the
-  clip itself put the foot, and only the release is rate limited.
-- release is by drift: `1 - smoothstep(max_hold/2, max_hold, drift)` with
-  `max_hold = 0.9`.
-- a stance foot past an edge is pulled horizontally toward the body until ground
-  within one step appears (`systems/footGround.ts`), instead of reaching down
-  into the pit.
-- the target is clamped inside the leg span before the solver sees it.
-- the knee pole sits in front of the knee along **body forward**, not along the
-  travel direction.
-- the pelvis drops by the deepest planted surface delta.
+- **contact, correction, stance lock, pull-to-edge, pelvis drop** — notapain's,
+  as written: contact from the stance window and the gap to the ground, the
+  lock taken on the rising edge of stance, a stance foot past an edge walked in
+  toward the body in six steps, the pelvis lowered by the deepest planted drop.
+- **ground probe** — notapain's ray, from 0.5 m above the foot to 0.8 m below it.
+  The port had two defects here, both found this session: the ray stopped 0.3 m
+  below the foot instead of 0.8, and it was a 4 cm box rather than a ray. The box
+  caught the corner of a ledge under a foot whose ankle and toe were both past
+  it, and the foot was drawn 20 cm up on a sliver of edge.
+- **release of a plant** — Unreal's, not notapain's. notapain holds a plant to
+  90 cm of drift and has no angle at all; a body stepping sideways walked off its
+  own locked foot and left it under the other leg. `systems/plantTwist.ts` ports
+  `DeterminePlantType`: full hold up to 35 cm or 45° of foot yaw, then let go
+  (latched, as Unreal latches it), and **Replanted** — a released foot that still
+  wants to stand plants again where it is drawn once it has come back within
+  0.35 × 35 cm of the animated foot. Without replanting a foot that stood through
+  a stop released its stale lock and then drifted with the idle pose forever.
+- **push-out** — Unreal's `FinalizeFootAlignment`: ankle and ball each checked
+  against the ground under them, the foot lifted straight up, nothing else
+  moved; the clip's own penetration is allowed, measured against the
+  character's floor as `DistanceToPlant` is.
+- **the character stands where its feet stand** (`systems/supportHeight.ts`,
+  `useFootPlacement.ts`). The drawn body stands on the ground its lowest planted
+  foot finally rests on — after the lock and the push-out, not under the
+  animated foot — carried between supports by Unreal's damper, with the
+  collider only bounding the drift. Reading the ground under the animated foot
+  instead lowered a body with both feet on a ledge 20 cm into a crouch; the same
+  ledge now stands the hips at 0.889 m over the low foot, the height they have
+  on flat ground.
+- **feet never cross** — Unreal's `SeparatingDistance` could not be ported as it
+  stands: its plane sits at the midpoint of the *animated* feet and moves only a
+  swing foot, so it cannot see a planted foot the body has walked away from, and
+  that is exactly how the legs crossed here (a locked foot 26 cm under the other
+  leg on a turn into a run). `systems/footSeparation.ts` is mutual placement,
+  invented because GASP does not have it: the gap is measured between where the
+  two feet are actually going, across the line of the hip joints; the free foot
+  is sprung apart (Unreal's floor spring, stiffness 1000) until the gap is as
+  wide as the clip had it, up to 10 cm; and a locked foot the body has dragged
+  more than 5 cm inward is released, after which Unreal's unplant eases it back.
+- **knee pole** — notapain's, 0.8 m in front of the animated knee, with "in
+  front" read from the line between the hip joints rather than the body's
+  facing. Orientation warping has already turned the legs toward the travel by
+  the time the IK runs, as it has in Unreal; a pole along the body's facing bent
+  those turned legs sideways, and on a diagonal run one knee swung 15 cm in
+  across the other. The ankle-to-toe line was tried first and rejected: at
+  toe-off the toe hangs under the ankle and the line flips.
+- **foot orientation** — still levelled toward the bind pose on the ground
+  normal, not notapain's `FootRotate` (which tilts the current foot by up→normal
+  and skips flat ground). **Divergence, open.**
+- **joint limits** — notapain clamps the knee as a hinge after everything else;
+  the table exists here (`shared/lib/animation/jointLimits.ts`) and is not yet
+  applied. **Divergence, open.**
 
-**Diverges from UE deliberately.** UE's speed-based plant is exactly what broke
-here: foot speed read over render frames goes to zero between simulation ticks,
-so at 144 fps against a 60 Hz tick both feet reported full contact and the
-solver hauled both legs at once. That is the mangled-legs picture. The stance
-window is frame-rate independent by construction.
+Measured on the stand, world space, skeleton read directly:
 
-A plant is also released when the body turns further than the hip can twist, or
-when the lock leaves nine tenths of the leg span, and the release runs the hold
-down at a rate rather than cutting it — an outright cut snapped the foot half a
-metre. The twist limit comes from the ragdoll's own measured joint table, now
-shared at `shared/lib/animation/jointLimits.ts` so both sides read the same
-degrees.
+- legs crossing (`verify:crossing`): ankles and knees never cross, walking or
+  running. Before this session: ankles −17 cm walking, −26 cm running; knees
+  −15 cm on a diagonal run.
+- the passes still bring running feet closer than the clips do (ankles 7 cm
+  against 15.5 cm at the start of a sideways or diagonal run; knees 12–18 cm
+  against 20 cm). Not crossing, but not the clip either. **Open.**
+- stairs (`verify:stairs`, 15 cm rise, 32 cm run): floating planted feet 28.6% of
+  climbing frames (37.6% before), descending p95 0.23 m. One descent case is
+  open: a foot locked with its toe inside the riser is lifted whole by the
+  push-out and held there until it unplants — 27 cm in the air.
 
-The pelvis is now **Unreal's own solver, ported**: `systems/pelvisSolve.ts`
-follows `FindPelvisOffsetRangeForLimb` and `SolvePelvis` — Rune Johansen's
-sphere-line construction per limb (7.4.2), the compromise between the two legs'
-ranges, and the clamp whose argument order decides whether a foot that cannot be
-reached drags the body down with it. What was there before took the deepest drop
-it could find plus whatever a leg was short by, which fed its own result back:
-a body standing astride a 20 cm ledge folded 41 cm into the floor. The same
-ledge now measures a drop of 0.001 m with both feet on the ground.
-
-Two more that were missing entirely. A stance foot is pulled back over solid
-ground by the leg's own reach rather than by a fixed step limit — the fixed
-limit allowed a 32 cm drop while the hip sat 82 cm above the foot, and the foot
-hung over the pit. And the orientation of the foot is owned at last: nothing
-set it, and the tilt that was meant to catch it returned early on level ground,
-so a sole was never flattened on the one surface a character lives on.
-`systems/footOrientation.ts` levels it from the bind pose, which is what flat
-means on any rig, and only while standing — the heel-to-toe roll of a stride
-belongs to the clip.
-
-The release of a plant is now **sprung, as Unreal springs it**:
-`UpdatePlantOffsetInterpolation` runs `VectorSpringInterp` on the unplant
-offset, and `systems/springInterp.ts` is the same shape — an implicit damped
-spring, stable at a long frame, which arrives with its velocity spent where the
-linear ramp before it arrived at full speed and stopped dead. Holding the plant
-whole and springing only the release was measured against fading the hold by
-drift; the fade was worse, because a spring lags a target that is itself moving
-and the lag comes out as jerk. Unreal holds the plant and springs the unplant,
-which is what this does now.
-
-The pelvis drop is applied as an offset in the parent's own frame. It used to
-be written through a world round trip, which rewrote the pelvis's X and Z from a
-parent matrix a frame old — a sideways drag on every turn. Unreal works in
-component space throughout and never had the problem to have.
-
-Still missing against UE: `HeelLiftRatio` and the foot pivot around the ball.
+Unused since the notapain port and due for removal: `systems/pelvisSolve.ts`
+(Unreal's pelvis solver), `systems/ballPivot.ts`, parts of `rootOffset.ts` and
+`footPlanting.ts`.
 
 ## Blending
 
@@ -256,9 +270,17 @@ Here:
   invariants a leg cannot violate on every frame of every drive: bone lengths,
   reach, knee range, no sinking through the floor, net drift while firmly held,
   double-support share, that a plant forms at all, that the chosen clip travels
-  with the body, and that the body comes to rest on its feet. 45 checks.
-  Current reading: worst drift while held 5.9 mm, stride warp 1.000 in every
-  direction.
+  with the body, and that the body comes to rest on its feet. 72 checks, all
+  passing. The knee's bend is measured against the line between the hip joints,
+  not the body's facing: orientation warping turns the legs on purpose, and
+  against the facing the clips alone read a knee 17 cm sideways. Mutation: a
+  pole turned 90° fails 14 checks.
+- `npm run verify:crossing` reads the two ankles and knees off the skeleton,
+  across the line of the hip joints, over a course of direction changes walking
+  and running, with the passes on and off: the legs never cross, and the passes
+  bring them no closer than the clips do. 9 checks, 7 passing.
+- `npm run verify:stairs` walks a real staircase against the course geometry
+  itself, never the pass's own probe. 11 checks, 8 passing.
 - the motion stand (`/labs/motion-stand`) steps one simulated frame at a time,
   renders on demand so the picture matches the numbers, and can switch the foot
   IK and the orientation warp off independently to isolate a pass.

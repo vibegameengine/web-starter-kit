@@ -12,7 +12,7 @@ export type StanceGround = {
   readonly pulledZ: number
 }
 
-export const GROUND_PROBE_HALF_EXTENTS: Vector3Tuple = [0.02, 0.02, 0.02]
+export const GROUND_PROBE_HALF_EXTENTS: Vector3Tuple = [0, 0, 0]
 
 export const GROUND_PROBE_RISE = 0.5
 
@@ -34,12 +34,12 @@ export function reachableDrop(chain: { readonly lowerLength: number; readonly up
 
 export function groundUnder(point: Vector3Tuple, trace: TraceBox): GroundSample | null {
   const from: Vector3Tuple = [point[0], point[1] + GROUND_PROBE_RISE, point[2]]
-  const to: Vector3Tuple = [from[0], from[1] - GROUND_PROBE_DROP, from[2]]
+  const to: Vector3Tuple = [point[0], point[1] - GROUND_PROBE_DROP, point[2]]
   const hit = trace(from, to, GROUND_PROBE_HALF_EXTENTS)
   if (!hit.hit || hit.startSolid) return null
   return {
     normal: [hit.normal[0], hit.normal[1], hit.normal[2]],
-    surfaceY: from[1] - GROUND_PROBE_DROP * hit.fraction - GROUND_PROBE_HALF_EXTENTS[1],
+    surfaceY: from[1] - (from[1] - to[1]) * hit.fraction - GROUND_PROBE_HALF_EXTENTS[1],
   }
 }
 
@@ -65,4 +65,9 @@ export function stanceGround(
     if (reachable(pulled)) return { ground: pulled, pulledX: x, pulledZ: z }
   }
   return { ground: direct, pulledX: foot[0], pulledZ: foot[2] }
+}
+
+export function restingGround(surfaces: readonly (number | null)[]): number | null {
+  const found = surfaces.filter((surface): surface is number => surface !== null)
+  return found.length === 0 ? null : Math.max(...found)
 }

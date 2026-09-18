@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest'
 
-import type { TraceBox, BoxTraceResult, Vector3Tuple } from './boxTrace'
-import { groundUnder, reachableDrop, stanceGround } from './footGround'
+import { createBoxWorldTrace, type TraceBox, type BoxTraceResult, type Vector3Tuple } from './boxTrace'
+import { groundUnder, reachableDrop, restingGround, stanceGround } from './footGround'
 
 const miss: BoxTraceResult = { fraction: 1, hit: false, normal: [0, 0, 0], startSolid: false }
 
 function floorAbove(insideX: (x: number, z: number) => boolean, surfaceY: number): TraceBox {
-  return (from: Vector3Tuple, to: Vector3Tuple) => {
+  return (from: Vector3Tuple, to: Vector3Tuple, halfExtents: Vector3Tuple) => {
     if (!insideX(from[0], from[2])) return miss
     const span = from[1] - to[1]
-    const drop = from[1] - (surfaceY + 0.02)
+    const drop = from[1] - (surfaceY + halfExtents[1])
     if (drop < 0 || drop > span) return miss
     return { fraction: drop / span, hit: true, normal: [0, 1, 0], startSolid: false }
   }
@@ -23,6 +23,24 @@ describe('groundUnder', () => {
 
   it('reports nothing where there is no ground', () => {
     expect(groundUnder([0, 0.1, 0], () => miss)).toBeNull()
+  })
+
+  /* @important The probe is a ray, as notapain's is. A probe two centimetres
+     wide caught the corner of a ledge under a foot whose ankle and toe were
+     both past it, and the foot was drawn standing twenty centimetres up on a
+     sliver of edge. */
+  it("reaches as far below the foot as notapain's ray does, eighty centimetres", () => {
+    const deep = floorAbove(() => true, -0.7)
+    expect(groundUnder([0, 0, 0], deep)?.surfaceY).toBeCloseTo(-0.7, 3)
+  })
+
+  it('reads the floor under a point just past the edge of a ledge, not the ledge', () => {
+    const world = createBoxWorldTrace([
+      { center: [0, -0.5, 0], halfExtents: [5, 0.5, 5] },
+      { center: [0.18, 0.1, 0], halfExtents: [0.22, 0.1, 1] },
+    ])
+    expect(groundUnder([-0.048, 0.31, 0], world)?.surfaceY).toBeCloseTo(0, 2)
+    expect(groundUnder([-0.03, 0.31, 0], world)?.surfaceY).toBeCloseTo(0.2, 2)
   })
 })
 
@@ -79,5 +97,25 @@ describe('reachableDrop', () => {
   it('counts the help the pelvis can give', () => {
     const tight = reachableDrop(chain, 0.8)
     expect(tight).toBeGreaterThan(0)
+  })
+})
+
+/* @important A sole is rigid: it rests on the highest ground under any point
+   of it. The ground under the ankle alone read a body standing on a ledge as
+   standing on the floor below, and lowered it into a crouch with both feet on
+   the ledge. Measured on the staircase too: resting on the ankle's ground alone
+   left 34.5% of planted climbing frames floating against 28.6% for this. */
+describe('restingGround', () => {
+  it('is the highest ground under the sole', () => {
+    expect(restingGround([0, 0.2])).toBe(0.2)
+    expect(restingGround([0.2, 0])).toBe(0.2)
+  })
+
+  it('takes whatever ground there is when one point hangs over nothing', () => {
+    expect(restingGround([null, 0.2])).toBe(0.2)
+  })
+
+  it('is nothing when the whole sole is over nothing', () => {
+    expect(restingGround([null, null])).toBeNull()
   })
 })

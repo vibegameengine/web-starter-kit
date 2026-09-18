@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { Vector3 } from 'three'
 
-import { solveTwoBoneIk } from './twoBoneIk'
+import { KNEE_POLE_DISTANCE, pelvisForward, poleThroughKnee, solveTwoBoneIk } from './twoBoneIk'
 
 /** A leg: 0.4 m thigh, 0.45 m shin, hip at the origin, knee bending forward. */
 const LEG = { lowerLength: 0.45, upperLength: 0.4 }
@@ -137,5 +137,46 @@ describe('the pole is a direction, not a place', () => {
 
     expect(Math.abs(wrong.x - right.x)).toBeGreaterThan(0.02)
     expect(wrong.z).toBeLessThan(right.z)
+  })
+})
+
+/* @important notapain's knee pole: a point 0.8 m in front of the ANIMATED
+   knee. Its "in front" is the way the pelvis faces rather than the body: Unreal runs its leg IK after orientation warping, on a
+   pose whose legs are already turned toward the travel, and a pole along the
+   body's facing bent a leg turned 45 degrees off it sideways — on a diagonal
+   run, one knee in across the other. */
+describe('poleThroughKnee', () => {
+  it('points from the hip at a spot in front of the animated knee', () => {
+    const pole = poleThroughKnee(new Vector3(0.1, 1, 0), new Vector3(0.15, 0.5, 0.05), new Vector3(0, 0, 1), KNEE_POLE_DISTANCE)
+    expect(pole.x).toBeCloseTo(0.05, 9)
+    expect(pole.y).toBeCloseTo(-0.5, 9)
+    expect(pole.z).toBeCloseTo(0.05 + KNEE_POLE_DISTANCE, 9)
+  })
+})
+
+/* @important A pitched foot says nothing reliable about which way the leg
+   faces: at toe-off the toe hangs under the ankle and the ankle-to-toe line
+   flipped from forward to sideways in one frame, bending the knee 30 cm
+   sideways. The line between the two hip joints does not pitch. */
+describe('pelvisForward', () => {
+  it('is level and square to the line between the hip joints', () => {
+    const forward = pelvisForward(new Vector3(0.1, 1, 0), new Vector3(-0.1, 1, 0), new Vector3(0, 0, 1))
+    expect(forward.x).toBeCloseTo(0, 9)
+    expect(forward.z).toBeCloseTo(1, 9)
+  })
+
+  it('follows a pelvis turned off the body, the way the hint points', () => {
+    const forward = pelvisForward(new Vector3(0.1, 1, -0.1), new Vector3(-0.1, 1, 0.1), new Vector3(0, 0, 1))
+    expect(forward.x).toBeCloseTo(Math.SQRT1_2, 9)
+    expect(forward.z).toBeCloseTo(Math.SQRT1_2, 9)
+  })
+
+  it('bends a leg turned off the body along the pelvis, not the body', () => {
+    const hip = new Vector3(0, 1, 0)
+    const knee = new Vector3(0.03, 0.55, 0.03)
+    const target = new Vector3(0, 0.15, 0)
+    const forward = pelvisForward(new Vector3(0.1, 1, -0.1), new Vector3(-0.1, 1, 0.1), new Vector3(0, 0, 1))
+    const solved = solveTwoBoneIk(hip, knee, target, { lowerLength: 0.45, upperLength: 0.45 }, poleThroughKnee(hip, knee, forward, KNEE_POLE_DISTANCE))
+    expect(solved.mid.x).toBeCloseTo(solved.mid.z, 2)
   })
 })
