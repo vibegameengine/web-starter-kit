@@ -6,6 +6,8 @@
   "description": "Opinionated Vite + React + TypeScript starter kit distilled from a production browser game: custom build-time optimizers, an auto-collected asset preloader, and a two-stage readiness gate.",
   "scripts": {
     "dev": "vite",
+    "dev:lean": "node scripts/dev-lean.mjs",
+    "measure:dev": "node scripts/measure-dev-payload.mjs",
     "postinstall": "node scripts/link-agent-skills.ts",
     "build": "tsc -b && vite build",
     "build:gh-pages": "node scripts/build-gh-pages.mjs",

@@ -11,6 +11,9 @@ import {
   glbAssetOptimizerPlugin,
   imagetoolsDevCachePlugin,
 } from './vite'
+// The lean dev server — `npm run dev:lean`; see `docs/lean-dev-server.md`.
+import { leanDevConfig, leanDevTransport, showcaseSurfaces } from './vite/leanDev'
+import { vitestConfig } from './vite/vitestConfig'
 
 // Load GLSL shader files as default-exported strings — the vendored realism-
 // effects TRAA in src/shared/vendor/realism-effects imports .glsl/.frag/.vert this way.
@@ -44,7 +47,7 @@ export default defineConfig(({ command }) => ({
   // while a `const` initialised from an env expression stays opaque and the
   // whole surface ships anyway — measured, not assumed (7.9 MB against 3.4 MB).
   define: {
-    __SHOWCASE_SURFACES__: JSON.stringify(command === 'serve' || process.env.VITE_ENABLE_SHOWCASE === 'true'),
+    __SHOWCASE_SURFACES__: JSON.stringify(showcaseSurfaces(command)),
   },
   // Keep ecosystem peer dependencies on upstream R3F, but resolve every runtime
   // import to the maintained Vibegameengine fork. This provides its native FPS
@@ -61,7 +64,9 @@ export default defineConfig(({ command }) => ({
   optimizeDeps: {
     include: ['@vibegameengine/react-three-fiber'],
   },
+  ...leanDevConfig,
   plugins: [
+    leanDevTransport(),
     shaderRawLoader(),
     // Walks the static import graph from the entry and exposes every reachable
     // asset through `virtual:bootstrap-assets` so the preloader needs no manifest.
@@ -93,39 +98,5 @@ export default defineConfig(({ command }) => ({
       avif: { quality: 60 },
     }),
   ],
-  test: {
-    coverage: {
-      excludeAfterRemap: true,
-      provider: 'v8',
-      reporter: ['text', 'html'],
-      thresholds: {
-        lines: 80,
-        functions: 80,
-        branches: 80,
-        statements: 80,
-      },
-      // The coverage bar is held on pure, framework-free logic. UI, the entry,
-      // demo, type-only modules and the browser/virtual-module bridges are
-      // exercised by the build and Playwright instead of unit coverage.
-      // (scripts/bump-version.ts still has its own passing unit test; it is just
-      // not part of the measured aggregate because of its untested CLI entry.)
-      include: [
-        'src/features/bootstrap/systems/**/*.ts',
-        'src/shared/lib/motion.ts',
-      ],
-      exclude: [
-        'src/**/*.test.ts',
-        'src/**/*.test.tsx',
-        'src/features/bootstrap/systems/bootstrapSteps.ts',
-        'src/features/bootstrap/systems/bootstrapAssetRegistry.ts',
-        'src/features/bootstrap/systems/preloadBootstrapAssets.ts',
-      ],
-    },
-    environment: 'jsdom',
-    exclude: [
-      'e2e/**',
-      'node_modules/**',
-    ],
-    globals: true,
-  },
+  test: vitestConfig,
 }))

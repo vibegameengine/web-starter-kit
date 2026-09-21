@@ -74,9 +74,50 @@ stay cheap at runtime.
 ```bash
 npm install
 npm run dev        # http://localhost:5173 — drag to orbit
+npm run dev:lean   # the same server, 7x lighter on the wire — see below
 npm run build      # tsc -b && vite build -> dist/
 npm run test       # vitest + coverage
 npm run lint       # eslint · npm run knip — dead-code report · npm run e2e — Playwright
+```
+
+### A dev server somebody else can reach
+
+`npm run dev` is the local default and stays as it is. `npm run dev:lean` is the
+same server for the case where the person looking at it is not sitting at this
+machine — a tunnel, a phone on another network, a reviewer on another continent.
+
+Measured on this kit, cold open of `/`:
+
+| | `npm run dev` | `npm run dev:lean` |
+| --- | --- | --- |
+| on the wire | 29.27 MB | **4.22 MB** |
+| of which inline sourcemaps | 19.04 MB | **0** |
+| dependency prebundle | 25.48 MB | **1.52 MB** |
+| HMR | per-module, no reload | **per-module, no reload** |
+
+Three things change, and none of them touch the dev loop:
+
+- **the showcase surfaces leave the module graph** — DEV labs, UI-kit gallery and
+  the demo world are behind one literal, so lean mode stops them being *fetched*
+  rather than merely making them unreachable;
+- **inline sourcemaps are stripped** — Vite bakes a base64 map into every
+  transformed module and every prebundled dependency chunk, and there is no
+  config switch for it, so `vite/devLeanTransportPlugin.ts` takes them off the
+  response;
+- **responses are brotli/gzip compressed** — the dev server otherwise speaks
+  identity encoding to everyone.
+
+What it does NOT fix is the number of round trips, which is what hurts most at
+high latency. `npm run dev:lean -- --bundle` turns on Vite 8's experimental
+`bundledDev` and collapses them — at the cost of HMR, because every edit then
+re-bundles the whole app and reloads the page. Opt-in, for handing a link to
+somebody who will look rather than edit.
+
+Check the numbers on your own project instead of trusting these:
+
+```bash
+npm run dev:lean -- --port 5181
+npm run measure:dev http://localhost:5181/ lean
 ```
 
 ## Recent kit additions
