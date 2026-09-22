@@ -13,6 +13,86 @@ schemas. This system has 6 clips (5 sources, one mirrored) and one database of
 system has to answer it by computation. That is the whole shape of the
 divergence below.
 
+## How this comparison is made
+
+GASP ships as binary assets: its animation graph, its settings and its numbers
+live inside `.uasset` files, and none of it is source you can read. What IS
+readable is each asset's name table, and it names every node type, every
+settings struct and every variable the graph uses. So the comparison runs on
+three legs:
+
+1. **The engine's own C++**, read directly at `C:/GameEngien/UE_5.8` — the
+   nodes GASP configures are implemented there, with their defaults
+   (`AnimNode_FootPlacement.cpp/.h`, `AnimNode_OrientationWarping`,
+   `AnimNode_StrideWarping`, `AnimNode_OffsetRootBone`, `CharacterMovementComponent`).
+   This is where every ported rule and every constant below comes from.
+2. **GASP's asset name tables**, scanned for what the graph actually contains
+   (`scripts/gasp-scan.mjs`, `scripts/gasp-names.mjs` — strings extracted from
+   `.uasset`). This says which nodes GASP uses, and which settings it exposes,
+   without guessing.
+3. **notapain**, read as source, for the procedural leg layer GASP leaves to
+   its asset count.
+
+What this cannot give: the numbers GASP itself typed into those nodes. Where a
+value below is Unreal's default, it says so; where it is notapain's, it says so;
+where it was measured here, it says so. No number in this document is a guess
+at GASP's own.
+
+### GASP's graph, as its assets name it
+
+Two animation blueprints, `SandboxCharacter_CMC_ABP` and
+`SandboxCharacter_Mover_ABP`. Between them the graph contains:
+
+| node | in GASP | here |
+|---|---|---|
+| `AnimNode_MotionMatching` + `PoseSearchHistoryCollector` | both ABPs | pose search over 205 poses, own implementation |
+| `AnimNode_BlendStack` | both | a two-slot crossfade, not a stack |
+| `AnimNode_Inertialization` | both | quintic inertialization, ported |
+| `AnimNode_DeadBlending` | both | **missing** |
+| `AnimNode_OrientationWarping` | both | ported (sine, pelvis + three spine bones) |
+| `AnimNode_StrideWarping` | Mover ABP only | ported, along the body's facing only |
+| `AnimNode_OffsetRootBone` | both | **missing** — the mesh is rigidly the capsule |
+| `AnimNode_Steering` | both | **missing** |
+| `AnimNode_FootPlacement` | CMC ABP only | ported in parts (see Feet) |
+| `AnimNode_LegIK` | both | two-bone IK with a knee pole instead |
+| `AnimNode_RemapCurves` | both | **missing** (no curve pipeline) |
+| `AnimNode_BlendSpacePlayer`, `BlendListByBool/Int`, `TwoWayBlend` | both | directional blend of four clips |
+
+And the settings GASP's graph names, which is the list of what it tunes:
+
+- foot placement: `FootPlacementPlantSettings`, `FootPlacementInterpolationSettings`,
+  `FootPlacementTraceSettings`, `FootPlacementPelvisSettings`, `UnplantRadius`,
+  `SeparatingDistance`, `MaxGroundPenetration`, `FloorLinearStiffness`,
+  `UnplantLinearStiffness`, `SweepRadius`, `bEnableFloorInterpolation`,
+  `AllowFootPinning`, `EFootPlacementLockType`, `PlantSpeedMode`,
+  `EPelvisHeightMode`, `DisablePelvisCurveName`, `FKFootBone`, `BallBone`,
+  `FootBoneForwardAxis`, and — this one has no counterpart here —
+  **`PlantSettings_Stops` and `InterpolationSettings_Stops`**, a second set of
+  plant settings the graph switches to when the body is stopping.
+- leg IK: `AnkleTwistReduction`, `DistributedBoneOrientationAlpha`,
+  `AnimLegIKDefinition`.
+- steering: `EnableSteering`, `DisableSteeringBelowSpeed`,
+  `Enable_TurnInPlaceSteering`.
+- root offset: `Get_OffsetRootTranslationMode`, `OffsetRootTranslationHalfLife`,
+  `OffsetRootTranslationRadius`, `OffsetRootRotationMode`,
+  `EOffsetRootBone_CollisionTestingMode`.
+- warping: `EOrientationWarpingSpace`, `CounterCompensateInterpSpeed`,
+  `Enable_Warping`, `Enable_PlayRateWarping`, `Enable_Warping_History`,
+  `AllowSlopeWarping`.
+- state the graph reads: `E_Gait`, `IsStarting`, `IsPivoting`, `Pivots`,
+  `Get_TrajectoryTurnAngle`, `PawnSpeedHistory`, `MoveData_Speed_History`,
+  `LandSpeed`, `HeavyLandSpeedThreshold`, `DistanceToGround` (a curve),
+  `LeanLR` with `BS1D_Additive_Lean_Run` and `DisableAdditiveBelowSpeed`,
+  aim offsets through `AO_Blend_Curve`.
+- movement: `WalkSpeeds`, `RunSpeeds`, `SprintSpeeds`, `CrouchSpeeds` — each a
+  vector, not a scalar — blended by `Curve_StrafeSpeedMap` in
+  `CalculateMaxSpeed`, plus `AccelerationRemappingCurve`.
+
+Five of those are divergences this comparison had not recorded before, and they
+are written up in their own sections below: the stopping plant settings, the
+starting and pivoting states, the additive lean, the speed-by-direction curve,
+and steering.
+
 ## Selecting what to play
 
 | | GASP | here |
@@ -274,6 +354,79 @@ under the body: measured 0.317 m between the feet at rest, both planted.
 **Starts and pivots are still missing**, and so is the shot vocabulary GASP has
 for them.
 
+## What GASP's graph has and this system has not
+
+Five of these came out of the 2026-09-22 scan of the assets themselves; each is
+something the graph names and this system has no counterpart for.
+
+### Speed by direction is a curve in GASP, a pair of scalars here
+
+GASP's movement component holds `WalkSpeeds`, `RunSpeeds`, `SprintSpeeds` and
+`CrouchSpeeds` as vectors — a speed per direction, not one number per gait — and
+`CalculateMaxSpeed` blends between their components through
+`Curve_StrafeSpeedMap`, a curve over the angle between facing and travel.
+`AccelerationRemappingCurve` does the same for acceleration.
+
+Here there are two scalars, `DIRECTION_SPEED_SHARES` (backward 0.7, strafe
+0.85 by default; measured from the clips for the clip-paced profile), applied as
+a weighted share in `systems/motionVelocity.ts:26`.
+
+**Diverges, and it is load-bearing.** The stride warp here scales the foot's
+reach along the body's facing only, so on a strafe or a walk backwards the
+clip's stance foot travels across the ground and the plant taken on it is
+carried out of its radius within a few frames. That is what made Unreal's
+unplant spring unusable here (see Feet). The fix is GASP's shape: a speed and a
+stride scale that are functions of the travel direction, not of the facing.
+
+### GASP has a second set of plant settings for stopping
+
+The graph names `PlantSettings_Stops` and `InterpolationSettings_Stops`
+alongside the ordinary `FootPlacementPlantSettings` and
+`FootPlacementInterpolationSettings`: while the body is coming to a stop, foot
+placement runs under different plant and interpolation numbers — a stop is the
+one moment a foot has to commit hard, and the same springs that keep a run
+smooth would let it slide.
+
+Nothing here switches settings by state. **Divergence, open.** It is the first
+thing to try against the remaining stop jerk (`verify:spikes`, stopping: 24.4°
+of added shin jerk).
+
+### Starting and pivoting are states in GASP's graph
+
+`IsStarting`, `IsPivoting` and `Pivots` are variables the graph reads, and they
+select the shot starts and pivots GASP has. `Get_TrajectoryTurnAngle`,
+`PawnSpeedHistory` and `MoveData_Speed_History` feed them.
+
+Here the stop is matched and the start is not; there is no pivot state at all.
+**Divergence, open** — and the measurements say where it costs: breaking into a
+run is the worst jerk left in the system (45.8–59.8° on the shin, against 27°
+from the clips alone).
+
+### Additive lean and the curve pipeline
+
+GASP leans the body into a turn with an additive blendspace
+(`BS1D_Additive_Lean_Run`, driven by `LeanLR`, cut off under
+`DisableAdditiveBelowSpeed`), aims with `AO_Blend_Curve`, and remaps animation
+curves through `AnimNode_RemapCurves`. It also reads a `DistanceToGround` curve
+authored into the clips, which is how its foot placement knows what the clip
+intends before a trace says anything.
+
+None of that exists here: no additive layer, no curve pipeline, no authored
+curves on the clips. **Divergence, open.** The lean is cosmetic; the
+`DistanceToGround` curve is not — it is the clean input for the "allowed
+penetration" this system currently estimates from the character's own floor.
+
+### Steering
+
+`AnimNode_Steering` with `DisableSteeringBelowSpeed` and
+`Enable_TurnInPlaceSteering` is in both GASP graphs: it rotates the playing clip
+toward the desired facing so a turn does not have to wait for the next clip.
+
+Not here. **Divergence, open.** With turning programmed rather than animated,
+this is the node that would keep the feet from being dragged sideways during a
+turn — the same defect the unplant radius and the mutual placement are currently
+holding back.
+
 ## Root motion
 
 GASP clips carry root motion and `OffsetRootBone` reconciles mesh and capsule.
@@ -295,6 +448,33 @@ body against the camera jumped 3.61 times the median frame, which is the
 ghosting that was visible. **Matches now** — the camera reads the same
 interpolation the mesh does, and `verify:judder` holds the relative speed under
 0.02 m/s, a threshold taken from the defect itself (0.048 broken, 0.005 fixed).
+
+## Sync log
+
+Each entry is one pass of comparing what is built here against what GASP and the
+engine actually do, with what it changed.
+
+- **2026-09-18, feet crossing.** Read `AnimNode_FootPlacement.cpp:601-665`
+  (`DeterminePlantType`), `:1800-1841` (`SeparatingDistance`) and the header's
+  defaults. Ported the unplant radius and angle and the replant; found that
+  Unreal's separating plane cannot see a planted foot the body has left, and
+  invented mutual placement for it. Report: the Feet section.
+- **2026-09-18, foot orientation.** Read notapain's `foot_rotate.gd` against
+  what was here, found this system's own bind-pose levelling misattributed to
+  notapain in a comment, ported the real rule and measured both.
+- **2026-09-18, the plant plane.** Read `UpdatePlantingPlaneInterpolation`
+  (`:494-598`) and `FinalizeFootAlignment` (`:855-876`) and found the port had
+  been pushing out of the traced ground instead of an interpolated plane.
+  Ported the spring, the penetration limit and the trace-and-clamp order.
+- **2026-09-18, the unplant spring.** Read `UpdatePlantOffsetInterpolation`
+  (`:473-493`), ported it, measured it against the bench, reverted it, and
+  recorded why (the clip's stance foot travels here where GASP's does not).
+- **2026-09-22, the whole graph.** Scanned both GASP animation blueprints for
+  what they contain rather than reading the engine alone — node types, settings
+  structs, and the variables the graph reads (method above). Five divergences
+  this document had never recorded came out of it: the stopping plant settings,
+  the starting and pivoting states, the additive lean and curve pipeline, the
+  speed-by-direction curve, and steering. All five are written up above.
 
 ## Verification
 
