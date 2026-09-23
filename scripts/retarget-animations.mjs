@@ -36,7 +36,7 @@ globalThis.FileReader = class {
 
 const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js')
 const { GLTFExporter } = await import('three/examples/jsm/exporters/GLTFExporter.js')
-const { AnimationMixer, Vector3 } = await import('three')
+const { AnimationMixer, LoopOnce, Vector3 } = await import('three')
 
 const LIBRARY = resolve('src/features/motion/assets/library/UAL1_Standard.glb')
 const TARGET_RIG = resolve('src/features/ragdoll/assets/models/default-humanoid.fbx')
@@ -53,6 +53,13 @@ const LIMBS = [
   ['thigh_l', 'calf_l'], ['calf_l', 'foot_l'], ['thigh_r', 'calf_r'], ['calf_r', 'foot_r'],
   ['foot_l', 'ball_l'], ['foot_r', 'ball_r'], ['spine_01', 'neck_01'],
 ]
+
+function playOnce(mixer, clip) {
+  const action = mixer.clipAction(clip)
+  action.setLoop(LoopOnce, 1)
+  action.clampWhenFinished = true
+  action.play()
+}
 
 function arrayBufferOf(path) {
   const buffer = readFileSync(path)
@@ -95,8 +102,8 @@ function directionOf(root, from, to) {
 function worstLimbError(source, sourceClip, target, targetClip) {
   const sourceMixer = new AnimationMixer(source)
   const targetMixer = new AnimationMixer(target)
-  sourceMixer.clipAction(sourceClip).play()
-  targetMixer.clipAction(targetClip).play()
+  playOnce(sourceMixer, sourceClip)
+  playOnce(targetMixer, targetClip)
   let worst = { degrees: 0, limb: '', time: 0 }
   const times = targetClip.tracks[0]?.times ?? [0]
   for (const time of times) {
@@ -118,7 +125,7 @@ function worstLimbError(source, sourceClip, target, targetClip) {
 
 function pelvisRange(target, clip) {
   const mixer = new AnimationMixer(target)
-  mixer.clipAction(clip).play()
+  playOnce(mixer, clip)
   const hips = nodeNamed(target, /Hips$/)
   let low = Infinity
   let high = -Infinity
@@ -131,6 +138,59 @@ function pelvisRange(target, clip) {
   }
   mixer.stopAllAction()
   return { high, low }
+}
+
+const LIFT_METRES = 0.02
+const SETTLE_METRES = 0.02
+
+function footLift(bones, rest, foot, toe) {
+  return Math.min(bones[foot].getWorldPosition(new Vector3()).y - rest[foot], bones[toe].getWorldPosition(new Vector3()).y - rest[toe])
+}
+
+/* @important The moments a gameplay layer has to line a clip up with — when the
+   feet leave the ground, when they meet it, when the body has recovered — are
+   measured here from the retargeted clip on the rig, never typed. A foot is off
+   the ground when its lowest point, ankle or ball, is more than 2 cm above
+   where it stands at rest. */
+function contactTimes(target, clip) {
+  const names = { hips: /Hips$/, leftFoot: /LeftFoot$/, leftToe: /LeftToeBase$/, rightFoot: /RightFoot$/, rightToe: /RightToeBase$/ }
+  target.updateMatrixWorld(true)
+  const bones = Object.fromEntries(Object.entries(names).map(([key, pattern]) => [key, nodeNamed(target, pattern)]))
+  const rest = Object.fromEntries(Object.entries(bones).map(([key, bone]) => [key, bone.getWorldPosition(new Vector3()).y]))
+  const mixer = new AnimationMixer(target)
+  playOnce(mixer, clip)
+  const frames = []
+  for (const time of clip.tracks[0]?.times ?? [0]) {
+    mixer.setTime(time)
+    target.updateMatrixWorld(true)
+    frames.push({
+      hips: bones.hips.getWorldPosition(new Vector3()).y,
+      left: footLift(bones, rest, 'leftFoot', 'leftToe'),
+      right: footLift(bones, rest, 'rightFoot', 'rightToe'),
+      time,
+    })
+  }
+  mixer.stopAllAction()
+  target.updateMatrixWorld(true)
+  return timingsOf(frames)
+}
+
+function timingsOf(frames) {
+  const lifted = (frame) => frame.left > LIFT_METRES || frame.right > LIFT_METRES
+  const grounded = (frame) => frame.left <= LIFT_METRES && frame.right <= LIFT_METRES
+  const firstLift = frames.findIndex(lifted)
+  const airborne = frames.findIndex((frame) => frame.left > LIFT_METRES && frame.right > LIFT_METRES)
+  const touchdown = grounded(frames[0]) && firstLift < 0 ? 0 : frames.findIndex((frame, index) => index > airborne && airborne >= 0 && grounded(frame))
+  const lowest = frames.reduce((best, frame, index) => (frame.hips < frames[best].hips ? index : best), 0)
+  const final = frames[frames.length - 1].hips
+  const settle = frames.findIndex((frame, index) => index >= lowest && Math.abs(frame.hips - final) <= SETTLE_METRES)
+  const at = (index) => (index >= 0 ? Number(frames[index].time.toFixed(4)) : null)
+  return {
+    airborne: at(airborne),
+    settle: at(settle),
+    takeoff: firstLift > 0 ? at(firstLift - 1) : null,
+    touchdown: at(touchdown),
+  }
 }
 
 /* @important The clips this project already plays are Mixamo's, in centimetres,
@@ -181,7 +241,16 @@ mkdirSync(TARGET_DIRECTORY, { recursive: true })
 const unitScale = await familyUnitScale(target)
 console.log(`positions written in the clip family's units: x${unitScale.toFixed(3)} of the rig's`)
 
-console.log('clip          seconds  keys  pelvis m (low-high)  worst limb error')
+const METRICS_FILE = join(TARGET_DIRECTORY, 'retargetedClipMetrics.json')
+const metrics = (() => {
+  try {
+    return JSON.parse(readFileSync(METRICS_FILE, 'utf8'))
+  } catch {
+    return {}
+  }
+})()
+
+console.log('clip          seconds  keys  pelvis m (low-high)  worst limb error                    takeoff  touchdown  settle')
 for (const entry of chosen) {
   const sourceClip = library.animations.find((clip) => clip.name === entry.source)
   if (!sourceClip) throw new Error(`the library has no clip named ${entry.source}`)
@@ -189,6 +258,8 @@ for (const entry of chosen) {
   clip.name = entry.name
   const error = worstLimbError(library.scene, sourceClip, target, clip)
   const pelvis = pelvisRange(target, clip)
+  const timings = contactTimes(target, clip)
+  metrics[entry.name] = { duration: Number(clip.duration.toFixed(4)), source: entry.source, ...timings }
   const glb = await exportGlb(bonesOnly(target), inFamilyUnits(clip.clone(), unitScale))
   writeFileSync(join(TARGET_DIRECTORY, `${entry.name}.glb`), Buffer.from(glb))
   console.log([
@@ -197,5 +268,10 @@ for (const entry of chosen) {
     String(clip.tracks[0]?.times.length ?? 0).padStart(5),
     `${pelvis.low.toFixed(3)}-${pelvis.high.toFixed(3)}`.padStart(20),
     `${error.degrees.toFixed(2)} deg on ${error.limb} at ${error.time.toFixed(2)} s`.padStart(34),
+    String(timings.takeoff).padStart(8),
+    String(timings.touchdown).padStart(9),
+    String(timings.settle).padStart(7),
   ].join('  '))
 }
+writeFileSync(METRICS_FILE, `${JSON.stringify(metrics, null, 2)}
+`)

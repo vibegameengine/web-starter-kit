@@ -1,4 +1,4 @@
-import { AnimationClip, AnimationMixer, Quaternion, QuaternionKeyframeTrack, Vector3, VectorKeyframeTrack } from 'three'
+import { AnimationClip, AnimationMixer, LoopOnce, Quaternion, QuaternionKeyframeTrack, Vector3, VectorKeyframeTrack } from 'three'
 import type { KeyframeTrack, Object3D } from 'three'
 
 /* @important Moving a clip between two skeletons is not a rename. docs/animation-retargeting.md
@@ -196,7 +196,10 @@ function sampleTracks(input: RetargetInput, bones: readonly BoundBone[], facing:
     scale: bone.entry.translate ? heightRatio(bone, input) : 1,
   }))
   const mixer = new AnimationMixer(input.source)
-  mixer.clipAction(input.clip).play()
+  const action = mixer.clipAction(input.clip)
+  action.setLoop(LoopOnce, 1)
+  action.clampWhenFinished = true
+  action.play()
   for (const time of times) {
     mixer.setTime(time)
     input.source.updateMatrixWorld(true)

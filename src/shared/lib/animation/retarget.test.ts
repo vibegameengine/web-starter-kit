@@ -167,6 +167,22 @@ describe('retargetClip', () => {
     expect(track.values[1]).toBeCloseTo(110 - 0.5 * 110, 6)
   })
 
+  /* @important A looping action set to the clip's full duration wraps to its
+     first frame, and a clip sampled that way ends on its own first pose:
+     measured, the retargeted Jump_Start finished crouched at 0.569 m and
+     Jump_Land in the air at 1.009 m, both copies of their frame 0. */
+  it('ends on the source clip last pose, not its first', () => {
+    const { source, target } = rigs()
+    const clip = retargetClip({
+      clip: new AnimationClip('rise', 1, [new VectorKeyframeTrack('pelvis.position', [0, 1], [0, 0.5, 0, 0, 1, 0])]),
+      map,
+      source: source.root,
+      target: target.root,
+    })
+    const track = clip.tracks.find((candidate) => candidate.name === 'Hips.position')!
+    expect(track.values[track.values.length - 2]).toBeCloseTo(110, 6)
+  })
+
   it('writes nothing for bones the map does not name', () => {
     const { source, target } = rigs()
     const clip = retargetClip({ clip: new AnimationClip('empty', 1, []), map, source: source.root, target: target.root })

@@ -1,0 +1,26 @@
+{
+  "jump-start": {
+    "duration": 1.3333,
+    "source": "Jump_Start",
+    "airborne": 0.2333,
+    "settle": 0.0667,
+    "takeoff": 0.1,
+    "touchdown": null
+  },
+  "jump-loop": {
+    "duration": 2.5,
+    "source": "Jump_Loop",
+    "airborne": null,
+    "settle": 1.5333,
+    "takeoff": null,
+    "touchdown": null
+  },
+  "jump-land": {
+    "duration": 1.2667,
+    "source": "Jump_Land",
+    "airborne": null,
+    "settle": 0.7333,
+    "takeoff": null,
+    "touchdown": 0
+  }
+}
