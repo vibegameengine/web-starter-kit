@@ -33,3 +33,17 @@ export function teleported(previous: readonly [number, number, number] | null, c
   if (!previous) return false
   return Math.hypot(current[0] - previous[0], current[1] - previous[1], current[2] - previous[2]) > SUPPORT_MAX_OFFSET
 }
+
+export type StandingFloorInput = {
+  readonly airborne: boolean
+  readonly colliderFloor: number
+  readonly current: number
+  readonly deltaSeconds: number
+  readonly support: number
+  readonly wasAirborne: boolean
+}
+
+export function standingFloor(input: StandingFloorInput): number {
+  if (input.airborne || input.wasAirborne) return input.colliderFloor
+  return followSupport(input.current, input.support, input.colliderFloor, input.deltaSeconds)
+}

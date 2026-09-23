@@ -25,6 +25,7 @@
     "verify:spikes": "node scripts/verify-motion-spikes.mjs",
     "verify:stairs": "node scripts/verify-stairs.mjs",
     "verify:crossing": "node scripts/verify-crossing.mjs",
+    "verify:jump": "node scripts/verify-jump.mjs",
     "verify:clips": "node scripts/verify-clips.mjs",
     "verify:judder": "node scripts/verify-judder.mjs",
     "verify:pelvis": "node scripts/verify-pelvis.mjs",

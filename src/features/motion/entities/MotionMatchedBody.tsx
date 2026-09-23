@@ -45,11 +45,12 @@ export function MotionMatchedBody({
      the directional blend happens to lead with does not. Including it was
      measured and made things worse — that crossover is already continuous in
      weight, and starting a blend in the middle of it perturbs a pose that was
-     fine. */
+     fine. Every phase of a jump gets one, as GASP inertializes every
+     transition it makes. */
   useInertialBlend(
     rig,
     () => lastDelta.current,
-    () => `${animator.current.gait}:${animator.current.idleShare > 0.5 ? 'idle' : 'move'}`,
+    () => `${animator.current.gait}:${animator.current.idleShare > 0.5 ? 'idle' : 'move'}:${animator.current.air}`,
   )
   useOrientationWarp({ enabled: () => (passes ? passes().warp : true), rig, timeline })
   useFootPlacement({
@@ -60,6 +61,7 @@ export function MotionMatchedBody({
       clipId: animator.current.clipId as never,
       clipSpeed: animator.current.clipSpeed,
       grounded: animator.current.grounded,
+      landing: animator.current.air === 'land',
       phase: animator.current.phase,
       stride: animator.current.stride,
     }),

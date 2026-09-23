@@ -6,6 +6,7 @@ import { ALL_PASSES, type ProceduralPasses } from '../systems/proceduralPasses'
 import {
   createStandStore,
   MOTION_STAND_RESET_EVENT,
+  MOTION_STAND_JUMP_EVENT,
   MOTION_STAND_STEP_EVENT,
 } from '../../../scenes/motion-stand/motionStandStore'
 import styles from './MotionStandScreen.module.css'
@@ -141,6 +142,9 @@ export function MotionStandScreen() {
               }}
             >
               Sprint
+            </ControlButton>
+            <ControlButton data-testid="motion-stand-jump" onClick={() => fire(MOTION_STAND_JUMP_EVENT)}>
+              Jump
             </ControlButton>
             <ControlButton data-testid="motion-stand-reset" onClick={() => fire(MOTION_STAND_RESET_EVENT)}>
               Reset

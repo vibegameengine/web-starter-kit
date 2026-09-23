@@ -161,6 +161,22 @@ describe('takeoff and landing', () => {
     expect(landed.landing!.atSeconds).toBeGreaterThan(jumped.takeoff!.atSeconds)
   })
 
+  /* @important GASP reads a DistanceToGround to get its legs down before the
+     feet arrive; this is the same number, from the collider's own sweep down.
+     A landing that only starts at contact meets the floor with one leg still
+     tucked from the takeoff clip — measured, 19 cm in the air at touchdown. */
+  it('reports how far the ground is below a falling body', () => {
+    const settings = settingsFor([FLOOR], 'orient-to-movement')
+    const jumped = drive(standing(), { ...IDLE_MOTION_INTENT, jump: true }, settings, 10)
+    expect(jumped.groundBelow).not.toBeNull()
+    expect(jumped.groundBelow!).toBeCloseTo(jumped.position[1] - HALF_EXTENTS[1], 2)
+  })
+
+  it('reports no ground below a body falling over nothing', () => {
+    const settings = settingsFor([], 'orient-to-movement')
+    expect(drive(standing(), IDLE_MOTION_INTENT, settings, 5).groundBelow).toBeNull()
+  })
+
   it('keeps the last stamps while nothing new happens', () => {
     const settings = settingsFor([FLOOR], 'orient-to-movement')
     const jumped = drive(standing(), { ...IDLE_MOTION_INTENT, jump: true }, settings, 1)

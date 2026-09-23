@@ -19,7 +19,7 @@ import { FixedTickProvider } from '../../shared/lib/simulation/FixedTick'
 import type { FixedTickBus } from '../../shared/lib/simulation/fixedTickBus'
 import { useOwnedFixedTickBus } from '../../shared/lib/simulation/fixedTickContext'
 import { LabStage } from '../lab-stage/LabStage'
-import { MOTION_STAND_RESET_EVENT, type StandStore } from './motionStandStore'
+import { MOTION_STAND_JUMP_EVENT, MOTION_STAND_RESET_EVENT, type StandStore } from './motionStandStore'
 import { STAND_COURSES, surfaceHeightAt, type StandCourseId } from './standCourses'
 import { useStandStepping } from './useStandStepping'
 
@@ -71,6 +71,12 @@ function CourseBlocks({ course }: { readonly course: StandCourseId }) {
   )
 }
 
+function consume(flag: { current: boolean }): boolean {
+  const was = flag.current
+  flag.current = false
+  return was
+}
+
 function StandSubject({ bus, course, facing, forward, passes, readout, right, sprint }: StandSubjectProps) {
   const rig = useMannequinRig(-BODY_HALF_EXTENTS[1])
   const aimYaw = useRef(0)
@@ -87,11 +93,21 @@ function StandSubject({ bus, course, facing, forward, passes, readout, right, sp
   const held = useRef({ forward, passes, right, sprint })
   held.current = { forward, passes, right, sprint }
   useEffect(() => invalidate(), [invalidate, passes])
+  const jumpPressed = useRef(false)
+  useEffect(() => {
+    const onJump = () => {
+      jumpPressed.current = true
+    }
+    window.addEventListener(MOTION_STAND_JUMP_EVENT, onJump)
+    return () => window.removeEventListener(MOTION_STAND_JUMP_EVENT, onJump)
+  }, [])
+  /* @important A press is consumed by the tick that reads it, so one click is
+     one jump on the stepping bench however many frames are stepped after it. */
   const intent = useMemo(() => ({
     read: (yaw: number): MotionIntent => ({
       crouch: false,
       forward: held.current.forward,
-      jump: false,
+      jump: consume(jumpPressed),
       right: held.current.right,
       sprint: held.current.sprint,
       yaw,

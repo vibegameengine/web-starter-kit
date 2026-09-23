@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { followSupport, supportHeight, SUPPORT_MAX_OFFSET, teleported } from './supportHeight'
+import { followSupport, standingFloor, supportHeight, SUPPORT_MAX_OFFSET, teleported } from './supportHeight'
 
 describe('supportHeight', () => {
   /* @important The character stands on its feet, not on its collider. A body on
@@ -61,6 +61,30 @@ describe('followSupport', () => {
     expect(height).toBeCloseTo(0.45 - SUPPORT_MAX_OFFSET, 3)
     for (let frame = 0; frame < 60; frame += 1) height = followSupport(height, 3, 0, 1 / 60)
     expect(height).toBeCloseTo(SUPPORT_MAX_OFFSET, 3)
+  })
+})
+
+/* @important In the air there is nothing to stand on, and the character is the
+   collider, as Unreal's mesh is its capsule. Kept on the ground it left and
+   carried by the damper, a body taking off at 4.2 m/s would trail its collider
+   by 0.42 m all the way up. */
+describe('standingFloor', () => {
+  it('is the collider floor itself while airborne', () => {
+    expect(standingFloor({ airborne: true, colliderFloor: 0.8, current: 0, deltaSeconds: 1 / 60, support: 0, wasAirborne: true })).toBe(0.8)
+  })
+
+  it('follows the support as before while on the ground', () => {
+    const next = standingFloor({ airborne: false, colliderFloor: 0.15, current: 0, deltaSeconds: 1 / 60, support: 0.15, wasAirborne: false })
+    expect(next).toBeCloseTo(followSupport(0, 0.15, 0.15, 1 / 60), 9)
+  })
+
+  /* @important Touchdown is contact: on the frame the collider lands, the body
+     is where the collider is. Carried there by the damper from the height it
+     had a tick earlier in the air, it stood 8 cm over the floor at touchdown
+     and sank into place over ten frames. */
+  it('stands on the collider on the frame it touches down', () => {
+    const next = standingFloor({ airborne: false, colliderFloor: 0.001, current: 0.094, deltaSeconds: 1 / 60, support: 0.001, wasAirborne: true })
+    expect(next).toBe(0.001)
   })
 })
 

@@ -42,6 +42,8 @@ export const MOTION_STAND_STEP_EVENT = 'motion-stand-step'
 
 export const MOTION_STAND_RESET_EVENT = 'motion-stand-reset'
 
+export const MOTION_STAND_JUMP_EVENT = 'motion-stand-jump'
+
 export function createStandStore(): StandStore {
   let snapshot = EMPTY_STAND_READOUT
   const listeners = new Set<() => void>()

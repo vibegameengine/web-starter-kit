@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest'
 import {
   airLayer,
   GROUNDED_AIR,
+  REACH_SECONDS,
+  timeToLand,
   LIGHT_LAND_SPEED,
   MIN_FALL_SECONDS,
   stepAir,
@@ -15,7 +17,7 @@ const TIMINGS: AirTimings = { absorb: 0.2, jumpSpeed: 4.2, loopDuration: 2.5, ri
 const STEP = 1 / 60
 
 function input(overrides: Partial<AirInput> = {}): AirInput {
-  return { deltaSeconds: STEP, landing: null, moving: false, now: 0, takeoff: null, ...overrides }
+  return { deltaSeconds: STEP, landing: null, moving: false, now: 0, takeoff: null, timeToLand: null, ...overrides }
 }
 
 function run(state: AirState, frames: number, overrides: Partial<AirInput>): AirState {
@@ -92,6 +94,50 @@ describe('stepAir', () => {
     const landing: AirState = { ...GROUNDED_AIR, landWeight: 1, phase: 'land', seenLanding: 2, seenTakeoff: 1, time: 0.3 }
     const again = stepAir(landing, input({ now: 3, takeoff: { atSeconds: 3, jumped: true } }), TIMINGS)
     expect(again.phase).toBe('rise')
+  })
+})
+
+describe('timeToLand', () => {
+  it('is how long a body falling from rest takes to cover the drop', () => {
+    expect(timeToLand(0.2, 0, 9.81)).toBeCloseTo(Math.sqrt(0.4 / 9.81), 9)
+  })
+
+  it('counts the climb before the fall for a body still rising', () => {
+    expect(timeToLand(0, 4.2, 9.81)).toBeCloseTo((2 * 4.2) / 9.81, 9)
+  })
+
+  it('is nothing with no ground below', () => {
+    expect(timeToLand(null, -1, 9.81)).toBeNull()
+  })
+})
+
+/* @important The legs go down BEFORE the feet arrive, as GASP's landing reads
+   DistanceToGround: once the ground is closer than one inertial transition
+   away, the pose moves to the landing clip's first frame — legs extended to
+   the floor — and the transition has finished by contact. Started at contact,
+   one foot met the floor still tucked 19 cm up from the takeoff clip. */
+describe('reaching for the ground', () => {
+  it('reaches for the ground when touchdown is one transition away', () => {
+    const rising: AirState = { ...GROUNDED_AIR, phase: 'rise', seenTakeoff: 1, time: 0.8 }
+    const reaching = stepAir(rising, input({ timeToLand: REACH_SECONDS * 0.9 }), TIMINGS)
+    expect(reaching.phase).toBe('reach')
+    expect(airLayer(reaching, input(), TIMINGS)).toEqual({ clip: 'jump-land', time: TIMINGS.touchdown, weight: 1 })
+  })
+
+  it('does not reach while touchdown is further off', () => {
+    const rising: AirState = { ...GROUNDED_AIR, phase: 'rise', seenTakeoff: 1, time: 0.3 }
+    expect(stepAir(rising, input({ timeToLand: REACH_SECONDS * 3 }), TIMINGS).phase).toBe('rise')
+  })
+
+  it('lands from reaching like from any other air phase', () => {
+    const reaching: AirState = { ...GROUNDED_AIR, phase: 'reach', seenTakeoff: 1 }
+    const landed = stepAir(reaching, input({ landing: { atSeconds: 2, speed: TIMINGS.jumpSpeed }, now: 2 }), TIMINGS)
+    expect(landed.phase).toBe('land')
+  })
+
+  it('goes back to falling if the ground it reached for is gone', () => {
+    const reaching: AirState = { ...GROUNDED_AIR, phase: 'reach', seenTakeoff: 1 }
+    expect(stepAir(reaching, input({ timeToLand: null }), TIMINGS).phase).toBe('fall')
   })
 })
 

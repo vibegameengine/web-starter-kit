@@ -11,7 +11,7 @@ import { groundUnder } from '../systems/footGround'
 import type { LocomotionClipId } from '../systems/locomotionPose'
 import { yawForward } from '../systems/motionIntent'
 import { crossingRelease, mutualSeparation, RESTING_SEPARATION, springSeparation, type FeetPair } from '../systems/footSeparation'
-import { followSupport, supportHeight, teleported } from '../systems/supportHeight'
+import { standingFloor, supportHeight, teleported } from '../systems/supportHeight'
 import { footStance } from '../systems/stanceWindow'
 import { strideScaleFor } from '../systems/strideWarp'
 import {
@@ -33,6 +33,7 @@ export type GaitReading = {
   readonly clipId: LocomotionClipId
   readonly clipSpeed: number
   readonly grounded: boolean
+  readonly landing?: boolean
   readonly phase: number
   readonly stride: number
 }
@@ -267,6 +268,7 @@ type FootRig = {
 }
 
 type FootMemory = {
+  airborne: boolean
   lastCollider: readonly [number, number, number] | null
   lastElapsed: number | null
   lastSupport: number | null
@@ -311,7 +313,11 @@ function disabledDebug(feet: FootRig, memory: FootMemory, body: BodyReading): Fo
   return { ...STILL_DEBUG, enabled: false, facingRadians: body.bodyFacingRadians, limbs: readingsOf(feet, memory, steps, body.bodyFacingRadians) }
 }
 
+/* @important Both feet are on the ground through a landing, whatever phase the
+   stride under it happens to be at: the landing clip is the pose there, and a
+   foot the stride calls in swing would be released mid-crouch. */
 function stanceOf(reading: GaitReading) {
+  if (reading.landing) return { left: true, right: true, standing: true }
   const windows = LOCOMOTION_STANCE_WINDOWS[reading.clipId] ?? LOCOMOTION_STANCE_WINDOWS['walk-forward']
   return footStance({
     blendShare: reading.blendShare,
@@ -336,15 +342,24 @@ function forgetPlace(memory: FootMemory): void {
    the two may drift apart. The collider climbs a step as soon as its front
    edge is over it; the character rises when its trailing foot lifts off the
    lower tread, which is when a person does. */
-function standCharacter(feet: FootRig, memory: FootMemory, deltaSeconds: number) {
+function standCharacter(feet: FootRig, memory: FootMemory, deltaSeconds: number, airborne: boolean) {
   const collider = feet.rig.parent ? feet.rig.parent.getWorldPosition(new Vector3()) : new Vector3()
   const colliderFloor = collider.y + feet.rigRestY
   const warped = teleported(memory.lastCollider, [collider.x, collider.y, collider.z])
   memory.lastCollider = [collider.x, collider.y, collider.z]
   if (warped) forgetPlace(memory)
+  if (airborne) memory.lastSupport = null
   memory.standingOn = memory.standingOn === null || warped
     ? colliderFloor
-    : followSupport(memory.standingOn, memory.lastSupport ?? colliderFloor, colliderFloor, deltaSeconds)
+    : standingFloor({
+      airborne,
+      colliderFloor,
+      current: memory.standingOn,
+      deltaSeconds,
+      support: memory.lastSupport ?? colliderFloor,
+      wasAirborne: memory.airborne,
+    })
+  memory.airborne = airborne
   const characterFloor = memory.standingOn
   feet.rig.position.y = feet.rigRestY + (characterFloor - colliderFloor)
   feet.rig.updateMatrixWorld(true)
@@ -377,7 +392,7 @@ function placeFeet(feet: FootRig, memory: FootMemory, body: BodyReading, reading
   const facing = yawForward(body.bodyFacingRadians)
   const forward = new Vector3(facing.x, 0, facing.z)
   const strideScale = strideScaleOf(body, reading)
-  const { characterFloor, colliderFloor } = standCharacter(feet, memory, deltaSeconds)
+  const { characterFloor, colliderFloor } = standCharacter(feet, memory, deltaSeconds, !reading.grounded)
 
   const inputs = feet.legs.map((leg, index) => ({
     ankleHeight: feet.ankleHeight,
@@ -442,6 +457,7 @@ export function useFootPlacement(options: FootPlacementOptions): MutableRefObjec
   const { ankleHeight, enabled, gait, rig, timeline, trace } = options
   const feet = useMemo(() => footRigOf(rig, trace, ankleHeight), [ankleHeight, rig, trace])
   const memory = useRef<FootMemory>({
+    airborne: false,
     lastCollider: null,
     lastElapsed: null,
     lastSupport: null,

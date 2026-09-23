@@ -28,6 +28,7 @@ export type MotionState = {
   readonly bodyFacingRadians: number
   readonly bodyTurnVelocity: number
   readonly elapsedSeconds: number
+  readonly groundBelow: number | null
   readonly groundNormal: Vector3Tuple
   readonly jumpHeld: boolean
   readonly landing: Landing | null
@@ -63,6 +64,7 @@ export function createMotionState(position: Vector3Tuple): MotionState {
     aimFacingRadians: 0,
     bodyFacingRadians: 0,
     bodyTurnVelocity: 0,
+    groundBelow: null,
     groundNormal: [0, 1, 0],
     jumpHeld: false,
     landing: null,
@@ -114,6 +116,15 @@ function locomotionOf(velocity: Vector3Tuple, facingRadians: number): Locomotion
   return locomotionDirectionOf(local)
 }
 
+const GROUND_SEARCH_METERS = 6
+
+function groundBelowOf(position: Vector3Tuple, settings: MotionSettings): number | null {
+  const below: Vector3Tuple = [position[0], position[1] - GROUND_SEARCH_METERS, position[2]]
+  const hit = settings.trace(position, below, settings.halfExtents)
+  if (!hit.hit || hit.startSolid) return null
+  return GROUND_SEARCH_METERS * hit.fraction
+}
+
 function takeoffOf(state: MotionState, onGround: boolean, jumped: boolean, delta: number): Takeoff | null {
   if (state.mode !== 'walking' || onGround) return state.takeoff
   return { atSeconds: state.elapsedSeconds + delta, jumped }
@@ -160,6 +171,7 @@ export function stepMotionController(input: MotionStepInput): MotionState {
     bodyFacingRadians: turned.facingRadians,
     bodyTurnVelocity: turned.turnVelocity,
     elapsedSeconds: state.elapsedSeconds + delta,
+    groundBelow: moved.onGround ? 0 : groundBelowOf(moved.position, settings),
     groundNormal: moved.groundNormal,
     jumpHeld: accelerated.jumpHeld,
     landing: landingOf(state, moved.onGround, accelerated.velocity, delta),

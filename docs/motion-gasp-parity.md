@@ -427,6 +427,56 @@ this is the node that would keep the feet from being dragged sideways during a
 turn — the same defect the unplant radius and the mutual placement are currently
 holding back.
 
+## Jumps
+
+GASP, as its `SandboxCharacter_CMC_ABP` names it:
+- states `InAir`, `TransitionToInAir`, `InAirLoop` and `Landed`;
+- a `TimeToLand` it computes;
+- `LandVelocity` / `LandSpeed` split by `HeavyLandSpeedThreshold` into `JustLanded_Light` and
+  `JustLanded_Heavy`;
+- `PlayLand` against `PlayMovingLand`;
+- `bDisablePelvisOffsetInAir`.
+
+Behind them sit about 175 jump assets: directional takeoffs and landings (F, B, LL, RL, LR),
+two styles (Neutral, Relaxed), and their own pose-search databases (`PSD_Dense_Jumps`).
+
+Here (`systems/airborne.ts`, `useMotionMatchedAnimator`), with three clips retargeted from the
+Universal Animation Library (see `docs/animation-retargeting.md`):
+
+- **takeoff** — the body leaves the ground the tick the button is pressed, and the takeoff clip
+  plays from its measured takeoff frame (0.1 s), skipping the crouch before the feet leave.
+  **Matches** GASP's intent: its jumps start at takeoff too.
+- **in the air** — the takeoff clip runs out into the air loop. The drawn character is exactly
+  its collider in the air: foot support is dropped, as `bDisablePelvisOffsetInAir` drops the
+  pelvis offset. Carried by the ground damper instead, it would have trailed the collider by
+  0.42 m. **Matches.**
+- **reaching for the ground** — the controller sweeps down for the distance to the ground, the
+  animator turns it into a time to land, and once touchdown is one inertial transition (0.25 s)
+  away the pose moves to the landing clip's contact frame. **Matches GASP's `TimeToLand`.**
+  Without it, one foot met the floor still tucked 19 cm up from the takeoff clip. With it, both
+  feet are within 5 mm of the floor at touchdown.
+- **landing** — plays from touchdown. Depth is set by the landing speed: nothing below the speed
+  of a 20 cm drop, the whole clip at the jump's own takeoff speed. A moving landing lets go
+  shortly after the deepest point of the crouch (measured at 0.2 s); a still one plays through
+  to where the pelvis settles (0.733 s). **Matches in shape** — GASP's light/heavy and moving/still
+  split — but by weighting one clip rather than choosing between shot ones.
+- **stairs and small drops** — walking off an edge only counts as a fall after as long as a
+  20 cm drop takes, so a flight of stairs stays walking and a 20 cm ledge plays no landing.
+  GASP gets this from `DistanceToGround` and its movement mode. **Same behaviour, by a
+  different rule.**
+
+**Diverges in count, as everywhere.**
+- No direction: a jump sideways or backwards plays the forward clips.
+- No style variants.
+- No separate heavy landing: one clip is weighted instead.
+
+`verify:jump` checks, on the stand:
+- the phases run in order;
+- the body stays on its collider in the air (0.0000 m apart);
+- both feet stand on the floor at touchdown, judged against the course geometry;
+- a flight of stairs never becomes a fall;
+- a ledge never plays a landing.
+
 ## Root motion
 
 GASP clips carry root motion and `OffsetRootBone` reconciles mesh and capsule.

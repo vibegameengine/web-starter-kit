@@ -40,7 +40,9 @@ import {
 import type { MotionIntentSource } from './useKeyboardMotionIntent'
 import type { MotionProfile } from '../systems/motionProfile'
 import type { MotionTimeline } from './useMotionController'
+import { airLayer, GROUNDED_AIR, stepAir, timeToLand, type AirPhase, type AirState } from '../systems/airborne'
 import { usePoseCrossfade, type BlendEntry } from './usePoseCrossfade'
+import { airTimingsOf, useRetargetedClips } from './useRetargetedClips'
 import { useRigLocalPose } from './useRigLocalPose'
 import { useRootHistory } from './useRootHistory'
 
@@ -54,6 +56,8 @@ export type MotionMatchedAnimatorOptions = {
 }
 
 export type MotionMatchedDebug = {
+  readonly air: AirPhase
+  readonly airWeight: number
   readonly gait: Gait
   readonly idleShare: number
   readonly stopIn: number
@@ -158,7 +162,13 @@ export function useMotionMatchedAnimator(options: MotionMatchedAnimatorOptions):
   const lastTravelled = useRef(0)
   const idleShare = useRef(1)
   const gait = useRef<Gait>('walk')
+  const airClips = useRetargetedClips(rig)
+  const airTimings = useMemo(() => airTimingsOf(airClips, profile.jumpVelocity), [airClips, profile.jumpVelocity])
+  const air = useRef<AirState>(GROUNDED_AIR)
+  const lastAirClock = useRef<number | null>(null)
   const debug = useRef<MotionMatchedDebug>({
+    air: 'ground',
+    airWeight: 0,
     best: [],
     gait: 'walk',
     idleShare: 1,
@@ -235,6 +245,28 @@ export function useMotionMatchedAnimator(options: MotionMatchedAnimatorOptions):
     const speed = horizontalSpeed(state.velocity)
     const wish = intentWishDirection(intent.read(aimYaw.current))
     const stopping = Math.hypot(wish.x, wish.z) < 1e-4
+    /* @important The jump runs on the same interpolated simulation clock the
+       stride phase does, so between two ticks the air clips keep moving with
+       the body instead of standing still and catching up. */
+    const airClock = lerp(timeline.current.previous.elapsedSeconds, state.elapsedSeconds, bus ? bus.alpha() : 1)
+    const airInput = {
+      deltaSeconds: lastAirClock.current === null ? 0 : Math.max(0, airClock - lastAirClock.current),
+      landing: state.landing,
+      moving: !stopping,
+      now: state.elapsedSeconds,
+      takeoff: state.takeoff,
+      timeToLand: state.mode === 'falling' ? timeToLand(state.groundBelow, state.velocity[1], profile.gravity) : null,
+    }
+    lastAirClock.current = airClock
+    air.current = stepAir(air.current, airInput, airTimings)
+    const layer = airLayer(air.current, airInput, airTimings)
+    crossfade.overlay(layer ? { clip: airClips[layer.clip], time: layer.time, weight: layer.weight } : null)
+    debug.current = {
+      ...debug.current,
+      air: air.current.phase,
+      airWeight: layer?.weight ?? 0,
+      grounded: air.current.phase === 'ground' || air.current.phase === 'land',
+    }
     idleShare.current = approachWeight(
       idleShare.current,
       stopping ? 1 - Math.min(1, speed / IDLE_BLEND_SPEED) : 0,
@@ -322,7 +354,7 @@ export function useMotionMatchedAnimator(options: MotionMatchedAnimatorOptions):
       cadence: split.cadence,
       clipId: playing.clipId,
       clipSpeed,
-      grounded: state.mode === 'walking',
+      grounded: air.current.phase === 'ground' || air.current.phase === 'land',
       phase: duration > 0 ? playing.time / duration : 0,
       stride: split.stride,
       time: playing.time,
