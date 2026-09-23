@@ -219,6 +219,28 @@ function inFamilyUnits(clip, scale) {
   return clip
 }
 
+/* @important Every clip here is in place: the capsule owns horizontal motion and
+   the pelvis only moves up and down over it, which is what convert-animations
+   does to the Mixamo clips and what verify:clips asserts. The library's clips
+   carry their pelvis sway along the ground — measured 13.5 cm on Jump_Start
+   and 9.7 cm on Jump_Land, at up to 1.5 m/s — and kept, it read as the body
+   sliding against the camera. The pelvis's X and Z are held where the rig's
+   own pelvis rests, not at the clip's first key: every clip then shares one
+   horizontal pelvis, and blending between them moves it nowhere. Held at each
+   clip's first key, a landing blended in from a walk still slid the pelvis
+   5 cm. */
+function holdPelvisInPlace(clip, restX, restZ) {
+  const track = clip.tracks.find((candidate) => /Hips\.position$/.test(candidate.name))
+  if (!track) return 0
+  let travelled = 0
+  for (let index = 0; index < track.values.length; index += 3) {
+    travelled = Math.max(travelled, Math.hypot(track.values[index] - restX, track.values[index + 2] - restZ))
+    track.values[index] = restX
+    track.values[index + 2] = restZ
+  }
+  return travelled
+}
+
 function bonesOnly(scene) {
   const copy = scene.clone(true)
   const meshes = []
@@ -241,6 +263,7 @@ const library = await loadGlb(LIBRARY)
 const target = await runtimeRig()
 mkdirSync(TARGET_DIRECTORY, { recursive: true })
 const unitScale = await familyUnitScale(target)
+const restPelvis = nodeNamed(target, /Hips$/).position.clone()
 console.log(`positions written in the clip family's units: x${unitScale.toFixed(3)} of the rig's`)
 
 const METRICS_FILE = join(TARGET_DIRECTORY, 'retargetedClipMetrics.json')
@@ -258,6 +281,7 @@ for (const entry of chosen) {
   if (!sourceClip) throw new Error(`the library has no clip named ${entry.source}`)
   const clip = retargetClip({ clip: sourceClip, hips: UE5_TO_MIXAMO_HIPS, map: UE5_TO_MIXAMO, source: library.scene, target })
   clip.name = entry.name
+  const heldMetres = holdPelvisInPlace(clip, restPelvis.x, restPelvis.z)
   const error = worstLimbError(library.scene, sourceClip, target, clip)
   const pelvis = pelvisRange(target, clip)
   const timings = contactTimes(target, clip)
@@ -273,6 +297,7 @@ for (const entry of chosen) {
     String(timings.takeoff).padStart(8),
     String(timings.touchdown).padStart(9),
     String(timings.settle).padStart(7),
+    `held ${(heldMetres * 100).toFixed(1)} cm`,
   ].join('  '))
 }
 writeFileSync(METRICS_FILE, `${JSON.stringify(metrics, null, 2)}
