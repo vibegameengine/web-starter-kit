@@ -148,7 +148,8 @@ function footLift(bones, rest, foot, toe) {
 }
 
 /* @important The moments a gameplay layer has to line a clip up with — when the
-   feet leave the ground, when they meet it, when the body has recovered — are
+   feet leave the ground, when they meet it, when the pelvis is lowest, when the
+   body has recovered — are
    measured here from the retargeted clip on the rig, never typed. A foot is off
    the ground when its lowest point, ankle or ball, is more than 2 cm above
    where it stands at rest. */
@@ -186,6 +187,7 @@ function timingsOf(frames) {
   const settle = frames.findIndex((frame, index) => index >= lowest && Math.abs(frame.hips - final) <= SETTLE_METRES)
   const at = (index) => (index >= 0 ? Number(frames[index].time.toFixed(4)) : null)
   return {
+    absorb: at(lowest),
     airborne: at(airborne),
     settle: at(settle),
     takeoff: firstLift > 0 ? at(firstLift - 1) : null,
