@@ -38,7 +38,7 @@ const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js')
 const { GLTFExporter } = await import('three/examples/jsm/exporters/GLTFExporter.js')
 const { AnimationMixer, Vector3 } = await import('three')
 
-const LIBRARY = 'C:/Users/pavel/projects/AIGamess/Universal Animation Library[Standard]/Unreal-Godot/UAL1_Standard.glb'
+const LIBRARY = resolve('src/features/motion/assets/library/UAL1_Standard.glb')
 const TARGET_RIG = resolve('src/features/ragdoll/assets/models/default-humanoid.fbx')
 const TARGET_DIRECTORY = resolve('src/features/motion/assets/animations')
 

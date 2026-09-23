@@ -1,9 +1,7 @@
-import { Instance, Instances, useGLTF } from '@react-three/drei'
+import { Instance, Instances } from '@react-three/drei'
 import { useEffect, useMemo, useRef } from 'react'
-import { Mesh, MeshStandardMaterial } from 'three'
-import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js'
 
-import mannequinUrl from '../../features/ragdoll/assets/models/default-humanoid.fbx?fbx=raw'
+import { useMannequinRig } from '../../features/motion/components/useMannequinRig'
 import { AnimatedBody } from '../../features/motion/entities/AnimatedBody'
 import { MotionMatchedBody } from '../../features/motion/entities/MotionMatchedBody'
 
@@ -30,21 +28,7 @@ import { MOTION_READOUT_INTERVAL_SECONDS, type MotionReadoutStore } from './moti
 
 const BODY_HALF_EXTENTS: Vector3Tuple = [0.3, 0.9, 0.3]
 const SIMULATION_HZ = 60
-const bodyMaterial = new MeshStandardMaterial({ color: '#b9743f', roughness: 0.72 })
 
-function useMannequinRig() {
-  const { scene } = useGLTF(mannequinUrl)
-  return useMemo(() => {
-    const rig = cloneSkinned(scene)
-    rig.position.set(0, -BODY_HALF_EXTENTS[1], 0)
-    rig.traverse((object) => {
-      const mesh = object as Mesh
-      if (mesh.isMesh) mesh.material = bodyMaterial
-      mesh.frustumCulled = false
-    })
-    return rig
-  }, [scene])
-}
 
 export type AnimationMode = 'blend' | 'matching'
 
@@ -95,7 +79,7 @@ function MotionLabSubject({ animation, profile, readout, rotationMode, showColli
     turnProfile: HUMAN_TURN_PROFILE,
   }), [profile, rotationMode])
 
-  const rig = useMannequinRig()
+  const rig = useMannequinRig(-BODY_HALF_EXTENTS[1])
   const { timeline, warp } = useMotionController({
     aimYaw: look.yaw,
     intent,

@@ -1,13 +1,9 @@
 /* eslint-disable react-hooks/refs -- the bench hands the current drive to a
    simulation that reads it per tick, not to the render. */
-import { useGLTF } from '@react-three/drei'
 import { useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Mesh, MeshStandardMaterial } from 'three'
-import type { Object3D } from 'three'
-import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js'
 
-import mannequinUrl from '../../features/ragdoll/assets/models/default-humanoid.fbx?fbx=raw'
+import { useMannequinRig } from '../../features/motion/components/useMannequinRig'
 import { MotionMatchedBody } from '../../features/motion/entities/MotionMatchedBody'
 import type { ProceduralPasses } from '../../features/motion/systems/proceduralPasses'
 import { MotionBody } from '../../features/motion/entities/MotionBody'
@@ -29,7 +25,6 @@ import { useStandStepping } from './useStandStepping'
 
 const BODY_HALF_EXTENTS: Vector3Tuple = [0.3, 0.9, 0.3]
 const START: Vector3Tuple = [0, 0.9, 0]
-const bodyMaterial = new MeshStandardMaterial({ color: '#b9743f', roughness: 0.72 })
 
 export type MotionStandSceneProps = {
   readonly course: StandCourseId
@@ -45,19 +40,6 @@ type StandSubjectProps = MotionStandSceneProps & {
   readonly bus: FixedTickBus
 }
 
-function useMannequin(): Object3D {
-  const { scene } = useGLTF(mannequinUrl)
-  return useMemo(() => {
-    const rig = cloneSkinned(scene)
-    rig.position.set(0, -BODY_HALF_EXTENTS[1], 0)
-    rig.traverse((object) => {
-      const mesh = object as Mesh
-      if (mesh.isMesh) mesh.material = bodyMaterial
-      mesh.frustumCulled = false
-    })
-    return rig
-  }, [scene])
-}
 
 /* @important The course geometry goes out in DEV so a check can ask what is
    under a foot without asking the pass that placed it. A check that reads the
@@ -90,7 +72,7 @@ function CourseBlocks({ course }: { readonly course: StandCourseId }) {
 }
 
 function StandSubject({ bus, course, facing, forward, passes, readout, right, sprint }: StandSubjectProps) {
-  const rig = useMannequin()
+  const rig = useMannequinRig(-BODY_HALF_EXTENTS[1])
   const aimYaw = useRef(0)
   const frame = useRef(0)
   const invalidate = useThree((state) => state.invalidate)
