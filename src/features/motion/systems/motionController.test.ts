@@ -131,6 +131,46 @@ describe('direction speed shares', () => {
   })
 })
 
+/* @important Leaving the ground and meeting it again are events the animation
+   has to answer, and they are stamped on the simulation clock rather than read
+   from a change of mode between two frames: when the render falls behind,
+   several ticks run between frames, and a takeoff followed a tick later by
+   falling looks, frame to frame, like a body that walked off a ledge. */
+describe('takeoff and landing', () => {
+  const ledge: SolidBox = { center: [0, -0.5, -9], halfExtents: [3, 0.5, 10] }
+
+  it('stamps a jump as a jump when the body leaves the ground by jumping', () => {
+    const settings = settingsFor([FLOOR], 'orient-to-movement')
+    const jumped = drive(standing(), { ...IDLE_MOTION_INTENT, jump: true }, settings, 1)
+    expect(jumped.takeoff).toEqual({ atSeconds: STEP, jumped: true })
+  })
+
+  it('stamps walking off an edge as a takeoff that was not a jump', () => {
+    const settings = settingsFor([ledge], 'orient-to-movement')
+    const walkedOff = drive(standing([0, 0.9, 0.2]), { ...IDLE_MOTION_INTENT, forward: 1 }, settings, 60)
+    expect(walkedOff.takeoff?.jumped).toBe(false)
+  })
+
+  it('stamps a landing with the speed the body came down at', () => {
+    const settings = settingsFor([FLOOR], 'orient-to-movement')
+    const jumped = drive(standing(), { ...IDLE_MOTION_INTENT, jump: true }, settings, 1)
+    const landed = drive(jumped, IDLE_MOTION_INTENT, settings, 120)
+    expect(landed.landing).not.toBeNull()
+    expect(landed.landing!.speed).toBeGreaterThan(GROUNDED_MOTION_PROFILE.jumpVelocity * 0.8)
+    expect(landed.landing!.speed).toBeLessThan(GROUNDED_MOTION_PROFILE.jumpVelocity * 1.2)
+    expect(landed.landing!.atSeconds).toBeGreaterThan(jumped.takeoff!.atSeconds)
+  })
+
+  it('keeps the last stamps while nothing new happens', () => {
+    const settings = settingsFor([FLOOR], 'orient-to-movement')
+    const jumped = drive(standing(), { ...IDLE_MOTION_INTENT, jump: true }, settings, 1)
+    const landed = drive(jumped, IDLE_MOTION_INTENT, settings, 120)
+    const later = drive(landed, IDLE_MOTION_INTENT, settings, 30)
+    expect(later.takeoff).toEqual(landed.takeoff)
+    expect(later.landing).toEqual(landed.landing)
+  })
+})
+
 describe('simulation time', () => {
   /* @important The body carries the simulation time it has lived, so every pass
      that smooths can age on the SIMULATION clock rather than on the render

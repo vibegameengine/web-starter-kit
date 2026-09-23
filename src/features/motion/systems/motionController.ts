@@ -13,6 +13,16 @@ export type RotationMode = 'follow-aim' | 'orient-to-movement'
 
 export const MOVING_SPEED_THRESHOLD = 0.05
 
+export type Takeoff = {
+  readonly atSeconds: number
+  readonly jumped: boolean
+}
+
+export type Landing = {
+  readonly atSeconds: number
+  readonly speed: number
+}
+
 export type MotionState = {
   readonly aimFacingRadians: number
   readonly bodyFacingRadians: number
@@ -20,11 +30,13 @@ export type MotionState = {
   readonly elapsedSeconds: number
   readonly groundNormal: Vector3Tuple
   readonly jumpHeld: boolean
+  readonly landing: Landing | null
   readonly locomotionDirection: LocomotionDirection
   readonly mode: MotionMode
   readonly moving: boolean
   readonly position: Vector3Tuple
   readonly steppedUp: number
+  readonly takeoff: Takeoff | null
   readonly travelledMeters: number
   readonly upperAimRadians: number
   readonly velocity: Vector3Tuple
@@ -53,11 +65,13 @@ export function createMotionState(position: Vector3Tuple): MotionState {
     bodyTurnVelocity: 0,
     groundNormal: [0, 1, 0],
     jumpHeld: false,
+    landing: null,
     locomotionDirection: 'idle',
     mode: 'falling',
     moving: false,
     position,
     steppedUp: 0,
+    takeoff: null,
     elapsedSeconds: 0,
     travelledMeters: 0,
     upperAimRadians: 0,
@@ -100,6 +114,16 @@ function locomotionOf(velocity: Vector3Tuple, facingRadians: number): Locomotion
   return locomotionDirectionOf(local)
 }
 
+function takeoffOf(state: MotionState, onGround: boolean, jumped: boolean, delta: number): Takeoff | null {
+  if (state.mode !== 'walking' || onGround) return state.takeoff
+  return { atSeconds: state.elapsedSeconds + delta, jumped }
+}
+
+function landingOf(state: MotionState, onGround: boolean, velocity: Vector3Tuple, delta: number): Landing | null {
+  if (state.mode === 'walking' || !onGround) return state.landing
+  return { atSeconds: state.elapsedSeconds + delta, speed: Math.max(0, -velocity[1]) }
+}
+
 export function stepMotionController(input: MotionStepInput): MotionState {
   const { aimYaw, delta, intent, settings, state } = input
   const accelerated = advanceMotionVelocity({
@@ -138,11 +162,13 @@ export function stepMotionController(input: MotionStepInput): MotionState {
     elapsedSeconds: state.elapsedSeconds + delta,
     groundNormal: moved.groundNormal,
     jumpHeld: accelerated.jumpHeld,
+    landing: landingOf(state, moved.onGround, accelerated.velocity, delta),
     locomotionDirection: locomotionOf(moved.velocity, turned.facingRadians),
     mode: moved.onGround ? 'walking' : 'falling',
     moving: horizontalSpeed(moved.velocity) > MOVING_SPEED_THRESHOLD,
     position: moved.position,
     steppedUp: moved.steppedUp,
+    takeoff: takeoffOf(state, moved.onGround, accelerated.jumped, delta),
     travelledMeters: state.travelledMeters + Math.hypot(
       moved.position[0] - state.position[0],
       moved.position[2] - state.position[2],
