@@ -23,6 +23,37 @@ It is the starting point, not the target: the aim is to be first inspired by thi
 - **Names only.** `scripts/gasp-names.mjs` / `gasp-scan.mjs` list what an asset contains when
   its values cannot be read. Facts from there are marked **(named)**.
 
+### Running the tools
+
+The dumps run headless in the commandlet; they read data and draw nothing:
+
+```
+UnrealEditor-Cmd.exe GameAnimationSample.uproject -run=pythonscript -script=scripts/gasp/dump_gasp.py -unattended -nullrhi -nosplash
+UnrealEditor-Cmd.exe GameAnimationSample.uproject -run=pythonscript -script=scripts/gasp/dump_gasp_deep.py -unattended -nullrhi -nosplash
+```
+
+- `dump_gasp_deep.py` exists because `dir()` on a Blueprint's default object does not list
+  Blueprint variables (`WalkSpeeds`, `RunSpeeds`…), so they are read by name. Camera rigs keep
+  their settings in a tree of node objects inside the rig's package; the walk follows those.
+
+The measurement needs a visible editor and a running game:
+
+```
+UnrealEditor.exe GameAnimationSample.uproject /Game/Levels/DefaultLevel -ExecCmds="py scripts/gasp/measure_gasp_pie.py" -nosplash
+```
+
+- Not `-ExecutePythonScript`: that runs the script and closes the editor at once, before a
+  single frame of Play-in-Editor.
+- Input goes in through Enhanced Input's debug commands `Input.+action IA_Move X=… Y=…` and
+  `Input.-action`, the way a held stick would. GASP ignores `AddMovementInput` for its gait and
+  speed, and the Enhanced Input subsystem is not reachable from the editor's Python
+  (`unreal.SubsystemBlueprintLibrary` does not exist there).
+- With C: full, the Zen DDC answers "Insufficient Storage 507" and every run recompiles
+  shaders. Point the cache elsewhere: `UE-LocalDataCachePath=E:\UEDDC` and
+  `-ddc=InstalledNoZenLocalFallback`.
+- Output: `<project>/Saved/gasp_measure/frames.json` and the screenshots; then
+  `node scripts/gasp/analyse_gasp_frames.mjs [frames.json]` prints the curves quoted below.
+
 What could not be read: the settings of anim graph nodes (the graph's `Nodes` are protected
 from Python) and the internals of the Gameplay Camera rigs. For those, this document gives the
 engine defaults and what the running game measures, never a guess.

@@ -1,15 +1,3 @@
-"""Second pass of the GASP dump: the parts the generic property walk cannot see.
-
-    UnrealEditor-Cmd.exe <GameAnimationSample.uproject> -run=pythonscript
-        -script=<this file> -unattended -nullrhi -nosplash
-
-- Blueprint variables (WalkSpeeds, RunSpeeds...) are not listed by dir() on the
-  class default object, so they are read by name.
-- Camera rigs keep their settings in a tree of camera node objects; the walk
-  follows object references that live inside the rig's own package.
-- Anim graph nodes live in the editor graph; each graph node's anim node struct
-  holds the settings the running graph uses.
-"""
 import json
 import os
 

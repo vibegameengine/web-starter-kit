@@ -1,25 +1,3 @@
-"""Measures GASP's character and camera while it actually plays, in a visible editor.
-
-    UnrealEditor.exe <GameAnimationSample.uproject> /Game/Levels/DefaultLevel
-        -ExecCmds="py <this file>"
-
-Not -ExecutePythonScript: that runs the script and then closes the editor at
-once, before a single frame of Play-in-Editor has been measured.
-
-Starts Play-in-Editor, drives the player character through a fixed programme
-by movement input, and records every frame: where the camera is relative to
-the character (in the character's own frame), where it looks, its field of
-view, the character's speed and facing. Screenshots are taken at the named
-moments. Everything lands in <project>/Saved/gasp_measure/.
-
-The numbers inside GASP's camera rigs are not readable from Python; what the
-rigs PRODUCE is, and that is what a copy has to match.
-
-Input goes in through Enhanced Input's own debug commands, Input.+action and
-Input.-action, the way a held stick would: GASP ignores AddMovementInput for
-its gait and speed, and the Enhanced Input subsystem is not reachable from
-this editor's Python.
-"""
 import json
 import math
 import os

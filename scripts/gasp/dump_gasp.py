@@ -1,12 +1,3 @@
-"""Dumps GASP's actual settings out of its binary assets, through the editor's own Python.
-
-    UnrealEditor-Cmd.exe <GameAnimationSample.uproject> -run=pythonscript
-        -script=<this file> -unattended -nullrhi -nosplash
-
-The name tables (scripts/gasp-names.mjs) say WHICH settings GASP has; this says
-their VALUES. Every value lands in <project>/Saved/gasp_dump/<group>.json, and
-docs/gasp-reference.md quotes them from there.
-"""
 import json
 import os
 

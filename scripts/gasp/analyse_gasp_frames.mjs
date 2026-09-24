@@ -1,4 +1,3 @@
-// @important docs/gasp-reference.md "Measured in play" quotes this output; input is measure_gasp_pie.py's frames.json.
 import { readFileSync } from 'node:fs'
 
 const DEFAULT_FRAMES = 'E:/Projects/GameAnimationSample_5.8/Saved/gasp_measure/frames.json'
