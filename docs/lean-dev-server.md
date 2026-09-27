@@ -28,12 +28,8 @@ npm run measure:dev http://localhost:5181/ lean
 
 ## What changes, and what does not
 
-Three things change. None of them touches the dev loop.
-
-**The showcase surfaces leave the module graph.** The DEV labs, the UI-kit
-gallery and the demo world hang off one literal (`__SHOWCASE_SURFACES__`), so
-lean mode stops them being *fetched* rather than merely making them
-unreachable.
+Two things change. None of them touches the dev loop, and the DEV labs, the
+UI-kit gallery and the demo world stay served, exactly as in `npm run dev`.
 
 **Inline sourcemaps are stripped.** Vite bakes a base64 map into every
 transformed module and into every prebundled dependency chunk, and there is no

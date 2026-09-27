@@ -95,11 +95,9 @@ Measured on this kit, cold open of `/`:
 | dependency prebundle | 25.48 MB | **1.52 MB** |
 | HMR | per-module, no reload | **per-module, no reload** |
 
-Three things change, and none of them touch the dev loop:
+Two things change, none of them touch the dev loop, and the DEV labs, UI-kit
+gallery and demo world stay served:
 
-- **the showcase surfaces leave the module graph** — DEV labs, UI-kit gallery and
-  the demo world are behind one literal, so lean mode stops them being *fetched*
-  rather than merely making them unreachable;
 - **inline sourcemaps are stripped** — Vite bakes a base64 map into every
   transformed module and every prebundled dependency chunk, and there is no
   config switch for it, so `vite/devLeanTransportPlugin.ts` takes them off the
