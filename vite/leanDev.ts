@@ -8,7 +8,7 @@ import { devLeanTransportPlugin } from './devLeanTransportPlugin'
  * branches inside it push it past the limit the clean-code guard holds it to.
  */
 export const leanDev = {
-  /** Strip inline sourcemaps, compress responses, drop the showcase surfaces. */
+  /** Strip inline sourcemaps and compress responses. */
   enabled: process.env.VITE_DEV_LEAN === 'true',
   /**
    * Vite 8's `experimental.bundledDev`: a cold open becomes a handful of
@@ -21,12 +21,11 @@ export const leanDev = {
 /**
  * Do the DEV labs, the UI-kit gallery and the demo world ship?
  *
- * Lean mode drops them from the DEV SERVER too, through the same literal the
- * production build uses — so they stop being fetched rather than merely being
- * unreachable.
+ * Every dev server serves them, the lean one included: a lean link is how the
+ * work is shown to somebody who is not at this machine, and the labs are the work.
  */
 export function showcaseSurfaces(command: string): boolean {
-  return (command === 'serve' && !leanDev.enabled) || process.env.VITE_ENABLE_SHOWCASE === 'true'
+  return command === 'serve' || process.env.VITE_ENABLE_SHOWCASE === 'true'
 }
 
 /**
