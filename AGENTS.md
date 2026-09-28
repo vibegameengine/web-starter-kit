@@ -269,6 +269,13 @@ imagined. The rules themselves apply here without exception.
    Write. The owner had asked for this many times before it was written down
    as a total ban.
 
+7a. **NEVER DESCRIBE CODE IN WORDS — anywhere.** The code is the description of
+   what it does. Not in comments, not in `docs/`, not in READMEs, not in notes
+   beside a file. `docs/` holds design only: goals, the shape of a system, the
+   decisions and why they were made. It is not a place to move what may not be
+   written as a comment; a paragraph explaining a function is banned in a
+   document exactly as it is banned beside the function.
+
 8. **COMPRESS THE CHANNEL NOBODY READS; NEVER COMPRESS THE ONE THE USER READS.**
    Two audiences, and the rule is about the audience rather than about the
    language you happen to be in. Answer the user in the language they wrote in;
