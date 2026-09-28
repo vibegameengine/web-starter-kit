@@ -1,0 +1,18 @@
+.root { position: fixed; top: 118px; left: 16px; z-index: 20; max-width: calc(100vw - 32px); color: #eaf7ff; font-family: 'Trebuchet MS', system-ui, sans-serif; pointer-events: auto; }
+.toggle { display: inline-flex; min-height: 34px; align-items: center; padding: 0 14px; border: 1px solid rgb(134 222 255 / 60%); border-radius: 8px; background: linear-gradient(135deg, rgb(20 113 157 / 92%), rgb(6 48 81 / 96%)); box-shadow: 0 9px 24px rgb(1 12 23 / 46%); cursor: pointer; font: 900 11px/1 'Trebuchet MS', system-ui, sans-serif; letter-spacing: .14em; list-style: none; user-select: none; }
+.toggle::-webkit-details-marker { display: none; }
+.toggle:focus-visible { outline: 2px solid white; outline-offset: 3px; }
+.root[open] > .toggle { border-color: white; }
+.body { width: 320px; max-width: 100%; max-height: calc(100vh - 190px); margin-top: 8px; overflow-y: auto; padding: 8px 10px 10px; border: 1px solid rgb(168 222 255 / 24%); border-radius: 10px; background: linear-gradient(145deg, rgb(5 30 48 / 88%), rgb(3 17 30 / 92%)); box-shadow: 0 9px 25px rgb(1 12 23 / 40%); backdrop-filter: blur(10px); }
+.group { border-bottom: 1px solid rgb(168 222 255 / 12%); padding: 6px 0; }
+.group:last-of-type { border-bottom: none; }
+.groupTitle { cursor: pointer; color: #9adcfb; font-size: 10px; font-weight: 900; letter-spacing: .13em; text-transform: uppercase; }
+.row { display: grid; grid-template-columns: 104px 1fr 62px; gap: 6px; align-items: center; margin-top: 6px; font-size: 11px; }
+.row select { grid-column: 2 / 4; min-width: 0; border: 1px solid rgb(161 221 255 / 30%); border-radius: 4px; background: rgb(3 17 30 / 90%); color: #eaf7ff; font: 11px 'Trebuchet MS', system-ui, sans-serif; }
+.row input[type='color'] { grid-column: 2 / 4; width: 100%; height: 22px; padding: 0; border: 1px solid rgb(161 221 255 / 30%); border-radius: 4px; background: none; }
+.row input[type='range'] { width: 100%; min-width: 0; accent-color: #5ec8ff; }
+.label { color: rgb(224 245 255 / 82%); }
+.value { color: rgb(238 250 255 / 72%); font-variant-numeric: tabular-nums; text-align: right; }
+.readout { margin: 6px 0 0; color: rgb(224 245 255 / 62%); font-size: 10px; line-height: 1.35; }
+.reset { width: 100%; min-height: 28px; margin-top: 10px; border: 1px solid rgb(161 221 255 / 30%); border-radius: 6px; background: rgb(120 199 239 / 10%); color: #eaf7ff; cursor: pointer; font: 800 10px/1 'Trebuchet MS', system-ui, sans-serif; letter-spacing: .1em; }
+.reset:hover, .reset:focus-visible { border-color: white; }

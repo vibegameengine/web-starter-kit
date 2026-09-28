@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 
 import { useResponsiveTargetWidth } from '../../../../shared/lib/ui-scale/useResponsiveTargetWidth'
 import { DanceControl } from '../DanceControl/DanceControl'
+import { DirectorPanel } from '../DirectorPanel/DirectorPanel'
 import { GitHubCornerLink } from '../GitHubCornerLink/GitHubCornerLink'
 import { StarterKitShowcase } from '../StarterKitShowcase/StarterKitShowcase'
 import styles from './DemoSceneHud.module.css'
@@ -24,19 +25,13 @@ export type DemoSceneHudSourceLink = {
 type DemoSceneHudProps = {
   readonly children: ReactNode
   readonly isDancing: boolean
-  /** DEV lab index, when this build ships one. */
   readonly labsHref?: string
   readonly labels: DemoSceneHudLabels
   readonly onDanceToggle: () => void
   readonly sourceLink: DemoSceneHudSourceLink
-  /** UI-kit gallery, when this build ships one. */
   readonly uiKitHref?: string
 }
 
-/**
- * Presentational shell for the starter scene: it owns responsive HUD layout and
- * controls, while the caller supplies the canvas, labels and gameplay callback.
- */
 export function DemoSceneHud({ children, isDancing, labels, labsHref, onDanceToggle, sourceLink, uiKitHref }: DemoSceneHudProps) {
   const targetWidth = useResponsiveTargetWidth({ desktop: 1280, mobilePortrait: 640 })
 
@@ -44,6 +39,7 @@ export function DemoSceneHud({ children, isDancing, labels, labsHref, onDanceTog
     <div className={styles.root}>
       {children}
       <GitHubCornerLink href={sourceLink.href} label={sourceLink.label} />
+      <DirectorPanel />
       <ScalableContainer targetWidth={targetWidth} zIndex={10}>
         <StarterKitShowcase labsHref={labsHref} uiKitHref={uiKitHref} />
         <DanceControl
