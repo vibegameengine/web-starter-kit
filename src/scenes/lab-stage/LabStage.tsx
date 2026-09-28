@@ -24,7 +24,7 @@ import {
 import { Debug } from '../demo-scene/Debug'
 import { labStageGroundGeometry, labStageGroundMaterial } from './labStageMaterials'
 
-const NEUTRAL_COOL_BACKDROP = '#20262b'
+const KIT_SKY = 'kit-sky'
 const LARGEST_SHADOW_RADIUS = 60
 
 export type LabStageSun = {
@@ -48,7 +48,7 @@ export type LabStageProps = {
   readonly bounceColor?: string
   readonly fillColor?: string
   readonly skyColor?: string
-  readonly background?: string | null
+  readonly background?: typeof KIT_SKY | (string & {}) | null
   readonly camera?: {
     readonly far?: number
     readonly fov?: number
@@ -135,12 +135,12 @@ function LabPost({ effects, post, richPost }: { readonly effects?: ReactElement;
 
 export function LabStage({
   ambient = 1,
-  background = NEUTRAL_COOL_BACKDROP,
+  background = KIT_SKY,
   bounceColor,
   camera,
   children,
   effects,
-  environment = false,
+  environment = true,
   fillColor,
   grid = true,
   ground = true,
@@ -175,14 +175,15 @@ export function LabStage({
       >
         <LabSceneSeam />
         <DirectorCamera />
-        {background !== null && <color args={[background]} attach="background" />}
+        {background !== null && background !== KIT_SKY ? <color args={[background]} attach="background" /> : null}
         <ShadowCompositor every={graphics.shadowThrottle} />
 
         <DirectorLights
           ambientScale={ambient}
           environment={environment}
-          environmentBackdrop={background ?? undefined}
           palette={{ fill: fillColor, ground: bounceColor, sky: skyColor }}
+          rim
+          sky={background === KIT_SKY}
           sun={{ color: sun?.color, intensity: sun?.intensity, offset: sun?.offset, radius: sunRadius }}
         />
         {vfxLights ? <VfxLightPool /> : null}

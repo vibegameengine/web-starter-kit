@@ -1,7 +1,4 @@
 import { OrbitControls } from '@react-three/drei'
-import { useThree } from '@react-three/fiber'
-import { useEffect, useMemo } from 'react'
-import * as THREE from 'three'
 
 import { ShadowGroup } from '../../shared/lib/ShadowGroup'
 import { DirectorLights } from '../../shared/lib/director/DirectorLights'
@@ -18,40 +15,6 @@ const CANAL_POS: [number, number] = [0.4, 4]
 const CANAL_WATER_LEVEL = 0.28
 
 const SUN_SHADOW_RADIUS = 20
-
-const HORIZON_HAZE_COLOR = '#cfe0f4'
-
-function GradientSky() {
-  const scene = useThree((state) => state.scene)
-
-  const texture = useMemo(() => {
-    const canvas = document.createElement('canvas')
-    canvas.width = 2
-    canvas.height = 256
-    const ctx = canvas.getContext('2d')!
-    const grad = ctx.createLinearGradient(0, 0, 0, 256)
-    grad.addColorStop(0, '#3d78c9')
-    grad.addColorStop(0.5, '#7aa9e6')
-    grad.addColorStop(1, HORIZON_HAZE_COLOR)
-    ctx.fillStyle = grad
-    ctx.fillRect(0, 0, 2, 256)
-
-    const tex = new THREE.CanvasTexture(canvas)
-    tex.colorSpace = THREE.SRGBColorSpace
-    return tex
-  }, [])
-
-  useEffect(() => {
-    const previous = scene.background
-    scene.background = texture
-    return () => {
-      scene.background = previous
-      texture.dispose()
-    }
-  }, [scene, texture])
-
-  return null
-}
 
 type StarterSceneProps = {
   readonly isDancing?: boolean
@@ -70,10 +33,7 @@ export function StarterScene({
 }: StarterSceneProps) {
   return (
     <>
-      <GradientSky />
-      <fog attach="fog" args={[HORIZON_HAZE_COLOR, 34, 94]} />
-
-      <DirectorLights environment rim sun={{ radius: SUN_SHADOW_RADIUS }} />
+      <DirectorLights environment rim sky sun={{ radius: SUN_SHADOW_RADIUS }} />
 
       <ShadowGroup kind="static">
         <mesh

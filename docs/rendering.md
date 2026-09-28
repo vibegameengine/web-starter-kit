@@ -44,6 +44,15 @@ They are a WebGL port of the director layer of
 - **One rig for every canvas.** `StarterScene` and `LabStage` carried hand-copied light values;
   they now both mount `DirectorLights`. A lab's own `ambient`, palette and `sun` props still
   win over the director values, so a lab that needs a darker key keeps it.
+- **Every lab starts in the demo scene's environment.** `LabStage` defaults to the kit sky
+  (the same gradient and horizon haze as the demo), the same three-lightformer IBL and the
+  same rim light. A new lab copied from any other lab is lit and framed like the game without
+  asking for it. A solid `background` colour or `null` opts out of the sky and haze.
+  The one deliberate difference is the floor: the stage keeps its neutral 18% grey, the
+  reference a material is tuned over, instead of the demo's tiled floor.
+- **The sky is not in the IBL.** Putting the sky dome into the environment capture was tried:
+  the demo's warm clay turned pale blue and every lit face washed out. The environment keeps
+  the three lightformers the demo has always had.
 - **The fill light follows the sun.** It sits at a fixed azimuth offset from the sun, taken from
   the lab stage's `[-16, 8, -18]`, the shadow side. The demo scene used to put it at
   `[16, 8, 18]`, on the lit side, while its own description called it a shadow-side fill.
@@ -97,9 +106,10 @@ Rationale that used to sit beside the code in `GameCanvas.tsx`, `StarterScene.ts
 - **The lab ambient palette is a colour, not only a strength.** Turning the ambient up to reach
   a soft overcast, where shaded stone is only a quarter darker than lit stone, also turns the
   blue of `#8bb4ef` up with it, and the subject arrives cold and grey.
-- **The lab environment is opt-in**, for metal: a `metalness = 1` surface has no diffuse term,
-  so without an environment it renders as a near-black silhouette whatever the key light does.
-  Its three lightformers mirror the game's arena, not a studio HDRI. `frames={1}` bakes it once.
+- **The lab environment matters most for metal**: a `metalness = 1` surface has no diffuse
+  term, so without an environment it renders as a near-black silhouette whatever the key light
+  does. Its three lightformers mirror the game's arena, not a studio HDRI. `frames={1}` bakes
+  it once. It used to be opt-in; it is on by default now that labs share the demo environment.
 - **The lab `effects` slot sits before bloom**, so bloom bleeds from the image a screen-space
   effect produced. It is typed as one element because each composer child must be an effect; a
   fragment or a string silently renders nothing.

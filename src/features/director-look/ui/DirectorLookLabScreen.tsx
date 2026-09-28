@@ -13,7 +13,6 @@ const SUN_YAW = (DEFAULT_DIRECTOR_SETTINGS.sun.azimuthDeg * Math.PI) / 180
 const TOWARD_SUN = { x: Math.sin(SUN_YAW), z: Math.cos(SUN_YAW) }
 const ALONG_WALL = { x: TOWARD_SUN.z, z: -TOWARD_SUN.x }
 
-const CLEAR_DAY_SKY = '#8fb6e4'
 const WALL_HEIGHT = 2.4
 const WALL_LENGTH = 4.4
 const WALL_THICKNESS = 0.3
@@ -75,9 +74,7 @@ export function DirectorLookLabScreen() {
 
   return (
     <LabStage
-      background={CLEAR_DAY_SKY}
       camera={{ far: 120, fov: 38, near: 0.1, position: placed(3.2, 8.4, 3.4) }}
-      environment
       orbit={{ maxDistance: 30, minDistance: 3, target: placed(0.2, 0.2, 0.8) }}
       post="rich"
       sun={{ radius: 9 }}

@@ -4,6 +4,7 @@ import type { RefObject } from 'react'
 import type { Object3D } from 'three'
 
 import { SunShadow } from '../SunShadow'
+import { KitSky } from './KitSky'
 import { DEFAULT_DIRECTOR_SETTINGS, KIT_SUN_DISTANCE, useDirectorSection } from './directorSettings'
 import { anglesFromOffset, offsetFromAngles, stopsToGain, withChroma, type Vector3Tuple } from './lightGeometry'
 
@@ -29,9 +30,9 @@ export type DirectorPalette = {
 type DirectorLightsProps = {
   readonly ambientScale?: number
   readonly environment?: boolean
-  readonly environmentBackdrop?: string
   readonly palette?: DirectorPalette
   readonly rim?: boolean
+  readonly sky?: boolean
   readonly sun: DirectorSunOverrides
 }
 
@@ -63,10 +64,9 @@ function useFillPosition(): Vector3Tuple {
   )
 }
 
-function KitEnvironment({ backdrop, intensity }: { readonly backdrop?: string; readonly intensity: number }) {
+function KitEnvironment({ intensity }: { readonly intensity: number }) {
   return (
     <Environment environmentIntensity={intensity} frames={1} resolution={128}>
-      {backdrop ? <color args={[backdrop]} attach="background" /> : null}
       <Lightformer color="#dfeaf6" form="rect" intensity={0.7} position={[0, 12, 0]} rotation-x={Math.PI / 2} scale={[24, 24, 1]} />
       <Lightformer color="#c3d4ea" form="rect" intensity={0.35} position={[-12, 5, -6]} scale={[10, 10, 1]} />
       <Lightformer color="#f0e6d6" form="rect" intensity={0.3} position={[12, 5, 6]} scale={[10, 10, 1]} />
@@ -74,21 +74,22 @@ function KitEnvironment({ backdrop, intensity }: { readonly backdrop?: string; r
   )
 }
 
-export function DirectorLights({ ambientScale = 1, environment = true, environmentBackdrop, palette, rim = false, sun }: DirectorLightsProps) {
+export function DirectorLights({ ambientScale = 1, environment = true, palette, rim = false, sky = false, sun }: DirectorLightsProps) {
   const ambient = useDirectorSection('ambient')
   const fillPosition = useFillPosition()
   const indirectGain = stopsToGain(ambient.indirectEV) * ambientScale
-  const sky = withChroma(palette?.sky ?? ambient.skyColor, ambient.indirectChroma)
-  const ground = withChroma(palette?.ground ?? ambient.groundColor, ambient.indirectChroma)
-  const fill = withChroma(palette?.fill ?? ambient.fillColor, ambient.indirectChroma)
+  const skyTint = withChroma(palette?.sky ?? ambient.skyColor, ambient.indirectChroma)
+  const groundTint = withChroma(palette?.ground ?? ambient.groundColor, ambient.indirectChroma)
+  const fillTint = withChroma(palette?.fill ?? ambient.fillColor, ambient.indirectChroma)
 
   return (
     <>
       <DirectorSun {...sun} />
-      <hemisphereLight color={sky} groundColor={ground} intensity={ambient.hemisphereIntensity * indirectGain} />
-      <directionalLight color={fill} intensity={ambient.fillIntensity * indirectGain} position={fillPosition} />
+      <hemisphereLight color={skyTint} groundColor={groundTint} intensity={ambient.hemisphereIntensity * indirectGain} />
+      <directionalLight color={fillTint} intensity={ambient.fillIntensity * indirectGain} position={fillPosition} />
       {rim ? <directionalLight color={RIM_COLOR} intensity={ambient.rimIntensity} position={RIM_POSITION} /> : null}
-      {environment ? <KitEnvironment backdrop={environmentBackdrop} intensity={ambient.environmentIntensity * indirectGain} /> : null}
+      {environment ? <KitEnvironment intensity={ambient.environmentIntensity * indirectGain} /> : null}
+      {sky ? <KitSky /> : null}
     </>
   )
 }
