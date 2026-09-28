@@ -248,25 +248,33 @@ imagined. The rules themselves apply here without exception.
    from the measurement that must stay. And it runs AFTER the write, so a block
    is a reason handed back, not an undo — this rule is still yours to keep.
 
-7. **NEVER write a Markdown file through a shell script.** No heredoc, no
-   `cat >`, no `echo`, no Python that assembles prose. Use the Write tool, once.
+7. **NEVER edit or read files through scripts. Total ban, 100%, no exceptions.**
+   Not code, not prose, not data, not config. No `sed`, `awk`, `perl`, Python
+   or Node rewrite scripts, no heredoc, no `cat >`, no `echo >`, no
+   string-replace programs — and no `cat`, `head`, `tail`, `sed -n` or script
+   dumps to read a file either. Files are changed only with the Edit and Write
+   tools and read only with the Read tool; Grep and Glob find things.
 
-   Prose is full of the characters a shell eats: apostrophes, backticks,
-   `$`, `\`, and lines that look like a heredoc terminator. The quoting is
-   wrong on the first attempt, the failure arrives only after the whole
-   document has been sent, and the entire document is then sent again. The
-   owner named the cost exactly: **twice the tokens for one file.**
+   Running programs is not affected: tests, typecheck, the build, the dev
+   server, an asset pipeline — those execute the project, they do not read or
+   rewrite its files for you.
 
-   Measured here: a research document went out as a `cat > … <<'EOF'`
-   heredoc, died on `unexpected EOF while looking for matching \`'`, and was
-   re-sent verbatim through Write. Nothing about the second attempt was
-   different except the tool.
+   Why. A scripted edit is blind: the owner cannot see what changed, the
+   match silently fails or hits the wrong place, and shell quoting eats the
+   payload. Measured on the project that produced this rule: heredoc scripts
+   died on `unexpected EOF while looking for matching \`'` and were re-sent
+   whole — twice the tokens for one change; merge conflicts were "resolved" by
+   string-replace scripts that nobody could review; a research document went
+   out as a `cat > … <<'EOF'` heredoc, failed, and was re-sent verbatim through
+   Write. The owner had asked for this many times before it was written down
+   as a total ban.
 
-   The rule is about the DIRECTION of the edit, not the file type. A script is
-   still the right tool for a surgical change to code — a one-line constant, a
-   rename across files, an anchored replace. It is the wrong tool the moment
-   the payload is a paragraph. If you are about to paste more than a few lines
-   of prose into a shell, you are about to pay for it twice.
+7a. **NEVER DESCRIBE CODE IN WORDS — anywhere.** The code is the description of
+   what it does. Not in comments, not in `docs/`, not in READMEs, not in notes
+   beside a file. `docs/` holds design only: goals, the shape of a system, the
+   decisions and why they were made. It is not a place to move what may not be
+   written as a comment; a paragraph explaining a function is banned in a
+   document exactly as it is banned beside the function.
 
 8. **COMPRESS THE CHANNEL NOBODY READS; NEVER COMPRESS THE ONE THE USER READS.**
    Two audiences, and the rule is about the audience rather than about the
