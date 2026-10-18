@@ -1,12 +1,4 @@
-// The clean-code measurement, in one place: the guard hook that judges one file
-// after it is written and the baseline script that records the repository both
-// call it, so their numbers cannot drift apart.
-//
-// Thresholds and their justification: agents/skills/clean-code.
-
 export const LIMITS = {
-  commentBlock: 8,
-  commentShare: 0.3,
   fileLines: 500,
   functionLines: 40,
   functionLinesHard: 80,
@@ -14,22 +6,43 @@ export const LIMITS = {
   parameters: 4,
 }
 
-/** The extensions these rules apply to. The guard and the baseline share them. */
+export const COMMENT_ALLOW_MARKER = '@important'
+
 const SOURCE_EXTENSIONS = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs)$/i
 
-/** Dependencies, build output, and the skills, whose examples are meant to be bad. */
 const EXCLUDED = /(^|[\\/])(node_modules|dist|coverage|vendor|agents)([\\/]|$)/i
 
-/**
- * Whether a path is one this measurement applies to.
- *
- * The guard and the baseline MUST agree here. When they did not, the guard
- * measured `vite.config.ts` while the baseline could not record it — so a
- * 92-line function in the kit's own config was hard-blocked on day one with no
- * way to grant it, which is the exact failure the ratchet exists to prevent.
- */
+const TOOLING_DIRECTIVES = [
+  /^\/\/\/\s*<(reference|amd-module|amd-dependency)\b/,
+  /^\s*[#@]\s*sourceMappingURL=/,
+  /^\s*eslint-(disable|enable)(-next-line|-line)?\b/,
+  /^\s*eslint-env\s/,
+  /^\s*eslint\s+[\w@/-]+\s*:/,
+  /^\s*globals?\s+\w+(\s*:\s*\w+)?(\s*,\s*\w+(\s*:\s*\w+)?)*\s*$/,
+  /^\s*@ts-(expect-error|ignore|nocheck|check)\b/,
+  /^\s*[#@]__(PURE|NO_SIDE_EFFECTS)__\s*$/,
+  /^\s*@vite-ignore\s*$/,
+  /^\s*webpack[A-Z]\w*\s*:/,
+  /^\s*prettier-ignore\b/,
+  /^\s*(c8|istanbul|v8)\s+ignore\b/,
+  /^\s*@vitest-environment\s/,
+  /^\s*@jsx(ImportSource|Runtime|Frag)?\s/,
+]
+
 export function isSource(path) {
   return SOURCE_EXTENSIONS.test(path) && !EXCLUDED.test(path)
+}
+
+const commentBody = (token) => {
+  if (token.startsWith('///')) return token
+  if (token.startsWith('//')) return token.slice(2)
+  return token.slice(2, -2).replace(/^\*/, '')
+}
+
+export function isAllowedComment(token) {
+  if (token.includes(COMMENT_ALLOW_MARKER)) return true
+  const body = commentBody(token)
+  return TOOLING_DIRECTIVES.some((directive) => directive.test(body))
 }
 
 const isFunctionLike = (ts, node) =>
@@ -41,14 +54,6 @@ const isFunctionLike = (ts, node) =>
   ts.isGetAccessor(node) ||
   ts.isSetAccessor(node)
 
-/**
- * Control flow only, and each construct counted once.
- *
- * `else if` is an `IfStatement` in the else branch of another, so a flat chain of
- * five would read as five levels deep — measured, and it is why the else branch
- * does not add one. A `CatchClause` sits inside its own `TryStatement` for the
- * same reason.
- */
 const nestingDelta = (ts, node) => {
   if (ts.isCatchClause(node)) return 0
   if (ts.isIfStatement(node) && node.parent && ts.isIfStatement(node.parent) && node.parent.elseStatement === node) return 0
@@ -71,33 +76,26 @@ function nameOf(ts, source, node) {
   return named && parent.name ? parent.name.getText(source) : '(anonymous)'
 }
 
-/** Every comment token's span, from the scanner rather than from line prefixes. */
-function commentSpans(ts, text) {
-  const spans = []
-  const scanner = ts.createScanner(ts.ScriptTarget.Latest, false, ts.LanguageVariant.JSX, text)
-  let token = scanner.scan()
-  while (token !== ts.SyntaxKind.EndOfFileToken) {
-    if (token === ts.SyntaxKind.SingleLineCommentTrivia || token === ts.SyntaxKind.MultiLineCommentTrivia) {
-      spans.push([scanner.getTokenStart(), scanner.getTokenEnd()])
-    }
-    token = scanner.scan()
+const isJsDocNode = (ts, node) => node.kind >= ts.SyntaxKind.FirstJSDocNode && node.kind <= ts.SyntaxKind.LastJSDocNode
+
+function commentTokens(ts, source, text) {
+  const found = new Map()
+  const collect = (position) => {
+    const ranges = [...(ts.getLeadingCommentRanges(text, position) ?? []), ...(ts.getTrailingCommentRanges(text, position) ?? [])]
+    for (const range of ranges) found.set(range.pos, { end: range.end, start: range.pos, text: text.slice(range.pos, range.end) })
   }
-  return spans
+  const visit = (node) => {
+    if (isJsDocNode(ts, node)) return
+    const children = node.getChildren(source)
+    if (children.length > 0) children.forEach(visit)
+    else if (node.kind !== ts.SyntaxKind.JsxText) collect(node.pos)
+  }
+  visit(source)
+  collect(source.endOfFileToken.pos)
+  return [...found.values()].sort((a, b) => a.start - b.start)
 }
 
-/**
- * Lines that are comment: the line's FIRST non-blank character is inside one.
- *
- * Two failures this shape avoids. A prefix test on the raw text calls every
- * `// two` inside a template literal a comment, and this repository has GLSL in
- * template literals — so shader lines counted as prose and function length came
- * out short. And flagging every line a comment token merely touches lets a
- * TRAILING comment erase the code it sits on: measured, a 104-line function fell
- * to 64 and stopped being blocked once 40 `// step n` comments were appended to
- * its lines. A gate against writing comments must not be payable in comments.
- */
-function commentLineSet(ts, text) {
-  const spans = commentSpans(ts, text)
+function commentLineSet(tokens, text) {
   const flagged = new Set()
   let span = 0
   let line = 1
@@ -109,8 +107,8 @@ function commentLineSet(ts, text) {
     const lead = text.slice(start, end).search(/\S/)
     if (lead >= 0) {
       const at = start + lead
-      while (span < spans.length && spans[span][1] <= at) span += 1
-      if (span < spans.length && at >= spans[span][0]) flagged.add(line)
+      while (span < tokens.length && tokens[span].end <= at) span += 1
+      if (span < tokens.length && at >= tokens[span].start) flagged.add(line)
     }
     start = end + 1
     line += 1
@@ -118,7 +116,6 @@ function commentLineSet(ts, text) {
   return flagged
 }
 
-/** Lines a function spends inside JSX: markup is not logic to read. */
 function jsxLineSet(ts, source, node, lineOf) {
   const covered = new Set()
   const scan = (child) => {
@@ -134,31 +131,10 @@ function jsxLineSet(ts, source, node, lineOf) {
   return covered
 }
 
-function longestCommentRun(flagged, totalLines) {
-  let longest = 0
-  let at = 0
-  let run = 0
-  let start = 0
-  for (let line = 1; line <= totalLines; line += 1) {
-    if (!flagged.has(line)) {
-      run = 0
-      continue
-    }
-    if (run === 0) start = line
-    run += 1
-    if (run > longest) {
-      longest = run
-      at = start
-    }
-  }
-  return { at, longest }
-}
-
 function collectFunctions(ts, source, context) {
   const { flagged, lineOf, rawLines } = context
   const functions = []
 
-  /** Lines in the range that are code: not comment, not markup, not blank. */
   const codeLines = (from, to, jsx) => {
     let count = 0
     for (let line = from; line <= to; line += 1) {
@@ -202,25 +178,20 @@ function collectFunctions(ts, source, context) {
   return functions
 }
 
-/** Everything the thresholds are expressed in, for one file. */
 export function measureFile(ts, path, text) {
   const lines = text.split(/\r?\n/)
   const kind = /\.tsx$/i.test(path) ? ts.ScriptKind.TSX : /\.[cm]?ts$/i.test(path) ? ts.ScriptKind.TS : ts.ScriptKind.JS
   const source = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true, kind)
   const lineOf = (position) => source.getLineAndCharacterOfPosition(position).line + 1
 
-  const flagged = commentLineSet(ts, text)
-  const blank = lines.filter((line) => line.trim() === '').length
-  const commentCount = flagged.size
-  const codeCount = Math.max(0, lines.length - blank - commentCount)
-  const run = longestCommentRun(flagged, lines.length)
+  const tokens = commentTokens(ts, source, text)
+  const flagged = commentLineSet(tokens, text)
   const functions = collectFunctions(ts, source, { flagged, lineOf, rawLines: lines })
+  const forbidden = tokens.filter((token) => !isAllowedComment(token.text)).map((token) => lineOf(token.start))
 
   return {
-    commentLines: commentCount,
-    commentRun: run.longest,
-    commentRunAt: run.at,
-    commentShare: codeCount + commentCount === 0 ? 0 : commentCount / (codeCount + commentCount),
+    comments: forbidden.length,
+    commentsAt: forbidden,
     fileLines: lines.length,
     functions,
     functionsOverLimit: functions.filter((fn) => fn.lines > LIMITS.functionLinesHard).length,
@@ -228,28 +199,13 @@ export function measureFile(ts, path, text) {
   }
 }
 
-/**
- * Whether a file earns an entry: it is past at least one threshold.
- *
- * Comment volume counts here even though it never blocks. A file recorded only
- * for its length used to be the only file whose prose was forgiven, so the three
- * most prose-heavy files in the repository went quiet while two dozen ordinary
- * ones repeated the same warning on every edit forever.
- */
 export function isOverLimits(measurement) {
-  return (
-    measurement.fileLines > LIMITS.fileLines ||
-    measurement.worstFunction > LIMITS.functionLinesHard ||
-    measurement.commentRun > LIMITS.commentBlock ||
-    (measurement.commentShare > LIMITS.commentShare && measurement.commentLines > 20)
-  )
+  return measurement.fileLines > LIMITS.fileLines || measurement.worstFunction > LIMITS.functionLinesHard || measurement.comments > 0
 }
 
-/** What a baseline remembers about a file: the numbers a ratchet compares. */
 export function baselineOf(measurement) {
   return {
-    commentRun: measurement.commentRun,
-    commentShare: Math.round(measurement.commentShare * 100) / 100,
+    comments: measurement.comments,
     fileLines: measurement.fileLines,
     functionsOverLimit: measurement.functionsOverLimit,
     worstFunction: measurement.worstFunction,
@@ -258,28 +214,24 @@ export function baselineOf(measurement) {
 
 const plural = (count, one, many) => `${count} ${count === 1 ? one : many}`
 
-/**
- * Blockers are regressions against the baseline, never the state it recorded: a
- * gate the repository already fails is a gate everyone learns to switch off.
- *
- * The COUNT of oversized functions is compared as well as the worst one. With
- * only the worst, a file baselined at one 203-line function could be rewritten
- * into two of 200 and pass — measured, and it is what that check exists for.
- *
- * Comment volume WARNS and never blocks, and that is a decision rather than
- * timidity. No machine can tell the paragraph that must go from the measurement
- * that must stay unshortened, so a gate that blocked on prose would sooner or
- * later block the one comment the rule exists to protect. Length is mechanical;
- * prose is judged by a reader.
- */
+function judgeComments(measurement, baseline, blockers, warnings) {
+  const allowed = Math.max(0, baseline?.comments ?? 0)
+  const where = measurement.commentsAt.slice(0, 10).join(', ')
+  if (measurement.comments > allowed) {
+    blockers.push(
+      `${plural(measurement.comments, 'comment', 'comments')} at line ${where}, against ${allowed} recorded. Comments are forbidden: say it in a name, or mark a comment that must stay with ${COMMENT_ALLOW_MARKER}.`,
+    )
+  } else if (measurement.comments > 0) {
+    warnings.push(`${plural(measurement.comments, 'old comment remains', 'old comments remain')} at line ${where}. Remove them while the file is open.`)
+  }
+}
+
 export function judge(measurement, baseline) {
   const blockers = []
   const warnings = []
   const allowedFile = Math.max(LIMITS.fileLines, baseline?.fileLines ?? 0)
   const allowedFunction = Math.max(LIMITS.functionLinesHard, baseline?.worstFunction ?? 0)
   const allowedCount = Math.max(0, baseline?.functionsOverLimit ?? 0)
-  const allowedRun = Math.max(LIMITS.commentBlock, baseline?.commentRun ?? 0)
-  const allowedShare = Math.max(LIMITS.commentShare, baseline?.commentShare ?? 0)
 
   if (measurement.fileLines > allowedFile) {
     blockers.push(
@@ -309,19 +261,10 @@ export function judge(measurement, baseline) {
     }
   }
 
-  if (measurement.commentRun > allowedRun) {
-    warnings.push(`a ${measurement.commentRun}-line comment starts at line ${measurement.commentRunAt}. A paragraph belongs in docs/ or in a name — unless it records a measurement, which stays.`)
-  }
-  // Rounded on both sides because the baseline stores two decimals, and an
-  // unrounded 0.594 against a recorded 0.59 is a file complaining about itself.
-  if (Math.round(measurement.commentShare * 100) / 100 > allowedShare && measurement.commentLines > 20) {
-    warnings.push(`${Math.round(measurement.commentShare * 100)}% of this file is comment (${measurement.commentLines} lines). Most of it is describing what the code already says.`)
-  }
-
+  judgeComments(measurement, baseline, blockers, warnings)
   return { blockers, warnings }
 }
 
-/** The files these rules apply to, from git, with no pathspec surprises. */
 export function trackedSources(execSync) {
   return execSync('git ls-files', { encoding: 'utf8', maxBuffer: 64e6 })
     .split('\n')

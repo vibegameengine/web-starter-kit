@@ -1,25 +1,22 @@
 ---
 name: clean-code
-description: Size and comment limits for the TypeScript in this repository — function and file length, parameter count, nesting, and the one kind of comment that is allowed to stay. Use when writing or editing any .ts/.tsx/.mjs file here, and when a clean-code-guard message blocks an edit.
+description: The comment ban and the size limits for the TypeScript and JavaScript in this repository — no comments except toolchain directives and ones marked @important, plus function and file length, parameter count and nesting. Use when writing or editing any .ts/.tsx/.js/.mjs file here, and when a clean-code-guard message blocks an edit.
 ---
 
 # Clean code, measured
 
-Not style preferences. Every threshold below is measured mechanically by
-`.claude/hooks/clean-code-guard.mjs`, and the "why" column says where each number
-came from. Two of them are not a measurement of this repository and say so;
-one of them the repository does not currently meet, and says that too.
+Not style preferences. Every rule below is measured mechanically by
+`.claude/hooks/clean-code-guard.mjs` through `scripts/lib/cleanCode.mjs`, and the
+"why" column says where each number came from.
 
-**Length blocks. Comment volume only warns.** No machine can tell the paragraph
-that must go from the measurement that must stay unshortened, so a gate that
-blocked on prose would eventually block the one comment the rule exists to
-protect. The comment thresholds are there to be read by a person.
+**Comments are forbidden, and a new one blocks.** So does a file or function
+growing past its limit. Parameters and nesting only warn.
 
-The state that produced these rules, measured by `scripts/lib/cleanCode.mjs` over
-the 229 tracked source files the day they were written: 14 543 lines of code and
-**4 276 lines of comment — 23% of every non-blank line**. The longest file was
-980 lines, 45.8% of its non-blank lines comment. Nobody decided that; it accrued
-one reasonable-looking paragraph at a time.
+The state that produced these rules, measured over the 229 tracked source files
+the day they were written: 14 543 lines of code and **4 276 lines of comment —
+23% of every non-blank line**. The longest file was 980 lines, 45.8% of its
+non-blank lines comment. Nobody decided that; it accrued one reasonable-looking
+paragraph at a time.
 
 ## The thresholds
 
@@ -29,8 +26,7 @@ one reasonable-looking paragraph at a time.
 | Function | **40 lines**, hard stop at **80** | Counted WITHOUT its JSX and WITHOUT its comments — see below. At 40 a function stops fitting on a screen, and a function read in two halves hides its bugs in the seam. 38 files hold one over 40; 15 hold one over 80, which is why the hard stop is where the blocking happens |
 | Parameters | **4** | The fifth is an options object asking to exist. 8 files pass it, every one with a positional bag |
 | Nesting | **4** | Control flow only: an object literal is not nesting. **Not taken from this repository — nothing here exceeds 4.** It is a limit to keep it that way, and the one threshold here that has never fired |
-| Comment run | **8 lines** | Longer than that is a paragraph, and a paragraph has a better home — see below. 84 files hold one, so this one warns constantly until the baseline records it |
-| Comment share | **30% of a file** | Above that the file is a document with code in it. **This repository does not meet it**: of the 55 files with more than 20 comment lines, 36 are over 30%, the median is 37.8% and the worst is 80%. It is a target, not a description, and the ratchet is what keeps it from being noise |
+| Comments | none | See below. Toolchain directives and comments marked `@important` are not counted |
 
 **JSX does not count toward a function's length.** A component returning forty
 lines of markup is not a forty-line function to read. Measured: counting every
@@ -38,8 +34,10 @@ line inside a function, markup and prose included, puts 28 files over the hard
 limit instead of 15 — and 17 of those 28 are ordinary `.tsx` components. A
 threshold that fires on everything teaches people to switch it off.
 
-**Comments do not count either.** Length measures code, and prose is judged by
-the comment rules instead. Otherwise one paragraph is punished twice.
+**Comments do not count either.** Length measures code, and a comment is judged
+by the ban instead. A comment trailing a line of code does not remove that line
+from the count: measured, 40 appended `// step n` comments once took a 104-line
+function down to 64 and out of the block.
 
 **These are looser than the rules they came from,** and deliberately: the project
 this was ported from blocks at 40 lines, 3 parameters and 3 levels of nesting.
@@ -48,52 +46,55 @@ files hold a function over 40 and a gate that fires on a sixth of the repository
 is a gate that gets switched off in a week. Tighten them once the baseline list
 has shrunk, not before.
 
-## Comments: three actions, not one
+## Comments are forbidden
 
-The rule is NOT "no comments". It is that most comments in a codebase are a
-failure to say it in the code, and a few are the most valuable lines in the file.
-Every comment gets one of three fates.
+No comments in code: no line comments, block comments, JSDoc, TODO/FIXME,
+commented-out code, banners or explanatory notes. Most comments in a codebase are
+a failure to say it in the code, and the ones that are not have a better home.
 
-**Delete it** when it restates the code. `/** Angular damping for this body. */`
-above `readonly angularDamping: number` says nothing the line below does not. The
-first cut here took the three most prose-heavy files from 715 comment lines to
-530 — 185 deleted, and the files got shorter by 204.
+**Say it in the code.** `/** Angular damping for this body. */` above
+`readonly angularDamping: number` says nothing the line below does not. A comment
+that explains a step is a function name asking to exist; one that explains a
+number is a named constant asking to exist.
 
-That same cut is also the warning. It deleted ten things it was not allowed to:
-a source (`GLTFLoader._markDefs`), a reverted experiment's own numbers
-(`0.0145`, pelvis `0.042 -> 0.162`), a pointer to the document holding the
-verdicts, and the sentence recording that a portalled light asked for 20.8
-intensity, every frame, of nobody. They had to be restored from git. Compressing
-prose and deleting evidence feel identical while you are doing it — which is why
-the third fate below is absolute.
+**Move rationale out.** A paragraph of design reasoning belongs in `docs/`, a
+skill or the owning role's `memory.md`, where it is read in order by someone
+deciding something. It must point at something that SHIPS: a comment here once
+cited `wip/imp-anim/VERDICTS.md`, which is git-ignored — dead in every clone but
+the one it was written in.
 
-**Move it** when it is a paragraph of design rationale. Those belong in `docs/`,
-where they can be read in order by someone deciding something — not beside one
-line, where they are read by accident by someone fixing something else. Leave a
-single line pointing at the document. Done twice here: the architecture of
-`ragdollBody.ts` and the stepping model of `legStepping.ts` are now sections of
-`docs/ragdoll-and-animation.md`, and the two files open with a pointer.
+**Deleting is where evidence gets lost.** The first cut here deleted ten things it
+was not allowed to: a source (`GLTFLoader._markDefs`), a reverted experiment's own
+numbers (`0.0145`, pelvis `0.042 -> 0.162`), and the sentence recording that a
+portalled light asked for 20.8 intensity, every frame, of nobody. They had to be
+restored from git. Before removing a comment that records a MEASUREMENT, cites a
+SOURCE or marks a dead end, move it to a document — or mark it `@important`.
 
-A moved paragraph must point at something that SHIPS. A restored comment here
-cited `wip/imp-anim/VERDICTS.md`, which is git-ignored — the citation was dead in
-every clone but the one it was written in.
+### What passes the guard
 
-**Keep it, and do not shorten it,** when it records a MEASUREMENT, cites a
-SOURCE, or marks a dead end:
+**`@important` anywhere in the comment.** The escape hatch for the line that
+cannot live anywhere but beside the code, and it is spent rarely:
 
 ```ts
-// Measured: 125 Hz against 120 fps gives alpha 1.04 every frame.
-// Winter, Biomechanics of Human Movement, table 4.1 — segment mass fractions.
-// FEET were tried here and reverted: corpse span went 0.559 -> 1.047 m.
+// @important measured: 125 Hz against 120 fps gives alpha 1.04 every frame.
 ```
 
-These are the repository's memory. They survive context compaction, they cannot
-be re-derived from the code, and a rule that deletes them is a rule that costs
-the next person a week. When "fewer comments" and "keep the measurement"
-disagree, the measurement wins.
+**Toolchain directives,** because they are instructions to a tool, not prose:
+`/// <reference … />`, `eslint-disable` / `eslint-enable` / `-next-line` / `-line`
+(a `-- reason` after them is part of the directive), `/* eslint rule: off */`,
+`/* global … */`, `@ts-expect-error`, `@ts-ignore`, `@ts-nocheck`, `@ts-check`,
+`/*#__PURE__*/`, `/* @vite-ignore */`, `webpackChunkName:`, `prettier-ignore`,
+`c8` / `istanbul` / `v8 ignore`, `@vitest-environment`, `@jsxImportSource`,
+`//# sourceMappingURL=`. The list lives in `TOOLING_DIRECTIVES` in
+`scripts/lib/cleanCode.mjs`; a directive only passes when it opens the comment.
 
-A comment that LIES is worse than no comment. When the code under a comment
-changes, the comment changes in the same edit or it goes.
+A shebang (`#!/usr/bin/env node`) is not a comment at all.
+
+### Old comments
+
+A file recorded in the baseline may keep the comments it already has, and the
+guard warns about them on every edit. It blocks when the count grows. Remove them
+while the file is open, moving anything worth keeping first.
 
 ## Names carry what the comment was going to say
 
@@ -130,14 +131,15 @@ starts over a limit.
 That is deliberate. A gate the codebase itself fails is a gate everyone learns to
 ignore — measured here first-hand: without a baseline it would have complained
 about an edit to any of 93 files on day one, four of them over 500 lines and 15
-holding a function over the hard limit. Improvements are silent; regressions
-speak. Regenerate the baseline with `npm run clean-code:baseline` after a real
-cleanup, never to make a complaint go away.
+holding a function over the hard limit. Regressions block; old comments in a
+recorded file only warn. Regenerate the baseline with `npm run clean-code:baseline`
+after a real cleanup, never to make a complaint go away.
 
-The ratchet compares five numbers per file: length, the worst function, **the
-count of functions over the hard limit**, the longest comment run and the comment
-share. The count is there because the worst alone is not enough — a file recorded
-at one 203-line function could be rewritten into two of 200 and pass every check.
+The ratchet compares four numbers per file: length, the worst function, **the
+count of functions over the hard limit**, and the count of forbidden comments.
+The function count is there because the worst alone is not enough — a file
+recorded at one 203-line function could be rewritten into two of 200 and pass
+every check.
 
 **What "block" actually means.** This is a `PostToolUse` hook: the file is already
 on disk when it runs. `decision: "block"` hands the reason back to the model, it
@@ -153,8 +155,8 @@ clean. The one silence left is a file outside its scope, and the guard and the
 baseline share a single predicate for that (`isSource`) so neither can judge a
 file the other cannot record.
 
-Both are opt-in: copy `.claude/settings.example.json` to `.claude/settings.json`,
-and delete the block you do not want.
+The guard is wired in `.claude/settings.json`. `.claude/settings.example.json`
+also carries the opt-in `block-destructive-git` hook.
 
 ## Order of work when editing
 
