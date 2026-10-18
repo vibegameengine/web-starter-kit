@@ -1,14 +1,3 @@
-/**
- * Runs the guard as a process, the way Claude Code runs it: JSON on stdin, JSON
- * on stdout. Anything less would miss the failures this suite exists for, all of
- * which were in the plumbing rather than in the measurement.
- *
- * Two of them are here because they happened. The drive letter: Windows hands the
- * same file back as `C:\…` or `c:\…`, and a strict compare against the baseline
- * missed the entry — which fails CLOSED, blocking exactly the recorded files the
- * ratchet exists to let through. And the silent exit: every give-up path returned
- * 0 with no output, so "measured, clean" and "never ran" were the same bytes.
- */
 import { spawnSync } from 'node:child_process'
 import { copyFileSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -39,11 +28,6 @@ const write = (dir, relative, body) => {
   return full
 }
 
-// The exit code and stderr are asserted on every call, not inspected when a
-// test feels like it. Without that, a guard replaced by `throw` on its second
-// line kept 7 of these 13 tests green: every "expect nothing" case reads a
-// crash as a pass, which is the same confusion between "clean" and "never ran"
-// that the guard itself was fixed for.
 const send = (input, root = ROOT, guard = GUARD) => {
   const result = spawnSync(process.execPath, [guard], {
     cwd: root,
@@ -73,9 +57,6 @@ describe('what the guard looks at', () => {
 })
 
 describe('the scope the guard judges', () => {
-  // The guard used to measure any source file anywhere while the baseline only
-  // recorded four directories, so vite.config.ts was hard-blocked on day one
-  // with no way to record it. Both now ask the same predicate.
   it('measures a config file at the repository root, which the baseline can record', () => {
     const verdict = run(join(ROOT, 'vite.config.ts'))
     expect(verdict.decision).toBeUndefined()
@@ -94,6 +75,17 @@ describe('the verdict', () => {
     expect(verdict.reason).toContain('big()')
   })
 
+  it('blocks a new comment', () => {
+    const verdict = run(write(sandbox(), 'src/noted.ts', '// explains the constant\nexport const a = () => 1\n'))
+    expect(verdict.decision).toBe('block')
+    expect(verdict.reason).toContain('@important')
+  })
+
+  it('lets a comment marked important and a toolchain directive through', () => {
+    const body = '// @important measured: 1706 actors\n// eslint-disable-next-line no-console\nexport const a = () => 1\n'
+    expect(run(write(sandbox(), 'src/marked.ts', body))).toEqual({})
+  })
+
   it('says nothing about a file that is inside the limits', () => {
     expect(run(write(sandbox(), 'src/small.ts', 'export const a = () => 1\n'))).toEqual({})
   })
@@ -107,9 +99,6 @@ describe('the verdict', () => {
 })
 
 describe('the baseline', () => {
-  // The recorded numbers come from measuring the fixture rather than from
-  // counting its lines by hand: a hand-written 120 against a measured 122 makes
-  // the fixture, not the guard, decide the verdict. It did once, here.
   const recorded = (name = 'src/big.ts') => {
     const dir = sandbox()
     write(dir, name, oversized)
@@ -133,8 +122,6 @@ describe('the baseline', () => {
     expect(lower.decision).toBe(upper.decision)
   })
 
-  // A path that is lowercase throughout cannot tell a case-folded compare from a
-  // strict one, so the recorded name here carries capitals of its own.
   it('is found when the recorded name has capitals in it', () => {
     const dir = recorded('src/BigThing.ts')
     expect(run(join(dir, 'src/BigThing.ts'), dir).decision).toBeUndefined()
@@ -143,6 +130,12 @@ describe('the baseline', () => {
   it('still blocks the recorded file getting worse', () => {
     const dir = recorded()
     write(dir, 'src/big.ts', `export function big() {\n${'  const x = 1\n'.repeat(200)}}\n`)
+    expect(run(join(dir, 'src/big.ts'), dir).decision).toBe('block')
+  })
+
+  it('blocks a recorded file gaining a comment', () => {
+    const dir = recorded()
+    write(dir, 'src/big.ts', `// a new note\n${oversized}`)
     expect(run(join(dir, 'src/big.ts'), dir).decision).toBe('block')
   })
 })
@@ -156,9 +149,6 @@ describe('a gate that cannot measure says so', () => {
     expect(send('{}').systemMessage).toContain('not measured')
   })
 
-  // The payload shape belongs to Claude Code, not to this repository. If a
-  // future version renames the field, the gate must say it stopped measuring
-  // rather than pass everything for the rest of the project's life.
   it('does not stay silent when the payload names the path differently', () => {
     expect(send(JSON.stringify({ tool_input: { path: 'src/a.ts' } })).systemMessage).toContain('not measured')
   })
@@ -186,8 +176,6 @@ describe('a gate that cannot measure says so', () => {
     expect(verdict.systemMessage).toContain('baseline')
   })
 
-  // A missing baseline is a repository that has forgiven nothing, which is a
-  // legitimate state and must not be reported as a failure to measure.
   it('stays quiet about a baseline that was never written', () => {
     const dir = sandbox()
     expect(run(write(dir, 'src/small.ts', 'export const a = () => 1\n'), dir)).toEqual({})

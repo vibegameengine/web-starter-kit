@@ -83,6 +83,17 @@
 - Use CSS Modules for new component UI unless the project has a stronger local convention.
 - Prefer isolated features with clear public boundaries for non-trivial product behavior.
 
+## No Comments In Code
+- Writing comments in code is forbidden: no line comments, block comments, JSDoc, TODO/FIXME, commented-out code, section banners, or explanatory notes in any source file (`.ts`, `.tsx`, `.js`, `.mjs`, `.css`, shaders, scripts, configs).
+- Two exceptions only:
+  - Toolchain directives (`/// <reference ... />`, `eslint-disable`, `@ts-expect-error`, `/*#__PURE__*/`, `/* @vite-ignore */` and the rest listed in the `clean-code` skill).
+  - A comment that must stay beside the code carries `@important`. Spend it rarely: a measurement, a source, or a dead end that cannot live in a document.
+- `.claude/hooks/clean-code-guard.mjs` enforces this for TS/JS and blocks a new comment. Rules and the directive list: [skills/clean-code/SKILL.md](./skills/clean-code/SKILL.md).
+- Say it in the code instead: names, types, small functions, constants with meaningful names, and tests.
+- Knowledge that cannot live in code (measurements, sources, dead ends, rationale) goes to the owning role's `memory.md`, a skill, or a design doc — never into a comment.
+- When editing a file that already has comments, remove them in the same change; move anything worth keeping to its proper document first, or mark it `@important`.
+- This rule overrides any skill or document that permits comments.
+
 ## Memory Policy
 - Repository-level agent memory lives in [memory.md](./memory.md).
 - Role-specific memory lives in `agents/<role>/memory.md`.
