@@ -15,20 +15,29 @@ type VirtualStickProps = {
   readonly style?: CSSProperties
 }
 
+function readScreenScale(element: HTMLElement): number {
+  const scale = element.getBoundingClientRect().width / element.offsetWidth
+  return Number.isFinite(scale) && scale > 0 ? scale : 1
+}
+
 /** Generic floating analog stick. It owns pointer safety; the caller owns intent. */
 export function VirtualStick({ className, fullMagnitude = false, label, onChange, onEnd, style }: VirtualStickProps) {
   const zoneRef = useRef<HTMLDivElement>(null)
   const nubRef = useRef<HTMLDivElement>(null)
   const pointerId = useRef<number | null>(null)
   const origin = useRef({ x: 0, y: 0 })
+  const screenScale = useRef(1)
   const onChangeRef = useRef(onChange)
   const onEndRef = useRef(onEnd)
 
   useLayoutEffect(() => { onChangeRef.current = onChange; onEndRef.current = onEnd }, [onChange, onEnd])
 
   const reset = useCallback((expectedPointerId?: number) => {
-    if (pointerId.current === null || (expectedPointerId !== undefined && pointerId.current !== expectedPointerId)) return
+    const activePointerId = pointerId.current
+    if (activePointerId === null || (expectedPointerId !== undefined && activePointerId !== expectedPointerId)) return
     pointerId.current = null
+    const zone = zoneRef.current
+    if (zone?.hasPointerCapture(activePointerId)) zone.releasePointerCapture(activePointerId)
     if (nubRef.current) nubRef.current.style.transform = 'translate(-50%, -50%)'
     onChangeRef.current({ x: 0, y: 0 })
     onEndRef.current?.()
@@ -37,23 +46,33 @@ export function VirtualStick({ className, fullMagnitude = false, label, onChange
   useEffect(() => {
     const end = (event: PointerEvent) => reset(event.pointerId)
     const cancel = () => reset()
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') cancel()
+    }
     window.addEventListener('pointerup', end, true)
     window.addEventListener('pointercancel', end, true)
     window.addEventListener('blur', cancel)
     window.addEventListener('pagehide', cancel)
+    document.addEventListener('visibilitychange', onVisibilityChange)
     return () => {
       window.removeEventListener('pointerup', end, true)
       window.removeEventListener('pointercancel', end, true)
       window.removeEventListener('blur', cancel)
       window.removeEventListener('pagehide', cancel)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
       cancel()
     }
   }, [reset])
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (pointerId.current !== null) return
+    const activePointerId = pointerId.current
+    if (activePointerId !== null) {
+      if (event.currentTarget.hasPointerCapture(activePointerId)) return
+      reset(activePointerId)
+    }
     pointerId.current = event.pointerId
     origin.current = { x: event.clientX, y: event.clientY }
+    screenScale.current = readScreenScale(event.currentTarget)
     event.currentTarget.setPointerCapture(event.pointerId)
     triggerHaptic()
     event.preventDefault()
@@ -61,8 +80,8 @@ export function VirtualStick({ className, fullMagnitude = false, label, onChange
 
   const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (pointerId.current !== event.pointerId) return
-    const dx = event.clientX - origin.current.x
-    const dy = event.clientY - origin.current.y
+    const dx = (event.clientX - origin.current.x) / screenScale.current
+    const dy = (event.clientY - origin.current.y) / screenScale.current
     const distance = Math.hypot(dx, dy)
     const visual = Math.min(distance, 34)
     const x = distance > 0 ? dx / distance : 0
